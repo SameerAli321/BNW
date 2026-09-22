@@ -180,7 +180,9 @@ export function DashboardLayout({
       cssVars={navVars.section}
       checkPermissions={canDisplayItemByRole}
       // BNW OMS has no paid tier — drop the minimal-kit's demo "Upgrade to Pro" card.
-      slots={{ bottomArea: null }}
+      // `false`, not `null`: nav-vertical.tsx does `slots?.bottomArea ?? <NavUpgrade />`, and
+      // `??` treats `null`/`undefined` as "not provided" so it would still fall through.
+      slots={{ bottomArea: false }}
       onToggleNav={() =>
         settings.setField(
           'navLayout',
