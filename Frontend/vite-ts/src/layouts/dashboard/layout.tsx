@@ -8,9 +8,11 @@ import { useBoolean } from 'minimal-shared/hooks';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import { useTheme } from '@mui/material/styles';
+import Typography from '@mui/material/Typography';
 import { iconButtonClasses } from '@mui/material/IconButton';
 
 import { allLangs } from 'src/locales';
+import { CONFIG } from 'src/global-config';
 import { _contacts, _notifications } from 'src/_mock';
 
 import { Logo } from 'src/components/logo';
@@ -179,10 +181,21 @@ export function DashboardLayout({
       layoutQuery={layoutQuery}
       cssVars={navVars.section}
       checkPermissions={canDisplayItemByRole}
-      // BNW OMS has no paid tier — drop the minimal-kit's demo "Upgrade to Pro" card.
-      // `false`, not `null`: nav-vertical.tsx does `slots?.bottomArea ?? <NavUpgrade />`, and
-      // `??` treats `null`/`undefined` as "not provided" so it would still fall through.
-      slots={{ bottomArea: false }}
+      slots={{
+        // Company name above the nav items, under the logo.
+        topArea: (
+          <Box sx={{ pl: 3.5, pt: 2.5, pb: 1 }}>
+            <Logo />
+            <Typography variant="subtitle2" sx={{ mt: 1, color: 'text.secondary' }}>
+              {CONFIG.appName}
+            </Typography>
+          </Box>
+        ),
+        // BNW OMS has no paid tier — drop the minimal-kit's demo "Upgrade to Pro" card.
+        // `false`, not `null`: nav-vertical.tsx does `slots?.bottomArea ?? <NavUpgrade />`, and
+        // `??` treats `null`/`undefined` as "not provided" so it would still fall through.
+        bottomArea: false,
+      }}
       onToggleNav={() =>
         settings.setField(
           'navLayout',

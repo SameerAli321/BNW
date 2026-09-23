@@ -161,6 +161,19 @@ export class UsersService {
   }
 
   /**
+   * Shared "self, or manager-of" check: true if the caller is the target user themself, or is
+   * the target user's direct manager. Does not consider role — callers decide which roles bypass
+   * this entirely (see assertCanView / assertCanViewRecord).
+   */
+  private async isSelfOrManagerOf(caller: JwtUserPayload, targetUserId: number): Promise<boolean> {
+    if (caller.sub === targetUserId) {
+      return true;
+    }
+    const target = await this.usersRepo.findOne({ where: { id: targetUserId } });
+    return !!target && target.managerId === caller.sub;
+  }
+
+  /**
    * Ownership check for GET /users/:id and /users/:id/reports when the caller is not HR/ADMIN:
    * allowed if the caller is viewing themself ("self"), or is the direct manager of the target
    * user / of the reports being listed ("manager-of").
@@ -169,11 +182,27 @@ export class UsersService {
     if (caller.role === RoleName.HR || caller.role === RoleName.ADMIN) {
       return;
     }
-    if (caller.sub === targetUserId) {
+    if (await this.isSelfOrManagerOf(caller, targetUserId)) {
       return;
     }
-    const target = await this.usersRepo.findOne({ where: { id: targetUserId } });
-    if (target && target.managerId === caller.sub) {
+    throw new ForbiddenException('You do not have access to this resource');
+  }
+
+  /**
+   * Ownership check for the Sprint 2 E-record endpoints (GET /employees/:id/record and
+   * GET /documents/:id/download, per API_CONTRACT_SPRINT2.md): HR/ADMIN/CEO always allowed,
+   * otherwise "self" or "manager-of" as in assertCanView. Kept separate from assertCanView
+   * because CEO is allowed here but not on the plain Users CRUD endpoints.
+   */
+  async assertCanViewRecord(caller: JwtUserPayload, targetUserId: number): Promise<void> {
+    if (
+      caller.role === RoleName.HR ||
+      caller.role === RoleName.ADMIN ||
+      caller.role === RoleName.CEO
+    ) {
+      return;
+    }
+    if (await this.isSelfOrManagerOf(caller, targetUserId)) {
       return;
     }
     throw new ForbiddenException('You do not have access to this resource');

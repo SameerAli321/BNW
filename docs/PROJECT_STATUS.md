@@ -32,16 +32,20 @@ BNW/
 | Sprint | Focus | Status |
 |:-:|---|---|
 | 0 | Foundations (repo, Docker DB, skeletons) | **Done** — see `docs/BACKEND_STATUS.md`, `docs/FRONTEND_STATUS.md` |
-| 1 | Auth & User Management | **Done, not yet run end-to-end** — code complete on both sides against `API_CONTRACT_SPRINT1.md`, verified independently (backend: `nest build`/`tsc`/`eslint` clean; frontend: `tsc`/`vite build` clean). Nobody has run backend + Postgres + frontend together yet — do that next (see below) before calling the slice actually done per the guide's §0 definition of "project started". |
-| 2–9 | See guide §11 | Not started |
+| 1 | Auth & User Management | **Done, verified end-to-end** — user confirmed live login as `admin@bnw.local` and a working Users list (6 seeded users, correct roles/departments/manager) against the real backend + Postgres `BNW`. Post-launch UI polish also done: real company logo/name in the sidebar, sign-in page, **and dashboard home page** (replacing the minimal-kit's demo branding), demo-only widgets removed (workspace switcher, "Upgrade to Pro" card, fake dashboard charts), root route goes straight to login. |
+| 2 | E-record & Staff Summary | **Code complete, not yet run by a person** — see `docs/API_CONTRACT_SPRINT2.md`. Backend agent live-verified every new endpoint (via disposable test accounts it cleaned up afterward) against a real Postgres. Frontend agent verified `tsc`/`npm run build` clean but never had a live backend to click through against. Pagination convention checked and confirmed consistent (both sides 1-based). Still needs a real click-through — see checklist below. |
+| 3 | Letter Engine | **Code complete, backend live-verified, frontend not yet run by a person** — see `docs/API_CONTRACT_SPRINT3.md`. Templates are **dummy/placeholder content** (explicit instruction from project start — real templates are still an unresolved client blocker, guide §12 B3), and PDF rendering is a simple placeholder (`pdf-lib`, not the guide's `puppeteer`) — both documented as swap-in-later once real templates/e-signature requirements arrive from the client. Backend agent ran the **entire letter lifecycle end-to-end** (draft → CEO review/sign → send → employee sign, incl. auto-filing into E-record) via curl with disposable test accounts, cleaned up after itself. Frontend built clean but hasn't been clicked through in a browser against it yet. One real bug (template edit form silently blanking `bodyHtml` on every save) was found and fixed post-build — see `docs/FRONTEND_STATUS.md`. |
+| 4–9 | See guide §11 | Not started |
 
-### To actually see it working (next action, needs you — Docker/local machine)
+### To see Sprint 2 + 3 working (needs you)
 
-1. `docker compose up -d` at the repo root — **check nothing else is already bound to port 5432 first** (a stray local Postgres blocked this in the sandbox that built the backend).
-2. `cd Backend && npm install && npm run migration:run && npm run seed` — seed prints each demo user's temp password to the console, copy `admin@bnw.local`'s.
-3. `cd Backend && npm run start:dev` — confirm `GET http://localhost:5000/api/v1/health` → `{"data":{"status":"ok"}}`.
-4. `cd Frontend/vite-ts && npm install && npm run dev` — open http://localhost:8080, log in as `admin@bnw.local` with the temp password, confirm the dashboard loads and Users list shows the 6 seeded users.
-5. Report back anything that breaks — this is the first time the two sides touch each other for real.
+1. `docker compose up -d` (repo root), then in `Backend/`: `npm run migration:run && npm run seed && npm run start:dev` (seed is idempotent — safe to rerun, it'll just add the new document types/templates and skip existing users).
+2. In `Frontend/vite-ts/`: `npm run dev`, log in as `hr@bnw.local` or `admin@bnw.local`.
+3. Sidebar → **Staff Summary**: confirm the 6 seeded users show up, try the search/department/role/status filters, try **Export CSV**.
+4. Click into an employee's row → **E-record** page: try uploading a document (any small PDF/PNG), confirm it lists and downloads back correctly, try **Request document**.
+5. Sidebar → **Letters** → **New letter**: pick the seeded Offer template + an employee, fill the manual fields, submit. Log in as `ceo@bnw.local`, sign it. Log back in as HR, "Send to employee." Log in as that employee, sign it. Then check their E-record — the signed letter's PDF should show up there automatically.
+6. Log in as `employee@bnw.local` → confirm Staff Summary is hidden from nav, and their own E-record page shows read-only (no upload/request controls); confirm Letters only shows their own letters.
+7. Report anything that breaks.
 
 ## Decisions locked in (don't re-litigate without asking the user)
 

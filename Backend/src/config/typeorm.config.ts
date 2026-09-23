@@ -6,6 +6,13 @@ import { Role } from '../entities/role.entity';
 import { Department } from '../entities/department.entity';
 import { User } from '../entities/user.entity';
 import { RefreshToken } from '../entities/refresh-token.entity';
+import { DocumentType } from '../entities/document-type.entity';
+import { EmployeeDocument } from '../entities/employee-document.entity';
+import { DocumentRequest } from '../entities/document-request.entity';
+import { LetterTemplate } from '../entities/letter-template.entity';
+import { Letter } from '../entities/letter.entity';
+import { LetterEvent } from '../entities/letter-event.entity';
+import { Signature } from '../entities/signature.entity';
 
 loadEnv();
 
@@ -22,7 +29,19 @@ export const typeOrmDataSourceOptions: DataSourceOptions = {
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'BNW',
   namingStrategy: new SnakeNamingStrategy(),
-  entities: [Role, Department, User, RefreshToken],
+  entities: [
+    Role,
+    Department,
+    User,
+    RefreshToken,
+    DocumentType,
+    EmployeeDocument,
+    DocumentRequest,
+    LetterTemplate,
+    Letter,
+    LetterEvent,
+    Signature,
+  ],
   migrations: [__dirname + '/../migrations/*.{ts,js}'],
   synchronize: false,
   logging: false,

@@ -32,6 +32,16 @@ const AccountGeneralPage = lazy(() => import('src/pages/dashboard/user/account/g
 const AccountChangePasswordPage = lazy(
   () => import('src/pages/dashboard/user/account/change-password')
 );
+// Sprint 2 — E-record & Staff summary (see docs/API_CONTRACT_SPRINT2.md)
+const StaffSummaryListPage = lazy(() => import('src/pages/dashboard/staff-summary/list'));
+const EmployeeRecordPage = lazy(() => import('src/pages/dashboard/employees/record'));
+// Sprint 3 — Letter engine (see docs/API_CONTRACT_SPRINT3.md)
+const LetterListPage = lazy(() => import('src/pages/dashboard/letters/list'));
+const LetterCreatePage = lazy(() => import('src/pages/dashboard/letters/new'));
+const LetterDetailPage = lazy(() => import('src/pages/dashboard/letters/detail'));
+const LetterTemplateListPage = lazy(() => import('src/pages/dashboard/letter-templates/list'));
+const LetterTemplateCreatePage = lazy(() => import('src/pages/dashboard/letter-templates/new'));
+const LetterTemplateEditPage = lazy(() => import('src/pages/dashboard/letter-templates/edit'));
 
 // ----------------------------------------------------------------------
 
@@ -77,6 +87,27 @@ export const dashboardRoutes: RouteObject[] = [
               { path: 'change-password', element: <AccountChangePasswordPage /> },
             ],
           },
+        ],
+      },
+      { path: 'staff-summary', element: <StaffSummaryListPage /> },
+      {
+        path: 'employees',
+        children: [{ path: ':id/record', element: <EmployeeRecordPage /> }],
+      },
+      {
+        path: 'letters',
+        children: [
+          { index: true, element: <LetterListPage /> },
+          { path: 'new', element: <LetterCreatePage /> },
+          { path: ':id', element: <LetterDetailPage /> },
+        ],
+      },
+      {
+        path: 'letter-templates',
+        children: [
+          { index: true, element: <LetterTemplateListPage /> },
+          { path: 'new', element: <LetterTemplateCreatePage /> },
+          { path: ':id/edit', element: <LetterTemplateEditPage /> },
         ],
       },
     ],

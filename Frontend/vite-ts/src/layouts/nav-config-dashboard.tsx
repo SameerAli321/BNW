@@ -15,6 +15,9 @@ const icon = (name: string) => (
 const ICONS = {
   user: icon('ic-user'),
   dashboard: icon('ic-dashboard'),
+  folder: icon('ic-folder'),
+  mail: icon('ic-mail'),
+  file: icon('ic-file'),
 };
 
 // ----------------------------------------------------------------------
@@ -45,6 +48,28 @@ export const navData: NavSectionProps['data'] = [
         path: paths.dashboard.user.list,
         icon: ICONS.user,
         allowedRoles: ['HR', 'ADMIN'],
+      },
+      {
+        title: 'Staff Summary',
+        path: paths.dashboard.staffSummary,
+        icon: ICONS.folder,
+        allowedRoles: ['HR', 'CEO', 'ADMIN'],
+      },
+      {
+        // Sprint 3 — Letter engine (see docs/API_CONTRACT_SPRINT3.md). No `allowedRoles`: every
+        // role can see this item, since an employee needs it to find/sign their own pending
+        // letters — `GET /letters` is server-filtered to "my letters only" for non-HR/CEO/ADMIN
+        // callers, so there's nothing to hide client-side. Inside the page, create/submit/sign
+        // actions are gated per-role (and per-letter-status) individually.
+        title: 'Letters',
+        path: paths.dashboard.letters.root,
+        icon: ICONS.mail,
+      },
+      {
+        title: 'Letter Templates',
+        path: paths.dashboard.letterTemplates.root,
+        icon: ICONS.file,
+        allowedRoles: ['HR', 'CEO', 'ADMIN'],
       },
     ],
   },

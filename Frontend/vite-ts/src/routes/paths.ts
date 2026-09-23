@@ -117,6 +117,22 @@ export const paths = {
       edit: (id: string) => `${ROOTS.DASHBOARD}/user/${id}/edit`,
       demo: { edit: `${ROOTS.DASHBOARD}/user/${MOCK_ID}/edit` },
     },
+    // Sprint 2 — E-record & Staff summary, see docs/API_CONTRACT_SPRINT2.md.
+    staffSummary: `${ROOTS.DASHBOARD}/staff-summary`,
+    employees: {
+      record: (id: number | string) => `${ROOTS.DASHBOARD}/employees/${id}/record`,
+    },
+    // Sprint 3 — Letter engine, see docs/API_CONTRACT_SPRINT3.md.
+    letterTemplates: {
+      root: `${ROOTS.DASHBOARD}/letter-templates`,
+      new: `${ROOTS.DASHBOARD}/letter-templates/new`,
+      edit: (id: number | string) => `${ROOTS.DASHBOARD}/letter-templates/${id}/edit`,
+    },
+    letters: {
+      root: `${ROOTS.DASHBOARD}/letters`,
+      new: `${ROOTS.DASHBOARD}/letters/new`,
+      details: (id: number | string) => `${ROOTS.DASHBOARD}/letters/${id}`,
+    },
     product: {
       root: `${ROOTS.DASHBOARD}/product`,
       new: `${ROOTS.DASHBOARD}/product/new`,
