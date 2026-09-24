@@ -52,4 +52,11 @@ export class UpdateUserDto {
   @IsOptional()
   @IsEnum(UserStatus)
   status?: UserStatus;
+
+  // HR/ADMIN can directly set a user's password from the edit form, as an alternative to the
+  // random-generated /users/:id/reset-password action.
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  password?: string;
 }

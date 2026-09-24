@@ -135,3 +135,13 @@ export async function deleteUser(id: number | string): Promise<void> {
   await axiosInstance.delete(endpoints.users.details(id));
   await revalidateUsersList();
 }
+
+/**
+ * POST /users/:id/reset-password — HR/ADMIN only. Generates a brand new temp password server-side
+ * and returns it once so it can be shown/copied — it is never retrievable again after this call
+ * (stored only as a hash). The user must change it on next login.
+ */
+export async function resetUserPassword(id: number | string): Promise<{ tempPassword: string }> {
+  const res = await axiosInstance.post(endpoints.users.resetPassword(id));
+  return res.data.data;
+}

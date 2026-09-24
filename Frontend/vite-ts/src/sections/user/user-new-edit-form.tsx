@@ -23,7 +23,7 @@ import { createUser, updateUser, useGetUsers, useGetDepartments } from 'src/acti
 import { toast } from 'src/components/snackbar';
 import { Form, Field } from 'src/components/hook-form';
 
-import { USER_ROLE_OPTIONS } from 'src/types/user';
+import { USER_ROLE_OPTIONS, USER_ACCOUNT_STATUS_OPTIONS } from 'src/types/user';
 
 // ----------------------------------------------------------------------
 
@@ -41,6 +41,13 @@ export const NewUserSchema = zod.object({
   departmentId: zod.union([zod.number(), zod.literal('')]).optional(),
   designation: zod.string().optional(),
   joinDate: zod.string().optional(),
+  status: zod.string().optional(),
+  password: zod
+    .string()
+    .optional()
+    .refine((value) => !value || value.length >= 8, {
+      message: 'Password must be at least 8 characters!',
+    }),
 });
 
 // ----------------------------------------------------------------------
@@ -70,6 +77,8 @@ export function UserNewEditForm({ currentUser }: Props) {
     departmentId: '',
     designation: '',
     joinDate: '',
+    status: '',
+    password: '',
   };
 
   const currentValues: NewUserSchemaType | undefined = currentUser
@@ -82,6 +91,8 @@ export function UserNewEditForm({ currentUser }: Props) {
         departmentId: currentUser.departmentId ?? '',
         designation: currentUser.designation ?? '',
         joinDate: currentUser.joinDate ?? '',
+        status: currentUser.status,
+        password: '',
       }
     : undefined;
 
@@ -111,7 +122,11 @@ export function UserNewEditForm({ currentUser }: Props) {
       };
 
       if (currentUser) {
-        await updateUser(currentUser.id, payload);
+        await updateUser(currentUser.id, {
+          ...payload,
+          ...(data.status ? { status: data.status as IUserItem['status'] } : {}),
+          ...(data.password ? { password: data.password } : {}),
+        });
       } else {
         await createUser(payload);
       }
@@ -136,11 +151,10 @@ export function UserNewEditForm({ currentUser }: Props) {
               </Alert>
             )}
 
-            {currentUser && (
+            {currentUser?.mustChangePassword && (
               <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  Status: <strong>{currentUser.status}</strong>
-                  {currentUser.mustChangePassword && ' · must change password on next login'}
+                  Must change password on next login
                 </Typography>
               </Stack>
             )}
@@ -189,7 +203,33 @@ export function UserNewEditForm({ currentUser }: Props) {
 
               <Field.Text name="designation" label="Designation" />
               <Field.DatePicker name="joinDate" label="Join date" />
+
+              {currentUser && (
+                <Field.Select name="status" label="Status">
+                  {USER_ACCOUNT_STATUS_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Field.Select>
+              )}
             </Box>
+
+            {currentUser && (
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Change password
+                </Typography>
+                <Field.Text
+                  name="password"
+                  label="New password"
+                  placeholder="Leave blank to keep the current password"
+                  type="text"
+                  helperText="Sets this exact password for the user and requires them to change it on next login. Minimum 8 characters."
+                  sx={{ maxWidth: { sm: 400 } }}
+                />
+              </Box>
+            )}
 
             <Stack sx={{ mt: 3, alignItems: 'flex-end' }}>
               <Button type="submit" variant="contained" loading={isSubmitting}>

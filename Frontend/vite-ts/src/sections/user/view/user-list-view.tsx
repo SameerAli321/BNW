@@ -73,6 +73,7 @@ export function UserListView() {
   const { user: currentAuthUser } = useAuthContext();
   const currentRole = currentAuthUser?.role ?? '';
   const canDelete = currentRole === 'ADMIN';
+  const canResetPassword = currentRole === 'ADMIN' || currentRole === 'HR';
 
   const confirmDialog = useBoolean();
 
@@ -280,6 +281,7 @@ export function UserListView() {
                         key={row.id}
                         row={row}
                         canDelete={canDelete}
+                        canResetPassword={canResetPassword}
                         selected={table.selected.includes(String(row.id))}
                         onSelectRow={() => table.onSelectRow(String(row.id))}
                         onDeleteRow={() => handleDeleteRow(row.id)}
