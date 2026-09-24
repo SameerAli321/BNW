@@ -5,16 +5,7 @@ import type { MainSectionProps, HeaderSectionProps, LayoutSectionProps } from '.
 
 import { merge } from 'es-toolkit';
 
-import Box from '@mui/material/Box';
-import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
-
-import { paths } from 'src/routes/paths';
-import { RouterLink } from 'src/routes/components';
-
-import { CONFIG } from 'src/global-config';
-
-import { Logo } from 'src/components/logo';
 
 import { AuthSplitSection } from './section';
 import { AuthSplitContent } from './content';
@@ -53,28 +44,12 @@ export function AuthSplitLayout({
           This is an info Alert.
         </Alert>
       ),
-      leftArea: (
-        <>
-          {/** @slot Logo */}
-          <Logo />
-        </>
-      ),
-      rightArea: (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 } }}>
-          {/** @slot Help link */}
-          <Link
-            href={paths.faqs}
-            component={RouterLink}
-            color="inherit"
-            sx={{ typography: 'subtitle2' }}
-          >
-            Need help?
-          </Link>
-
-          {/** @slot Settings button */}
-          <SettingsButton />
-        </Box>
-      ),
+      // BNW OMS: no logo here — the branded illustration panel (AuthSplitSection, left column on
+      // desktop) already shows a big animated version of the same logo directly below where this
+      // header sits, so having both was showing it twice stacked on top of each other. No
+      // help/FAQ page exists either (removed with the rest of the minimal-kit's marketing pages),
+      // so that dead link is gone too. Just the theme toggle remains in the header.
+      rightArea: <SettingsButton />,
     };
 
     return (
@@ -102,38 +77,12 @@ export function AuthSplitLayout({
         ...(Array.isArray(slotProps?.main?.sx) ? slotProps.main.sx : [slotProps?.main?.sx]),
       ]}
     >
-      <AuthSplitSection
-        layoutQuery={layoutQuery}
-        method={CONFIG.auth.method}
-        {...slotProps?.section}
-        methods={[
-          {
-            label: 'Jwt',
-            path: paths.auth.jwt.signIn,
-            icon: `${CONFIG.assetsDir}/assets/icons/platforms/ic-jwt.svg`,
-          },
-          {
-            label: 'Firebase',
-            path: paths.auth.firebase.signIn,
-            icon: `${CONFIG.assetsDir}/assets/icons/platforms/ic-firebase.svg`,
-          },
-          {
-            label: 'Amplify',
-            path: paths.auth.amplify.signIn,
-            icon: `${CONFIG.assetsDir}/assets/icons/platforms/ic-amplify.svg`,
-          },
-          {
-            label: 'Auth0',
-            path: paths.auth.auth0.signIn,
-            icon: `${CONFIG.assetsDir}/assets/icons/platforms/ic-auth0.svg`,
-          },
-          {
-            label: 'Supabase',
-            path: paths.auth.supabase.signIn,
-            icon: `${CONFIG.assetsDir}/assets/icons/platforms/ic-supabase.svg`,
-          },
-        ]}
-      />
+      {/*
+        BNW OMS only ever uses the JWT auth strategy — the minimal-kit's "switch auth provider"
+        icon strip (Firebase/Amplify/Auth0/Supabase logos) doesn't apply and has been dropped
+        (no `methods`/`method` passed, so AuthSplitSection just doesn't render that row).
+      */}
+      <AuthSplitSection layoutQuery={layoutQuery} {...slotProps?.section} />
       <AuthSplitContent layoutQuery={layoutQuery} {...slotProps?.content}>
         {children}
       </AuthSplitContent>

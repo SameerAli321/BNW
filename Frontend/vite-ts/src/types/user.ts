@@ -56,8 +56,15 @@ export type CreateUserDto = {
   employeeCode?: string | null;
 };
 
-/** `UpdateUserDto` — contract §"Users": same fields, all optional, plus `status`. */
-export type UpdateUserDto = Partial<CreateUserDto> & { status?: UserAccountStatus };
+/**
+ * `UpdateUserDto` — contract §"Users": same fields, all optional, plus `status`. `password` lets
+ * HR/ADMIN directly set a user's password from the Edit User form (min 8 chars) as an alternative
+ * to the random-generated `POST /users/:id/reset-password` action.
+ */
+export type UpdateUserDto = Partial<CreateUserDto> & {
+  status?: UserAccountStatus;
+  password?: string;
+};
 
 export type IDepartment = { id: number; name: string };
 

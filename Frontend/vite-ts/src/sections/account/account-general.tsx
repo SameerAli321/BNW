@@ -1,179 +1,94 @@
-import { z as zod } from 'zod';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { isValidPhoneNumber } from 'react-phone-number-input/input';
-
-import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
-import Button from '@mui/material/Button';
+import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
 
-import { fData } from 'src/utils/format-number';
+import { fDate } from 'src/utils/format-time';
 
-import { toast } from 'src/components/snackbar';
-import { Form, Field, schemaHelper } from 'src/components/hook-form';
+import { Label } from 'src/components/label';
 
-import { useMockedUser } from 'src/auth/hooks';
-
-// ----------------------------------------------------------------------
-
-export type UpdateUserSchemaType = zod.infer<typeof UpdateUserSchema>;
-
-export const UpdateUserSchema = zod.object({
-  displayName: zod.string().min(1, { message: 'Name is required!' }),
-  email: zod
-    .string()
-    .min(1, { message: 'Email is required!' })
-    .email({ message: 'Email must be a valid email address!' }),
-  photoURL: schemaHelper.file({ message: 'Avatar is required!' }),
-  phoneNumber: schemaHelper.phoneNumber({ isValid: isValidPhoneNumber }),
-  country: schemaHelper.nullableInput(zod.string().min(1, { message: 'Country is required!' }), {
-    // message for null value
-    message: 'Country is required!',
-  }),
-  address: zod.string().min(1, { message: 'Address is required!' }),
-  state: zod.string().min(1, { message: 'State is required!' }),
-  city: zod.string().min(1, { message: 'City is required!' }),
-  zipCode: zod.string().min(1, { message: 'Zip code is required!' }),
-  about: zod.string().min(1, { message: 'About is required!' }),
-  // Not required
-  isPublic: zod.boolean(),
-});
+import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 
+type FieldProps = {
+  label: string;
+  value: React.ReactNode;
+};
+
+function ProfileField({ label, value }: FieldProps) {
+  return (
+    <Stack spacing={0.5}>
+      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+        {label}
+      </Typography>
+      <Typography variant="subtitle2">{value ?? '—'}</Typography>
+    </Stack>
+  );
+}
+
+// BNW OMS: this used to be the minimal-kit's demo profile form — fake fields (country/state/
+// city/zip/"about"/"public profile" toggle/avatar upload/"delete user" button) that don't exist
+// anywhere in our backend and were never wired to the real `useMockedUser`. Never rewired since
+// Sprint 1, so "my own profile" was showing made-up demo data. Replaced with a real, read-only
+// summary of the actual logged-in user (core identity fields only — role/department/manager are
+// HR/Admin-managed via the Users module, not self-editable). Contact details the person CAN edit
+// themselves live on the "Personal details" tab next to this one (see
+// docs/API_CONTRACT_GAPS_FIX.md Gap 1) — this tab is just "who am I in the system".
 export function AccountGeneral() {
-  const { user } = useMockedUser();
+  const { user } = useAuthContext();
 
-  const currentUser: UpdateUserSchemaType = {
-    displayName: user?.displayName,
-    email: user?.email,
-    photoURL: user?.photoURL,
-    phoneNumber: user?.phoneNumber,
-    country: user?.country,
-    address: user?.address,
-    state: user?.state,
-    city: user?.city,
-    zipCode: user?.zipCode,
-    about: user?.about,
-    isPublic: user?.isPublic,
-  };
-
-  const defaultValues: UpdateUserSchemaType = {
-    displayName: '',
-    email: '',
-    photoURL: null,
-    phoneNumber: '',
-    country: null,
-    address: '',
-    state: '',
-    city: '',
-    zipCode: '',
-    about: '',
-    isPublic: false,
-  };
-
-  const methods = useForm<UpdateUserSchemaType>({
-    mode: 'all',
-    resolver: zodResolver(UpdateUserSchema),
-    defaultValues,
-    values: currentUser,
-  });
-
-  const {
-    handleSubmit,
-    formState: { isSubmitting },
-  } = methods;
-
-  const onSubmit = handleSubmit(async (data) => {
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      toast.success('Update success!');
-      console.info('DATA', data);
-    } catch (error) {
-      console.error(error);
-    }
-  });
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
 
   return (
-    <Form methods={methods} onSubmit={onSubmit}>
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card
+    <Grid container spacing={3}>
+      <Grid size={{ xs: 12, md: 4 }}>
+        <Card sx={{ pt: 10, pb: 5, px: 3, textAlign: 'center' }}>
+          <Avatar sx={{ width: 96, height: 96, mx: 'auto', mb: 2, fontSize: 36 }}>
+            {fullName ? fullName[0] : '?'}
+          </Avatar>
+          <Typography variant="h6">{fullName || '—'}</Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+            {user?.email}
+          </Typography>
+          {user?.role && <Label color="primary">{user.role}</Label>}
+        </Card>
+      </Grid>
+
+      <Grid size={{ xs: 12, md: 8 }}>
+        <Card sx={{ p: 3 }}>
+          <Stack
             sx={{
-              pt: 10,
-              pb: 5,
-              px: 3,
-              textAlign: 'center',
+              rowGap: 3,
+              columnGap: 2,
+              display: 'grid',
+              gridTemplateColumns: { xs: 'repeat(1, 1fr)', sm: 'repeat(2, 1fr)' },
             }}
           >
-            <Field.UploadAvatar
-              name="photoURL"
-              maxSize={3145728}
-              helperText={
-                <Typography
-                  variant="caption"
-                  sx={{
-                    mt: 3,
-                    mx: 'auto',
-                    display: 'block',
-                    textAlign: 'center',
-                    color: 'text.disabled',
-                  }}
-                >
-                  Allowed *.jpeg, *.jpg, *.png, *.gif
-                  <br /> max size of {fData(3145728)}
-                </Typography>
+            <ProfileField label="Employee code" value={user?.employeeCode} />
+            <ProfileField label="Designation" value={user?.designation} />
+            <ProfileField label="Department" value={user?.departmentName} />
+            <ProfileField label="Manager" value={user?.managerName} />
+            <ProfileField label="Join date" value={user?.joinDate ? fDate(user.joinDate) : null} />
+            <ProfileField
+              label="Status"
+              value={
+                user?.status && (
+                  <Label color={user.status === 'ACTIVE' ? 'success' : 'warning'}>
+                    {user.status}
+                  </Label>
+                )
               }
             />
+          </Stack>
 
-            <Field.Switch
-              name="isPublic"
-              labelPlacement="start"
-              label="Public profile"
-              sx={{ mt: 5 }}
-            />
-
-            <Button variant="soft" color="error" sx={{ mt: 3 }}>
-              Delete user
-            </Button>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 8 }}>
-          <Card sx={{ p: 3 }}>
-            <Box
-              sx={{
-                rowGap: 3,
-                columnGap: 2,
-                display: 'grid',
-                gridTemplateColumns: { xs: 'repeat(1, 1fr)', sm: 'repeat(2, 1fr)' },
-              }}
-            >
-              <Field.Text name="displayName" label="Name" />
-              <Field.Text name="email" label="Email address" />
-              <Field.Phone name="phoneNumber" label="Phone number" />
-              <Field.Text name="address" label="Address" />
-
-              <Field.CountrySelect name="country" label="Country" placeholder="Choose a country" />
-
-              <Field.Text name="state" label="State/region" />
-              <Field.Text name="city" label="City" />
-              <Field.Text name="zipCode" label="Zip/code" />
-            </Box>
-
-            <Stack spacing={3} sx={{ mt: 3, alignItems: 'flex-end' }}>
-              <Field.Text name="about" multiline rows={4} label="About" />
-
-              <Button type="submit" variant="contained" loading={isSubmitting}>
-                Save changes
-              </Button>
-            </Stack>
-          </Card>
-        </Grid>
+          <Typography variant="caption" sx={{ display: 'block', mt: 3, color: 'text.disabled' }}>
+            These details are managed by HR/Admin. To update your phone, address, or other personal
+            details, use the &ldquo;Personal details&rdquo; tab.
+          </Typography>
+        </Card>
       </Grid>
-    </Form>
+    </Grid>
   );
 }

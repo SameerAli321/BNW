@@ -24,9 +24,56 @@ export const endpoints = {
     list: '/users',
     details: (id: number | string) => `/users/${id}`,
     reports: (id: number | string) => `/users/${id}/reports`,
+    // Gap-fix — see docs/API_CONTRACT_GAPS_FIX.md Gap 1.
+    profile: (id: number | string) => `/users/${id}/profile`,
+    resetPassword: (id: number | string) => `/users/${id}/reset-password`,
   },
   roles: '/roles',
   departments: '/departments',
+  // Gap-fix — see docs/API_CONTRACT_GAPS_FIX.md Gap 2. CEO/ADMIN only.
+  auditLogs: '/audit-logs',
+  // Sprint 2 — E-record & Staff summary, see docs/API_CONTRACT_SPRINT2.md.
+  staffSummary: {
+    list: '/staff-summary',
+    export: '/staff-summary/export',
+  },
+  employees: {
+    record: (id: number | string) => `/employees/${id}/record`,
+    documents: (id: number | string) => `/employees/${id}/documents`,
+    documentRequests: (id: number | string) => `/employees/${id}/document-requests`,
+  },
+  documents: {
+    download: (id: number | string) => `/documents/${id}/download`,
+  },
+  documentTypes: '/document-types',
+  // Sprint 3 — Letter engine, see docs/API_CONTRACT_SPRINT3.md.
+  letterTemplates: {
+    list: '/letter-templates',
+    details: (id: number | string) => `/letter-templates/${id}`,
+    fields: (id: number | string) => `/letter-templates/${id}/fields`,
+  },
+  letters: {
+    list: '/letters',
+    details: (id: number | string) => `/letters/${id}`,
+    preview: (id: number | string) => `/letters/${id}/preview`,
+    submitToCeo: (id: number | string) => `/letters/${id}/submit-to-ceo`,
+    requestChanges: (id: number | string) => `/letters/${id}/request-changes`,
+    ceoSign: (id: number | string) => `/letters/${id}/ceo-sign`,
+    sendToEmployee: (id: number | string) => `/letters/${id}/send-to-employee`,
+    employeeSign: (id: number | string) => `/letters/${id}/employee-sign`,
+    pdf: (id: number | string) => `/letters/${id}/pdf`,
+  },
+  // Sprint 4 — Appraisals (employee-initiated quarterly flow), see
+  // docs/API_CONTRACT_SPRINT4.md.
+  appraisalRequests: {
+    list: '/appraisal-requests',
+    mine: '/appraisal-requests/mine',
+    team: '/appraisal-requests/team',
+    pendingCeo: '/appraisal-requests/pending-ceo',
+    details: (id: number | string) => `/appraisal-requests/${id}`,
+    managerDecision: (id: number | string) => `/appraisal-requests/${id}/manager-decision`,
+    ceoDecision: (id: number | string) => `/appraisal-requests/${id}/ceo-decision`,
+  },
   // Demo-only endpoints kept from the minimal-kit template (out of scope for BNW OMS Sprint 1,
   // not reachable from the app nav — see docs/FRONTEND_STATUS.md).
   chat: '/api/chat',
