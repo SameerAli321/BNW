@@ -31,6 +31,7 @@ import {
 } from '../common/mappers/letter.mapper';
 import { UsersService } from '../users/users.service';
 import { EmployeesService } from '../employees/employees.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { CreateLetterTemplateDto } from './dto/create-letter-template.dto';
 import { UpdateLetterTemplateDto } from './dto/update-letter-template.dto';
 import { QueryLetterTemplatesDto } from './dto/query-letter-templates.dto';
@@ -58,6 +59,7 @@ export class LettersService {
     private readonly usersService: UsersService,
     private readonly employeesService: EmployeesService,
     private readonly pdfRenderer: LetterPdfRendererService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   // ---------------------------------------------------------------------------------------------
@@ -249,6 +251,16 @@ export class LettersService {
     comment: string | null = null,
   ): Promise<void> {
     await this.eventsRepo.save(this.eventsRepo.create({ letterId, actorId, action, comment }));
+
+    // Gap-fix Gap 2: mirror every letter status transition into audit_logs alongside the
+    // letter_events write, per docs/API_CONTRACT_GAPS_FIX.md. Fire-and-forget, doesn't block.
+    this.auditLogService.log({
+      actorId,
+      action: 'LETTER_STATUS_CHANGE',
+      entity: 'Letter',
+      entityId: letterId,
+      after: { event: action, comment },
+    });
   }
 
   async updateLetter(id: number, dto: UpdateLetterDto): Promise<LetterDto> {
@@ -338,6 +350,14 @@ export class LettersService {
         documentHash: this.computeDocumentHash(letter, letter.template),
       }),
     );
+    this.auditLogService.log({
+      actorId: caller.sub,
+      action: 'SIGNATURE',
+      entity: 'Letter',
+      entityId: id,
+      after: { signerRole: RoleName.CEO },
+      ipAddress: meta.ipAddress,
+    });
     await this.logEvent(id, caller.sub, LetterEventAction.CEO_SIGNED);
 
     return toLetterDto(await this.loadLetterWithRelations(id));
@@ -412,6 +432,14 @@ export class LettersService {
         documentHash: this.computeDocumentHash(letter, letter.template),
       }),
     );
+    this.auditLogService.log({
+      actorId: caller.sub,
+      action: 'SIGNATURE',
+      entity: 'Letter',
+      entityId: id,
+      after: { signerRole: caller.role },
+      ipAddress: meta.ipAddress,
+    });
     await this.logEvent(id, caller.sub, LetterEventAction.EMPLOYEE_SIGNED);
 
     // STUB: replace with a real mail service call (SMTP) once B8 is resolved with the client.

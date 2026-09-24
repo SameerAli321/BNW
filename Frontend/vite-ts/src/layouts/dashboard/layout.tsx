@@ -8,12 +8,9 @@ import { useBoolean } from 'minimal-shared/hooks';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import { useTheme } from '@mui/material/styles';
-import Typography from '@mui/material/Typography';
 import { iconButtonClasses } from '@mui/material/IconButton';
 
 import { allLangs } from 'src/locales';
-import { CONFIG } from 'src/global-config';
-import { _contacts, _notifications } from 'src/_mock';
 
 import { Logo } from 'src/components/logo';
 import { useSettingsContext } from 'src/components/settings';
@@ -30,10 +27,8 @@ import { MenuButton } from '../components/menu-button';
 import { AccountDrawer } from '../components/account-drawer';
 import { SettingsButton } from '../components/settings-button';
 import { LanguagePopover } from '../components/language-popover';
-import { ContactsPopover } from '../components/contacts-popover';
 import { navData as dashboardNavData } from '../nav-config-dashboard';
 import { dashboardLayoutVars, dashboardNavColorVars } from './css-vars';
-import { NotificationsDrawer } from '../components/notifications-drawer';
 import { MainSection, layoutClasses, HeaderSection, LayoutSection } from '../core';
 
 // ----------------------------------------------------------------------
@@ -147,12 +142,6 @@ export function DashboardLayout({
           {/** @slot Language popover */}
           <LanguagePopover data={allLangs} />
 
-          {/** @slot Notifications popover */}
-          <NotificationsDrawer data={_notifications} />
-
-          {/** @slot Contacts popover */}
-          <ContactsPopover data={_contacts} />
-
           {/** @slot Settings button */}
           <SettingsButton />
 
@@ -182,13 +171,13 @@ export function DashboardLayout({
       cssVars={navVars.section}
       checkPermissions={canDisplayItemByRole}
       slots={{
-        // Company name above the nav items, under the logo.
+        // Big, interactive brand mark above the nav items. `logo-full.png` already renders "BNW
+        // CHARTERED ACCOUNTANTS" as part of the artwork, so no separate Typography name here —
+        // that was showing the company name twice. Logo itself has hover/press feedback built in
+        // (see src/components/logo/logo.tsx).
         topArea: (
-          <Box sx={{ pl: 3.5, pt: 2.5, pb: 1 }}>
-            <Logo />
-            <Typography variant="subtitle2" sx={{ mt: 1, color: 'text.secondary' }}>
-              {CONFIG.appName}
-            </Typography>
+          <Box sx={{ px: 3, pt: 3, pb: 2, textAlign: 'center' }}>
+            <Logo isSingle={false} sx={{ width: 190, height: 60, mx: 'auto' }} />
           </Box>
         ),
         // BNW OMS has no paid tier — drop the minimal-kit's demo "Upgrade to Pro" card.

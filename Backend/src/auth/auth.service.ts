@@ -14,6 +14,7 @@ import { User } from '../entities/user.entity';
 import { RefreshToken } from '../entities/refresh-token.entity';
 import { UserStatus } from '../common/enums/user-status.enum';
 import { toUserDto, UserDto } from '../common/mappers/user.mapper';
+import { AuditLogService } from '../audit-log/audit-log.service';
 
 interface TokenPair {
   accessToken: string;
@@ -28,6 +29,7 @@ export class AuthService {
     @InjectRepository(RefreshToken) private readonly refreshRepo: Repository<RefreshToken>,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   private async issueTokens(user: User): Promise<TokenPair> {
@@ -73,22 +75,49 @@ export class AuthService {
     });
   }
 
-  async login(email: string, password: string): Promise<{ tokens: TokenPair; user: UserDto }> {
+  async login(
+    email: string,
+    password: string,
+    ipAddress: string | null = null,
+  ): Promise<{ tokens: TokenPair; user: UserDto }> {
     const user = await this.usersRepo.findOne({
       where: { email },
       relations: ['manager', 'department'],
     });
 
     if (!user || user.status === UserStatus.INACTIVE) {
+      this.auditLogService.log({
+        actorId: null,
+        action: 'LOGIN_FAILURE',
+        entity: 'User',
+        entityId: user?.id ?? null,
+        after: { email },
+        ipAddress,
+      });
       throw new UnauthorizedException('Invalid email or password');
     }
 
     const matches = await bcrypt.compare(password, user.password_hash);
     if (!matches) {
+      this.auditLogService.log({
+        actorId: null,
+        action: 'LOGIN_FAILURE',
+        entity: 'User',
+        entityId: user.id,
+        after: { email },
+        ipAddress,
+      });
       throw new UnauthorizedException('Invalid email or password');
     }
 
     const tokens = await this.issueTokens(user);
+    this.auditLogService.log({
+      actorId: user.id,
+      action: 'LOGIN_SUCCESS',
+      entity: 'User',
+      entityId: user.id,
+      ipAddress,
+    });
     return { tokens, user: toUserDto(user) };
   }
 

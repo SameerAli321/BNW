@@ -1,19 +1,17 @@
 import { CONFIG } from 'src/global-config';
 
-import { AccountNotificationsView } from 'src/sections/account/view';
+import { AppraisalListView } from 'src/sections/appraisal/view';
 
 // ----------------------------------------------------------------------
 
-const metadata = {
-  title: `Account notifications settings | Dashboard - ${CONFIG.appName}`,
-};
+const metadata = { title: `Appraisals | Dashboard - ${CONFIG.appName}` };
 
 export default function Page() {
   return (
     <>
       <title>{metadata.title}</title>
 
-      <AccountNotificationsView />
+      <AppraisalListView />
     </>
   );
 }

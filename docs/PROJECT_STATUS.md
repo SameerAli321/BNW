@@ -32,20 +32,88 @@ BNW/
 | Sprint | Focus | Status |
 |:-:|---|---|
 | 0 | Foundations (repo, Docker DB, skeletons) | **Done** — see `docs/BACKEND_STATUS.md`, `docs/FRONTEND_STATUS.md` |
-| 1 | Auth & User Management | **Done, verified end-to-end** — user confirmed live login as `admin@bnw.local` and a working Users list (6 seeded users, correct roles/departments/manager) against the real backend + Postgres `BNW`. Post-launch UI polish also done: real company logo/name in the sidebar, sign-in page, **and dashboard home page** (replacing the minimal-kit's demo branding), demo-only widgets removed (workspace switcher, "Upgrade to Pro" card, fake dashboard charts), root route goes straight to login. |
-| 2 | E-record & Staff Summary | **Code complete, not yet run by a person** — see `docs/API_CONTRACT_SPRINT2.md`. Backend agent live-verified every new endpoint (via disposable test accounts it cleaned up afterward) against a real Postgres. Frontend agent verified `tsc`/`npm run build` clean but never had a live backend to click through against. Pagination convention checked and confirmed consistent (both sides 1-based). Still needs a real click-through — see checklist below. |
-| 3 | Letter Engine | **Code complete, backend live-verified, frontend not yet run by a person** — see `docs/API_CONTRACT_SPRINT3.md`. Templates are **dummy/placeholder content** (explicit instruction from project start — real templates are still an unresolved client blocker, guide §12 B3), and PDF rendering is a simple placeholder (`pdf-lib`, not the guide's `puppeteer`) — both documented as swap-in-later once real templates/e-signature requirements arrive from the client. Backend agent ran the **entire letter lifecycle end-to-end** (draft → CEO review/sign → send → employee sign, incl. auto-filing into E-record) via curl with disposable test accounts, cleaned up after itself. Frontend built clean but hasn't been clicked through in a browser against it yet. One real bug (template edit form silently blanking `bodyHtml` on every save) was found and fixed post-build — see `docs/FRONTEND_STATUS.md`. |
-| 4–9 | See guide §11 | Not started |
+| 1 | Auth & User Management | **Done, verified end-to-end** — user confirmed live login and a working Users list against the real backend + Postgres `BNW`. |
+| 2 | E-record & Staff Summary | **Done, in active use** — user has been navigating Staff Summary and employee E-record pages live (confirmed working — see the "where do I upload a document" exchange, which was about role permissions, not a bug: only HR/Admin can upload, via Staff Summary → an employee's row → E-record page). |
+| 3 | Letter Engine | **Done, core flow confirmed live** — user created a letter, had the CEO sign it, and worked through the "send to employee" step live in their own running instance. One real misunderstanding surfaced and got resolved (a letter only shows up for whoever it's addressed to — the user's first test letter was addressed to their own Admin account, not the employee account they expected to see it on) and one real bug got found and fixed (a status-dependent action panel going blank with no explanation instead of saying "waiting on X"). Not yet fully confirmed: the CSV export, document-request flow, and the very last "employee signs → shows up in E-record" step. |
+| Gap-fix | Employee profile fields, audit log, notifications table, missing letter templates | **Done, backend live-tested** — see `docs/API_CONTRACT_GAPS_FIX.md`. An audit against the original guide found 4 things it put in Sprint 0/1/3 scope that our own narrower contract docs had silently dropped: extended employee profile fields (phone/DOB/emergency contact/etc.), a system-wide audit log (login, letter status changes, signatures, document downloads), a `notifications` table (backend plumbing only — no frontend UI, since the fake notification bell was just removed at explicit request and isn't being revived), and 4 of the 6 required letter template types that had no placeholder at all (Contract/Redundancy/Terms-Change/Warning). All fixed. Frontend: real profile summary + editable "Personal details" tab, CEO/Admin-only Audit Log page. |
+| 4 | Appraisals | **Done, backend live-tested end-to-end** — built to the user's own explicit spec (see `docs/API_CONTRACT_SPRINT4.md`), which is a **deliberate deviation from the original guide**: employee-initiated quarterly requests, not an HR-scheduled cycle. Flow: employee submits a self-evaluation (blocked for 3 months after) → manager adds remarks + a message and accepts/rejects → on accept, CEO adds remarks + a message and accepts/rejects/sends back to the manager → final result visible to HR, the manager, and the employee. Backend ran the full flow live including the send-back loop and the reject path. Frontend built a role-aware tabbed page (My Appraisals / My Team's / Pending My Review / All Appraisals) reusing the Letter Engine's timeline/dialog patterns. |
+| 5–9 | See guide §11 (Hiring extras, Leave/Feedback/Announcements, Work Orders, Payslips, Attendance) | Not started |
 
-### To see Sprint 2 + 3 working (needs you)
+### Post-Sprint-3 UI/UX polish (ongoing, in direct response to live usage)
 
-1. `docker compose up -d` (repo root), then in `Backend/`: `npm run migration:run && npm run seed && npm run start:dev` (seed is idempotent — safe to rerun, it'll just add the new document types/templates and skip existing users).
-2. In `Frontend/vite-ts/`: `npm run dev`, log in as `hr@bnw.local` or `admin@bnw.local`.
-3. Sidebar → **Staff Summary**: confirm the 6 seeded users show up, try the search/department/role/status filters, try **Export CSV**.
-4. Click into an employee's row → **E-record** page: try uploading a document (any small PDF/PNG), confirm it lists and downloads back correctly, try **Request document**.
-5. Sidebar → **Letters** → **New letter**: pick the seeded Offer template + an employee, fill the manual fields, submit. Log in as `ceo@bnw.local`, sign it. Log back in as HR, "Send to employee." Log in as that employee, sign it. Then check their E-record — the signed letter's PDF should show up there automatically.
-6. Log in as `employee@bnw.local` → confirm Staff Summary is hidden from nav, and their own E-record page shows read-only (no upload/request controls); confirm Letters only shows their own letters.
-7. Report anything that breaks.
+A significant amount of polish has happened since Sprint 3 shipped, all driven by the user actually
+running the app and reporting real problems — full detail in `docs/FRONTEND_STATUS.md`'s
+"Post-role-dashboards polish" section:
+
+- **Role-tailored dashboard home screens** — Admin/CEO/"everyone else" each see different content
+  on `/dashboard`, not three separate apps (one login, one app — see `docs/PROJECT_GUIDE.md` §1).
+  Later given a full visual pass: colored icon stat tiles, a gradient welcome banner with a role
+  badge.
+- **Logo** — went through three rounds of real bugs (wrong image source, then a bad auto-crop, then
+  a company name shown twice in three different places) before landing on: always the full clean
+  wordmark image, sized correctly, with hover/press interactivity.
+- **A real functional bug**: the sidebar's collapse-toggle arrow stopped working after a global
+  "click feedback" styling change collided with that button's own positioning CSS. Root-caused and
+  fixed (see FRONTEND_STATUS.md — this is worth reading if any future global `transform`-based
+  styling is added, to avoid repeating it).
+- **Notifications and Contacts** — both fully removed (fake demo data, no real backend feature
+  behind them yet), per explicit request.
+- **Sign-in page** — stripped of dead demo links/alerts (self-registration, a FAQ page, a
+  multi-provider switcher — none apply to this app), given real branding and entrance animations.
+
+### Also added: Admin/HR can reset a user's password
+
+User asked how to find a seeded/demo account's real password (it's bcrypt-hashed — genuinely
+unrecoverable, by design). The actual gap: there was no way for Admin/HR to help a locked-out user
+short of DB surgery. Added `POST /users/:id/reset-password` (HR/ADMIN only) — generates a fresh temp
+password server-side, hashes and stores it, sets `mustChangePassword`, logs it to the console (same
+stub-email pattern as user creation), and writes a `PASSWORD_RESET` audit log entry. Frontend: a
+"Reset password" action in the Users list row menu, with a confirm step and a one-time dialog
+showing the new temp password (with copy-to-clipboard) — it is not retrievable again after that.
+Live-verified end-to-end with disposable test accounts: reset succeeded, the target user could log
+in with the new password, a non-HR/ADMIN role got 403, and the audit log entry appeared correctly.
+
+User then asked for the ability to see/set an exact password directly from the Edit User screen
+(not just a randomly-generated one). Added an optional `password` field to `PATCH /users/:id`
+(HR/ADMIN only, min 8 chars) — sets that exact password, forces `mustChangePassword`, and logs a
+`PASSWORD_CHANGED` audit entry (separate from `PASSWORD_RESET`). Frontend: a "Change password"
+field on the Edit User form, shown only when editing (not on Create), left blank = unchanged.
+Live-verified: admin set a specific password on a disposable test user, that user logged in with
+exactly that password, a sub-8-char password was correctly rejected (400), and the audit log
+entry appeared.
+
+### Also fixed: the Account page's "General" tab was never real
+
+Found while working on the appraisal request (checking "where does an employee see their own
+profile" led straight to it): `AccountGeneral` had been the minimal-kit's demo profile form,
+completely disconnected from the real backend, since Sprint 1 — fake fields (country/state/city/
+zip/"about"/a "Public profile" toggle/a non-functional "Delete user" button) that don't exist
+anywhere in this app, never rewired. Replaced with a real read-only summary of the actual logged-in
+user (name, email, role, employee code, designation, department, manager, join date, status).
+
+### To finish confirming Sprint 2 + 3 (needs you)
+
+1. Staff Summary: try the search/department/role/status filters, try **Export CSV**.
+2. An employee's E-record page: try **Request document** (upload's already confirmed working).
+3. Letters: finish one full lifecycle addressed to a real employee account (not yourself) — CEO
+   sign → HR "Send to employee" → log in as that employee → sign → check their E-record for the
+   auto-filed PDF.
+4. Log in as `employee@bnw.local` → confirm Staff Summary is hidden from nav, their own E-record is
+   read-only, and Letters only shows their own letters.
+
+### To verify the gap-fix + Sprint 4 (needs you — none of this has been clicked through in a browser yet)
+
+1. Account page → "Personal details" tab: fill in phone/address/DOB/etc., save, reload, confirm it
+   persisted.
+2. As CEO or Admin: sidebar → "Audit Log" → confirm login/document-download/letter-signature events
+   show up as you do them elsewhere in the app.
+3. Letters → New letter → confirm the template picker now lists all 6 types (Offer, Contract,
+   Redundancy, Terms Change, Warning, Experience), not just 2.
+4. Appraisals: as an employee, submit one. Log in as their manager, accept it with remarks. Log in
+   as CEO, try "send back" once (confirm it returns to the manager's queue), then accept it. Confirm
+   HR can see the final result in "All Appraisals". Try submitting a second one immediately as the
+   same employee — should be blocked with a clear "next eligible" date.
+5. Report anything that breaks.
 
 ## Decisions locked in (don't re-litigate without asking the user)
 

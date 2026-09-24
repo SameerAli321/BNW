@@ -102,8 +102,10 @@ migration:generate -- src/migrations/<Name>` (needs a live DB to diff against),
   developer runs Postgres with user/password `postgres`/`postgres` (not the original `bnw`/
   `YOUR_DB_PASSWORD`) — `docker-compose.yml`, `Backend/.env`, and `Backend/.env.example` have all
   been updated to match. `npm run start:dev` boots and serves `/api/v1/health` correctly against
-  this DB. **Still not verified**: a real end-to-end login round-trip through the frontend UI —
-  confirm that next (see `API_CONTRACT_SPRINT1.md`'s Sprint 1 "Definition of done" checklist).
+  this DB. **Update**: a real end-to-end login round-trip through the frontend UI has since been
+  confirmed by the user directly (live login, Users list, and — as of Sprint 2/3 — Staff Summary,
+  E-record, and the core letter lifecycle all exercised against this same backend+DB). See
+  `docs/PROJECT_STATUS.md` for current per-sprint verification status.
 
 ## Deviations from `API_CONTRACT_SPRINT1.md`
 
@@ -442,3 +444,364 @@ request/response shape:
 - Template versioning on edit (`PUT /letter-templates/:id` mutates in place; the contract says
   bumping `version` manually is enough for this sprint, no auto-versioning/history table).
 - Automated tests for the new module — none written yet, same gap as Sprints 1/2.
+
+---
+
+# Gap-fix: employee_profiles, audit_logs, notifications
+
+Closes the 4 scope gaps identified by an audit against the original
+`BNW_OMS_Project_Guide (2) (1).md` (things the guide put in scope for Sprint 0/1/3 that the
+team's own narrower per-sprint contract docs silently dropped), per `docs/API_CONTRACT_GAPS_FIX.md`
+(guide §3.1 U2, §4, §8.1, §9, §11, §13). Builds on Sprints 1-3 — same envelope, auth, roles,
+camelCase JSON, migration/seed conventions.
+
+## How to run it
+
+Same bootstrap as Sprints 1-3 (`docker compose up -d`, `npm install`), plus:
+
+```bash
+cd Backend
+npm run migration:run   # now also creates employee_profiles / audit_logs / notifications
+npm run seed             # now also seeds 4 more placeholder letter_templates (CONTRACT,
+                          # REDUNDANCY, TERMS_CHANGE, WARNING), idempotent — skips types that
+                          # already exist
+npm run start:dev
+```
+
+No new env vars, no new upload directories.
+
+## What's implemented
+
+- **Gap 1 — `employee_profiles`** (`src/entities/employee-profile.entity.ts`): one row per user
+  (`user_id` unique FK → `users.id`, `ON DELETE CASCADE`), all fields nullable
+  (`phone`, `address`, `date_of_birth`, `gender` enum, `emergency_contact_name`,
+  `emergency_contact_phone`, `national_id`, `bank_name`, `bank_account_number`,
+  `created_at`/`updated_at`). New enum `src/common/enums/gender.enum.ts`
+  (`MALE`/`FEMALE`/`OTHER`/`PREFER_NOT_TO_SAY`). Lives in `UsersModule` (not a separate module) —
+  `UsersService` gained `getProfile()`/`upsertProfile()` plus two ownership checks:
+  `assertCanEditProfile` (HR/ADMIN always, else self only — no manager-of) used by
+  `PATCH /users/:id/profile`, and the *existing* `assertCanView` (HR/ADMIN/self/manager-of) is
+  reused as-is for `GET /users/:id/profile`, per the gap-fix doc's explicit instruction to reuse
+  that pattern rather than invent a new one. `GET /users/:id/profile` returns `{ data: null }` if
+  the profile was never filled in (no auto-create on read); `PATCH` upserts (creates the row on
+  first write) with partial-update semantics — same style as `LetterTemplate`'s `PUT`.
+  `EmployeeProfileDto` omits `id`/`createdAt`, matching the gap-fix doc's DTO exactly.
+- **Gap 2 — `audit_logs`** (`src/entities/audit-log.entity.ts`, new `src/audit-log/` module):
+  append-only (`actor_id` nullable FK → `users.id` `ON DELETE SET NULL`, `action`/`entity` free-form
+  strings, `entity_id` nullable, `before`/`after` jsonb nullable, `ip_address`, `created_at`). No
+  update/delete endpoint. `AuditLogService.log()` is a **fire-and-forget** helper — callers do not
+  `await` it; failures are caught and only `console.error`'d, so an audit-log write can never fail
+  the request it's describing. Wired into exactly the 4 call sites the gap-fix doc names — **no
+  broader coverage was added; that's explicitly future work, not required now**:
+  - `AuthService.login()` — `LOGIN_SUCCESS` (`actorId` = the logged-in user) and `LOGIN_FAILURE`
+    (`actorId: null` — unauthenticated) for both "no such user"/inactive and "wrong password"
+    cases; `ipAddress` threaded through from `AuthController.login()`'s `@Req()`.
+  - `LettersService.logEvent()` (private, called by every status-transition method — submit,
+    request-changes, ceo-sign, send-to-employee, employee-sign) — `LETTER_STATUS_CHANGE`,
+    `entity: 'Letter'`, mirrored alongside the existing `letter_events` write, same transaction
+    scope (called right after it).
+  - `LettersService.ceoSign()` / `employeeSign()` — a separate `SIGNATURE` entry (in addition to
+    the `LETTER_STATUS_CHANGE` one from `logEvent()`) right after each `signatures` row is created,
+    `entity: 'Letter'`, `after: { signerRole }`.
+  - `DocumentsController.download()` (`GET /documents/:id/download`) — `DOCUMENT_DOWNLOAD`,
+    `entity: 'EmployeeDocument'`, `entityId` = the document's id, logged after the ownership check
+    passes and the file is confirmed to exist on disk.
+  - `GET /audit-logs` (CEO/ADMIN only, `?actorId=&entity=&action=&page=&limit=`) —
+    `AuditLogDto` intentionally omits `before`/`after` (internal diff data), per the gap-fix doc.
+- **Gap 3 — `notifications`** (`src/entities/notification.entity.ts`, new `src/notifications/`
+  module): `user_id` FK → `users.id` `ON DELETE CASCADE`, `type`/`title` strings, `body`/`link`
+  nullable, `read_at` nullable timestamp. `GET /notifications` is self-scoped **server-side**
+  (`userId = caller.sub`, never a query param) with `?unreadOnly=true`, returns
+  `{ data, meta: { total, unreadCount } }`. `POST /notifications/:id/read` sets `readAt` (404 if
+  the notification doesn't exist, 403 if it belongs to someone else). **No triggers/event-wiring**
+  — this is empty plumbing for future modules to write into, per the gap-fix doc's explicit note;
+  right now `GET /notifications` correctly returns an empty list for everyone since nothing writes
+  to the table yet. **Backend only — no frontend UI**, per the doc (the notification bell/drawer
+  was removed at explicit user request; reviving it is out of scope here).
+- **Gap 4 — 4 more letter templates** (`src/database/seed.ts`): `CONTRACT`
+  ("Employment Contract (placeholder)"), `REDUNDANCY` ("Redundancy Letter (placeholder)"),
+  `TERMS_CHANGE` ("Change of Contract Terms (placeholder)"), `WARNING` ("Warning Letter
+  (placeholder)") added to `LETTER_TEMPLATES` alongside the existing `OFFER`/`EXPERIENCE`, exact
+  field lists from the gap-fix doc, same idempotent-by-`type` / placeholder-body-text convention.
+  `LetterTemplateType` already had all 6 enum values defined since Sprint 3 (only 2 were seeded) —
+  no entity/enum/migration change needed for this gap, seed data only. All 6 types now show up in
+  `GET /letter-templates?isActive=true`, so the frontend's "New letter" template picker lists all
+  6 automatically with no frontend change.
+- **Migration** (`src/migrations/1758810000000-GapFixProfilesAuditLogsNotifications.ts`): a single
+  new file creating all 3 tables (`employee_profiles`, `audit_logs`, `notifications`) plus the
+  `employee_profiles_gender_enum` type and indexes, written by hand in the same style as the
+  Sprint 1/2/3 migrations. None of the existing migrations were touched. `synchronize` stays
+  `false`.
+
+## Verification performed
+
+- `npx tsc --noEmit` — **0 errors**.
+- `npx nest build` — **succeeds**.
+- `npx eslint "src/**/*.ts"` — **0 errors/warnings** (whole tree; one Prettier-only import-wrapping
+  fix applied via `--fix`).
+- **Pre-existing housekeeping note**: at the start of this slice, `Backend/src/**` contained ~160
+  stray compiled `.js`/`.js.map` files sitting next to their `.ts` sources (untracked, not part of
+  git — an artifact of some earlier `tsc` invocation that didn't respect `outDir`). These broke
+  `npm run migration:run`/`migration:show` outright (`Error: Duplicate migrations` — TypeORM's
+  `*.{ts,js}` migrations glob was picking up both the `.ts` and stray `.js` copy of each existing
+  migration). Deleted them (every one had a matching `.ts` source, confirmed before deleting) —
+  unrelated to this gap-fix's own code, but blocking it, and safe to remove since `dist/` is the
+  real (gitignored) build output. Flagging here in case it recurs — if `migration:run` ever
+  reports "Duplicate migrations" again, check for stray `.js`/`.js.map` files under `src/`.
+- **Live-verified against a reachable dev Postgres** (`127.0.0.1:5432`/`BNW`, already
+  migrated/seeded through Sprint 3):
+  - `npm run migration:run` applied `GapFixProfilesAuditLogsNotifications1758810000000` cleanly
+    (3 → 4 migrations applied, all three tables/enum/indexes/FKs created as written).
+  - `npm run seed` created the 4 new letter templates and, as expected, skipped all 6 existing
+    Sprint 1 demo users untouched; reran a second time with no duplicates (idempotency confirmed).
+  - Built (`nest build`) and ran `node dist/main.js` against the same DB, driving the new
+    endpoints with **4 disposable test accounts** (`gapfix.hr@bnw.local`, `gapfix.ceo@bnw.local`,
+    `gapfix.admin@bnw.local`, `gapfix.emp@bnw.local`) created directly via a temporary,
+    not-committed script — the real seeded demo users' passwords aren't known to this session, so
+    real accounts were left untouched:
+    - `GET /users/:id/profile` for a user with no profile row → `{ data: null }` (no auto-create).
+    - `PATCH /users/:id/profile` as self → 200, row created (upsert), returned shape matches
+      `EmployeeProfileDto` exactly.
+    - `PATCH /users/:id/profile` as HR on someone else's profile → 200, partial update applied
+      (only the sent field changed, others left as-is).
+    - `PATCH /users/:id/profile` as a different EMPLOYEE (not self, not HR/ADMIN) → 403.
+    - `GET /users/:id/profile` as an EMPLOYEE for someone else (not self/manager) → 403.
+    - `GET /notifications` as EMPLOYEE → 200, `{ data: [], meta: { total: 0, unreadCount: 0 } }`
+      (correct — nothing writes to the table yet).
+    - `POST /notifications/9999/read` (nonexistent) → 404.
+    - `GET /audit-logs` as EMPLOYEE → 403; as CEO → 200.
+    - Confirmed `LOGIN_SUCCESS` entries appeared for all 4 disposable logins, and `LOGIN_FAILURE`
+      entries appeared for both a wrong-password attempt and an unknown-email attempt (the latter
+      with `actorId: null`).
+    - Ran a full letter lifecycle (create → preview → submit-to-ceo → ceo-sign → send-to-employee
+      → employee-sign) and confirmed via `GET /audit-logs` that the letter's audit trail contained
+      `LETTER_STATUS_CHANGE` for every transition (SUBMITTED, CEO_SIGNED, SENT_TO_EMPLOYEE,
+      EMPLOYEE_SIGNED) plus a separate `SIGNATURE` entry for each of the CEO's and the employee's
+      signature — 6 rows total for that one letter, matching `letter_events`' own 4 rows + 2
+      `signatures` rows.
+    - Downloaded the auto-filed signed PDF via `GET /documents/:id/download` and confirmed a
+      matching `DOCUMENT_DOWNLOAD` audit-log row appeared with the correct `entityId`.
+    - Confirmed `?entity=Letter&action=SIGNATURE` filtering on `GET /audit-logs` returned exactly
+      the 2 signature rows for that letter.
+    - Confirmed `GET /letter-templates?isActive=true` now returns all 6 types (was 2 before this
+      gap-fix).
+  - Cleaned up afterwards: deleted the 4 disposable accounts' `letters`/`letter_events`/
+    `signatures`/`employee_documents` rows (and the rendered PDF file on disk),
+    `employee_profiles`/`audit_logs`/`notifications`/`refresh_tokens` rows tied to those accounts,
+    then the accounts themselves; deleted the temporary test scripts. Confirmed the 4 disposable
+    accounts can no longer log in, and that all 6 Sprint 1 demo users and their existing data (e.g.
+    a pre-existing letter/document already on `admin@bnw.local` from prior work) were left
+    untouched.
+
+## Deviations from `API_CONTRACT_GAPS_FIX.md`
+
+None required by the doc's table/endpoint/DTO shapes. Implementation details not fully specified
+by the doc, flagged here rather than as deviations since none affect a request/response shape:
+
+- `audit_logs.action`/`entity` are free-form strings (not a DB enum), matching the doc's own
+  phrasing ("action (string, e.g. ...)"). This implementation uses `LOGIN_SUCCESS`/`LOGIN_FAILURE`
+  (rather than a single `LOGIN` action with a success flag) so success/failure is distinguishable
+  by `action` alone in the list view, plus `LETTER_STATUS_CHANGE`, `SIGNATURE`, and
+  `DOCUMENT_DOWNLOAD` exactly as the doc's example list names them.
+- `employee_profiles` lives inside `UsersModule`/`UsersService` rather than a standalone module,
+  since its ownership checks and CRUD are a thin extension of `UsersService`'s existing
+  self/manager-of logic — matches the doc's explicit instruction to reuse `assertCanView` rather
+  than invent a new pattern.
+
+## What's left for later sprints
+
+- Wiring real notification-producing events (e.g. "a letter needs your signature") into the
+  `notifications` table from the letters/appraisals/announcements modules once those exist — this
+  gap-fix only stood up the empty plumbing, per the doc's explicit scope.
+- Broader `audit_logs` coverage (every mutation, not just the 4 named call sites) — explicitly
+  flagged as future work by the gap-fix doc, not required now.
+- A frontend "Personal details" section/tab for `employee_profiles` (Users edit page for HR/Admin,
+  Account page for self) and a CEO/Admin-only "Audit Log" page — both specified in the gap-fix
+  doc's "Frontend" notes but out of scope for this backend-only slice.
+- Automated tests for the new modules — none written yet, same gap as Sprints 1-3.
+
+---
+
+# Sprint 4 — Appraisals
+
+Adds the **employee-initiated quarterly appraisal request** flow, per
+`docs/API_CONTRACT_SPRINT4.md`. Builds on Sprints 1-3 and the gap-fix — same envelope, auth,
+roles, camelCase JSON, migration/seed conventions, and reuses the gap-fix's `AuditLogService`.
+
+## Deviation from the original guide — flagged here too, not just in the contract doc
+
+The original client guide (§3.2, §5.2) describes an **HR/system-scheduled appraisal cycle**: HR
+opens a quarterly cycle, all staff are notified with a due date, staff self-evaluate, THEN the
+manager rates, THEN the CEO approves/rejects, result saved to the E-record. **This sprint
+deliberately does not build that.** Per the user's direct instruction (recorded in
+`API_CONTRACT_SPRINT4.md`'s "Deviation from the original guide" section), this sprint builds a
+simpler, **employee-initiated** flow instead: no cycles, no due dates, no HR-triggered batch — an
+employee just submits a self-evaluation whenever they're eligible (≥3 months since their last
+request), it goes to their manager, then the CEO. This is intentional and should **not** be
+"corrected" back to the guide's cycle model without asking first.
+
+## How to run it
+
+Same bootstrap as Sprints 1-3/gap-fix (`docker compose up -d`, `npm install`), plus:
+
+```bash
+cd Backend
+npm run migration:run   # now also creates appraisal_requests / appraisal_events
+npm run start:dev
+```
+
+No new env vars, no new seed data (nothing to seed — there's no fixed template/cycle concept in
+this flow, just employee-submitted rows).
+
+## What's implemented
+
+- **Entities** (`src/entities/`): `AppraisalRequest` (`appraisal_requests` — `employeeId` FK,
+  `selfEvaluation` text, `status` enum, `managerId` FK nullable — a **snapshot** of the employee's
+  manager at submission time so a later reassignment doesn't retroactively change who reviewed a
+  past request, `managerRemarks`/`managerMessage`/`managerDecision`/`managerDecidedAt`,
+  `ceoRemarks`/`ceoMessage`/`ceoDecision`/`ceoDecidedAt`, `submittedAt`/`createdAt`/`updatedAt`)
+  and `AppraisalEvent` (`appraisal_events` — append-only audit trail, same pattern as
+  `letter_events`: `appraisalRequestId` FK, `actorId` FK, `action` enum, `message` nullable,
+  `createdAt`). New enums: `src/common/enums/appraisal-status.enum.ts`,
+  `appraisal-manager-decision.enum.ts`, `appraisal-ceo-decision.enum.ts`,
+  `appraisal-event-action.enum.ts`.
+- **Migration** (`src/migrations/1758900000000-Appraisals.ts`): creates both tables plus their
+  3 enum types (`appraisal_requests_status_enum`, `..._manager_decision_enum`,
+  `..._ceo_decision_enum`, `appraisal_events_action_enum`) and indexes, written by hand in the
+  same style as the Sprint 1/2/3 and gap-fix migrations — separate file, none of the existing
+  migrations touched. `synchronize` stays `false`. Both entities were also added to
+  `src/config/typeorm.config.ts`'s entity list (the CLI/seed DataSource), matching how every prior
+  sprint's new entities were registered there.
+- **Appraisals module** (`src/appraisals/`): `AppraisalsController` (`@Controller('appraisal-requests')`)
+  + `AppraisalsService`, backed by `TypeOrmModule.forFeature([AppraisalRequest, AppraisalEvent])`
+  and importing `UsersModule` (for `UsersService.findOneEntity`, to read the caller's `managerId`)
+  and `AuditLogModule`. All endpoints from the contract's table:
+  - `POST /appraisal-requests` — any authenticated caller (no `@Roles` gate — anyone with a
+    manager can request one). 400 if the caller has no `managerId`. 409 if they already submitted
+    one in the last 3 months.
+  - `GET /appraisal-requests/mine` — the caller's own history, newest first, plus computed
+    `meta: { canRequestNext, nextEligibleDate }`.
+  - `GET /appraisal-requests/team` (`@Roles(MANAGER, HR, ADMIN)`) — requests where `managerId`
+    (the submission-time snapshot) is the caller, `status = PENDING_MANAGER` by default,
+    `?status=` to see others. HR/ADMIN can call it too (per the contract's "as a courtesy" note)
+    but still only see requests where *they themselves* are the snapshotted manager — this is not
+    an HR-sees-everything view, that's `GET /appraisal-requests` below.
+  - `GET /appraisal-requests/pending-ceo` (`@Roles(CEO)`) — `status = PENDING_CEO`, oldest first.
+  - `GET /appraisal-requests` (`@Roles(HR, ADMIN)`) — full list, `?status=&employeeId=&page=&limit=`.
+  - `GET /appraisal-requests/:id` — full detail incl. `events`, gated by `assertCanView` (below).
+  - `POST /appraisal-requests/:id/manager-decision` — self only (`request.managerId === caller.sub`,
+    enforced in the service, no `@Roles` gate since the assigned manager is whoever the snapshot
+    says, not a fixed role). 409 if `status !== PENDING_MANAGER`.
+  - `POST /appraisal-requests/:id/ceo-decision` (`@Roles(CEO)`) — 409 if `status !== PENDING_CEO`.
+  - Route order matters: the literal-path routes (`mine`, `team`, `pending-ceo`) are declared
+    before `GET /appraisal-requests/:id` in the controller, same reasoning as every other
+    `:id`-suffixed module in this codebase.
+- **Ownership check** (`AppraisalsService.assertCanView`): new case, modeled on
+  `LettersService.assertCanView`/`UsersService.assertCanView` but for this table's specific role
+  set per the contract — HR/ADMIN/CEO always allowed, otherwise only the request's own employee or
+  its snapshotted `managerId`.
+- **Status machine**: `PENDING_MANAGER` → `MANAGER_REJECTED` (terminal, via manager-decision
+  REJECTED) or `PENDING_CEO` (via manager-decision ACCEPTED) → `CEO_ACCEPTED`/`CEO_REJECTED`
+  (terminal, via ceo-decision ACCEPTED/REJECTED) or back to `PENDING_MANAGER` (via ceo-decision
+  SEND_BACK — same send-back-for-another-look shape as the Letter Engine's `CHANGES_REQUESTED`,
+  reusing that established pattern per the contract's explicit instruction). Every invalid
+  transition throws `ConflictException` (409) naming the actual vs. required status — verified
+  live (see below). On `SEND_BACK`, the live `managerRemarks`/`managerMessage`/`managerDecision`/
+  `managerDecidedAt` columns are cleared so the manager can act again on their next pass, but
+  nothing is lost — the prior `MANAGER_ACCEPTED` event (with that manager's original
+  remarks/message mirrored into its `message` field) stays in `appraisal_events` untouched. Live
+  test (below) confirmed a full `appraisal_events` history of `SUBMITTED` → `MANAGER_ACCEPTED` →
+  `CEO_SENT_BACK` → `MANAGER_ACCEPTED` → `CEO_ACCEPTED` for one request, all 5 rows intact after
+  the send-back round-trip.
+- **3-month eligibility check**: `AppraisalsService.computeEligibility(employeeId)` looks up the
+  employee's most recent `appraisal_requests.submittedAt`, adds 3 months
+  (`Date.setMonth(getMonth() + 3)`), and returns `{ canRequestNext, nextEligibleDate }`. Shared by
+  both `POST /appraisal-requests` (409s with the message and date if not yet eligible) and
+  `GET /appraisal-requests/mine`'s `meta`, so both compute it identically.
+- **Audit trail**: every transition writes an `appraisal_events` row
+  (`AppraisalsService.logEvent`, same shape/placement as `LettersService.logEvent`) *and* fires an
+  `audit_logs` entry via the existing gap-fix `AuditLogService.log()` (action:
+  `APPRAISAL_STATUS_CHANGE`, `entity: 'AppraisalRequest'`, `after: { event, message }`) — no new
+  audit-log service was built, this sprint reuses the gap-fix's helper exactly as instructed.
+  Fire-and-forget, same as every other `AuditLogService.log()` call site — a logging failure can
+  never fail the appraisal transition it's describing.
+
+## Verification performed
+
+- `npx tsc --noEmit` — **0 errors**.
+- `npx nest build` — **succeeds**.
+- `npx eslint "src/**/*.ts"` — **0 errors/warnings** (whole tree; a few Prettier-only formatting
+  issues in the new files were `--fix`ed).
+- **Live-verified against the same reachable dev Postgres used for every prior sprint**
+  (`127.0.0.1:5432`/`BNW`, already migrated/seeded through the gap-fix):
+  - `npm run migration:run` applied `Appraisals1758900000000` cleanly (4 → 5 migrations applied,
+    both tables/4 enums/indexes/FKs created as written).
+  - Booted `npm run start:dev` and drove the full lifecycle with `curl` using **4 disposable test
+    accounts** (`sprint4.manager@bnw.local`, `sprint4.employee@bnw.local` reporting to that
+    manager, `sprint4.ceo@bnw.local`, and `sprint4.nomanager@bnw.local` with no manager set) —
+    created directly via a temporary, not-committed script (`Backend/tmp-sprint4-setup.ts`,
+    deleted afterward) — the real seeded demo users' passwords aren't known to this session, so
+    real accounts were left untouched:
+    - `POST /appraisal-requests` as the no-manager employee → **400** (`"You have no manager
+      set..."`).
+    - `POST /appraisal-requests` as the employee → **201**, `PENDING_MANAGER`.
+    - Immediate re-`POST /appraisal-requests` → **409**, with `nextEligibleDate` in the message.
+    - `GET /appraisal-requests/mine` → correct `meta: { canRequestNext: false, nextEligibleDate }`.
+    - `GET /appraisal-requests/team` (manager) → the pending request, default-filtered to
+      `PENDING_MANAGER`.
+    - `POST /appraisal-requests/:id/manager-decision` (manager, ACCEPTED) → `PENDING_CEO`.
+    - `GET /appraisal-requests/pending-ceo` (CEO) → the request, now visible.
+    - `POST /appraisal-requests/:id/ceo-decision` (CEO, `SEND_BACK`) → back to
+      `PENDING_MANAGER`, live `managerRemarks`/`managerMessage`/`managerDecision`/
+      `managerDecidedAt` all `null` again, `ceoDecision: 'SEND_BACK'` visible; confirmed it
+      reappeared in the manager's `team` view.
+    - `POST /appraisal-requests/:id/manager-decision` again (manager, ACCEPTED, second pass) →
+      `PENDING_CEO` again.
+    - `POST /appraisal-requests/:id/ceo-decision` (CEO, `ACCEPTED`, terminal) → `CEO_ACCEPTED`.
+    - `POST /appraisal-requests/:id/manager-decision` on the now-`CEO_ACCEPTED` request → **409**
+      (invalid transition, correctly rejected).
+    - `GET /appraisal-requests/:id` (employee, self) → full detail with all **5**
+      `appraisal_events` rows in order (`SUBMITTED`, `MANAGER_ACCEPTED`, `CEO_SENT_BACK`,
+      `MANAGER_ACCEPTED`, `CEO_ACCEPTED`) — confirmed the pre-send-back manager remarks/message
+      are still present in event #2's `message` even though the live columns were cleared.
+    - Separate second request, backdated 4 months so the 3-month lock didn't block it: manager
+      **REJECTED** it → `MANAGER_REJECTED` (terminal); confirmed `POST .../ceo-decision` on it →
+      **409** (never reached `PENDING_CEO`); confirmed an unrelated caller (the CEO account)
+      calling `manager-decision` on it → **403** (`managerId` mismatch); confirmed the no-manager
+      employee viewing this other employee's request detail → **403**.
+    - `GET /appraisal-requests` as an EMPLOYEE → **403**; temporarily promoted the no-manager
+      test account to `HR` to confirm `GET /appraisal-requests?status=CEO_ACCEPTED` and
+      `?employeeId=` filters and `page`/`limit` pagination `meta` all work correctly, then deleted
+      that account in cleanup regardless.
+    - Queried `audit_logs` directly and confirmed all 7 transitions across both requests (2×
+      `SUBMITTED`, 3× `MANAGER_ACCEPTED`/`MANAGER_REJECTED`, `CEO_SENT_BACK`, `CEO_ACCEPTED`) wrote
+      an `APPRAISAL_STATUS_CHANGE` / `entity: 'AppraisalRequest'` row via the reused
+      `AuditLogService`, with the correct `actorId` and mirrored `message` in `after`.
+  - Cleaned up afterwards: deleted the `appraisal_events`/`appraisal_requests`/`audit_logs`/
+    `refresh_tokens` rows for the 4 disposable accounts, then the accounts themselves, then the
+    temporary setup script. Confirmed `appraisal_requests`/`appraisal_events` are empty again and
+    all 6 Sprint 1 demo users (`admin@bnw.local`, `hr@bnw.local`, `manager@bnw.local`,
+    `employee@bnw.local`, `ceo@bnw.local`, `payroll@bnw.local`) are untouched.
+
+## Deviations from `API_CONTRACT_SPRINT4.md`
+
+None required by the contract's endpoint/DTO/status-machine/table shapes — the one deliberate
+deviation from the *original guide* (not this sprint's own contract) is documented above and in
+`API_CONTRACT_SPRINT4.md` itself, per the contract's explicit "flag, don't silently override"
+instruction. One implementation detail not fully pinned down by the contract, flagged here since
+it doesn't affect any request/response shape:
+
+- `GET /appraisal-requests/team`'s "HR/ADMIN as a courtesy" access (per the contract's roles
+  column) is implemented as "HR/ADMIN may call this endpoint without a 403, but the results are
+  still filtered to `managerId = caller.sub`" rather than "HR/ADMIN see every team's pending
+  requests here" — the latter is already `GET /appraisal-requests` (unfiltered, HR/ADMIN-only).
+  This reading matches the contract's literal filter description ("Requests where `managerId` ...
+  is the caller") applying regardless of role.
+
+## What's left for later sprints
+
+- Wiring a `notifications` row (gap-fix's empty plumbing) for "your appraisal was accepted/
+  rejected/sent back" / "an appraisal is waiting for your review" events — not built this sprint,
+  same as every other module's notification-wiring gap noted in the gap-fix section above.
+- Frontend UI for this flow (per `docs/FRONTEND_STATUS.md`) — this slice is backend-only.
+- Automated tests for the new module — none written yet, same gap as every prior sprint.

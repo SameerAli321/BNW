@@ -32,6 +32,12 @@ const NAV_ITEMS = [
     icon: <Iconify width={24} icon="ic:round-vpn-key" />,
     href: `${paths.dashboard.user.account}/change-password`,
   },
+  // Gap-fix — Personal details (see docs/API_CONTRACT_GAPS_FIX.md Gap 1).
+  {
+    label: 'Personal details',
+    icon: <Iconify width={24} icon="solar:file-text-bold" />,
+    href: paths.dashboard.user.accountPersonalDetails,
+  },
 ];
 
 // ----------------------------------------------------------------------

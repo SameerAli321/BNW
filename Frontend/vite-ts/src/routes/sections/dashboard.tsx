@@ -32,6 +32,11 @@ const AccountGeneralPage = lazy(() => import('src/pages/dashboard/user/account/g
 const AccountChangePasswordPage = lazy(
   () => import('src/pages/dashboard/user/account/change-password')
 );
+// Gap-fix — Personal details (see docs/API_CONTRACT_GAPS_FIX.md Gap 1)
+const AccountPersonalDetailsPage = lazy(
+  () => import('src/pages/dashboard/user/account/personal-details')
+);
+const AuditLogListPage = lazy(() => import('src/pages/dashboard/audit-log/list'));
 // Sprint 2 — E-record & Staff summary (see docs/API_CONTRACT_SPRINT2.md)
 const StaffSummaryListPage = lazy(() => import('src/pages/dashboard/staff-summary/list'));
 const EmployeeRecordPage = lazy(() => import('src/pages/dashboard/employees/record'));
@@ -42,6 +47,9 @@ const LetterDetailPage = lazy(() => import('src/pages/dashboard/letters/detail')
 const LetterTemplateListPage = lazy(() => import('src/pages/dashboard/letter-templates/list'));
 const LetterTemplateCreatePage = lazy(() => import('src/pages/dashboard/letter-templates/new'));
 const LetterTemplateEditPage = lazy(() => import('src/pages/dashboard/letter-templates/edit'));
+// Sprint 4 — Appraisals (see docs/API_CONTRACT_SPRINT4.md)
+const AppraisalListPage = lazy(() => import('src/pages/dashboard/appraisals/list'));
+const AppraisalDetailPage = lazy(() => import('src/pages/dashboard/appraisals/detail'));
 
 // ----------------------------------------------------------------------
 
@@ -85,11 +93,13 @@ export const dashboardRoutes: RouteObject[] = [
             children: [
               { index: true, element: <AccountGeneralPage /> },
               { path: 'change-password', element: <AccountChangePasswordPage /> },
+              { path: 'personal-details', element: <AccountPersonalDetailsPage /> },
             ],
           },
         ],
       },
       { path: 'staff-summary', element: <StaffSummaryListPage /> },
+      { path: 'audit-log', element: <AuditLogListPage /> },
       {
         path: 'employees',
         children: [{ path: ':id/record', element: <EmployeeRecordPage /> }],
@@ -108,6 +118,13 @@ export const dashboardRoutes: RouteObject[] = [
           { index: true, element: <LetterTemplateListPage /> },
           { path: 'new', element: <LetterTemplateCreatePage /> },
           { path: ':id/edit', element: <LetterTemplateEditPage /> },
+        ],
+      },
+      {
+        path: 'appraisals',
+        children: [
+          { index: true, element: <AppraisalListPage /> },
+          { path: ':id', element: <AppraisalDetailPage /> },
         ],
       },
     ],

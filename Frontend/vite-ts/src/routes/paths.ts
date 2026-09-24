@@ -114,11 +114,14 @@ export const paths = {
       cards: `${ROOTS.DASHBOARD}/user/cards`,
       profile: `${ROOTS.DASHBOARD}/user/profile`,
       account: `${ROOTS.DASHBOARD}/user/account`,
+      accountPersonalDetails: `${ROOTS.DASHBOARD}/user/account/personal-details`,
       edit: (id: string) => `${ROOTS.DASHBOARD}/user/${id}/edit`,
       demo: { edit: `${ROOTS.DASHBOARD}/user/${MOCK_ID}/edit` },
     },
     // Sprint 2 — E-record & Staff summary, see docs/API_CONTRACT_SPRINT2.md.
     staffSummary: `${ROOTS.DASHBOARD}/staff-summary`,
+    // Gap-fix — Audit Log, see docs/API_CONTRACT_GAPS_FIX.md Gap 2.
+    auditLog: `${ROOTS.DASHBOARD}/audit-log`,
     employees: {
       record: (id: number | string) => `${ROOTS.DASHBOARD}/employees/${id}/record`,
     },
@@ -132,6 +135,12 @@ export const paths = {
       root: `${ROOTS.DASHBOARD}/letters`,
       new: `${ROOTS.DASHBOARD}/letters/new`,
       details: (id: number | string) => `${ROOTS.DASHBOARD}/letters/${id}`,
+    },
+    // Sprint 4 — Appraisals (employee-initiated quarterly flow), see
+    // docs/API_CONTRACT_SPRINT4.md.
+    appraisals: {
+      root: `${ROOTS.DASHBOARD}/appraisals`,
+      details: (id: number | string) => `${ROOTS.DASHBOARD}/appraisals/${id}`,
     },
     product: {
       root: `${ROOTS.DASHBOARD}/product`,

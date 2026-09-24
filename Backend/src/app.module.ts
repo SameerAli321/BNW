@@ -15,6 +15,11 @@ import { LetterTemplate } from './entities/letter-template.entity';
 import { Letter } from './entities/letter.entity';
 import { LetterEvent } from './entities/letter-event.entity';
 import { Signature } from './entities/signature.entity';
+import { EmployeeProfile } from './entities/employee-profile.entity';
+import { AuditLog } from './entities/audit-log.entity';
+import { Notification } from './entities/notification.entity';
+import { AppraisalRequest } from './entities/appraisal-request.entity';
+import { AppraisalEvent } from './entities/appraisal-event.entity';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
@@ -23,6 +28,9 @@ import { HealthModule } from './health/health.module';
 import { EmployeesModule } from './employees/employees.module';
 import { StaffSummaryModule } from './staff-summary/staff-summary.module';
 import { LettersModule } from './letters/letters.module';
+import { AuditLogModule } from './audit-log/audit-log.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { AppraisalsModule } from './appraisals/appraisals.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -53,6 +61,11 @@ import { RolesGuard } from './common/guards/roles.guard';
           Letter,
           LetterEvent,
           Signature,
+          EmployeeProfile,
+          AuditLog,
+          Notification,
+          AppraisalRequest,
+          AppraisalEvent,
         ],
         synchronize: false, // migrations only — never sync() against a real schema
         autoLoadEntities: true,
@@ -66,6 +79,9 @@ import { RolesGuard } from './common/guards/roles.guard';
     EmployeesModule,
     StaffSummaryModule,
     LettersModule,
+    AuditLogModule,
+    NotificationsModule,
+    AppraisalsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

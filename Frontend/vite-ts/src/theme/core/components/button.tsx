@@ -145,6 +145,18 @@ const MuiButtonBase: Components<Theme>['MuiButtonBase'] = {
   styleOverrides: {
     root: ({ theme }) => ({
       fontFamily: theme.typography.fontFamily,
+      // BNW OMS: every ButtonBase-derived control (IconButton, ListItemButton/nav items, Tab,
+      // pagination buttons, …) gets the same subtle press feedback as MuiButton above, so the
+      // whole app feels consistently clickable rather than just the primary action buttons.
+      // Uses `opacity`, not `transform`, deliberately: some ButtonBase-derived controls (e.g.
+      // the sidebar's collapse toggle, `nav-toggle-button.tsx`) already use `transform` for their
+      // own positioning (`translate(-50%, -50%)`), and a global `&:active { transform: scale() }`
+      // here silently overwrote that mid-click, which could make the click miss its target
+      // entirely. `opacity` can't collide with anything's layout/positioning.
+      transition: theme.transitions.create('opacity', {
+        duration: theme.transitions.duration.shortest,
+      }),
+      '&:active': { opacity: 0.72 },
     }),
   },
 };
@@ -157,7 +169,15 @@ const MuiButton: Components<Theme>['MuiButton'] = {
   },
   // ▼▼▼▼▼▼▼▼ 🎨 STYLE ▼▼▼▼▼▼▼▼
   styleOverrides: {
-    root: {
+    root: ({ theme }) => ({
+      // BNW OMS: subtle lift on hover, press-down on click — tactile feedback so buttons feel
+      // clickable rather than flat/static. Kept small (1px / 3% scale) to stay in the "minimal"
+      // design language rather than reading as flashy.
+      transition: theme.transitions.create(['transform', 'box-shadow'], {
+        duration: theme.transitions.duration.shortest,
+      }),
+      '&:hover': { transform: 'translateY(-1px)' },
+      '&:active': { transform: 'translateY(0) scale(0.97)' },
       variants: [
         ...containedVariants,
         ...outlinedVariants,
@@ -166,7 +186,7 @@ const MuiButton: Components<Theme>['MuiButton'] = {
         ...sizeVariants,
         ...disabledVariants,
       ],
-    },
+    }),
   },
 };
 

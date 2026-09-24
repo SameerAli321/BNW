@@ -5,6 +5,7 @@ import { DocumentType } from '../entities/document-type.entity';
 import { EmployeeDocument } from '../entities/employee-document.entity';
 import { DocumentRequest } from '../entities/document-request.entity';
 import { UsersModule } from '../users/users.module';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 import { EmployeesController } from './employees.controller';
 import { DocumentsController } from './documents.controller';
 import { DocumentTypesController } from './document-types.controller';
@@ -14,6 +15,7 @@ import { EmployeesService } from './employees.service';
   imports: [
     TypeOrmModule.forFeature([User, DocumentType, EmployeeDocument, DocumentRequest]),
     UsersModule,
+    AuditLogModule,
   ],
   controllers: [EmployeesController, DocumentsController, DocumentTypesController],
   providers: [EmployeesService],

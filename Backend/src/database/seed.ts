@@ -66,6 +66,69 @@ const LETTER_TEMPLATES: Array<{
       { key: 'endDate', label: 'End date', autoFilled: false },
     ],
   },
+  // Gap-fix (docs/API_CONTRACT_GAPS_FIX.md, Gap 4) — 4 more placeholder templates so all 6 guide
+  // letter types share the one generic engine. Same idempotent-by-`type` pattern, same "clearly
+  // marked placeholder" body text convention as OFFER/EXPERIENCE above.
+  {
+    type: LetterTemplateType.CONTRACT,
+    name: 'Employment Contract (placeholder)',
+    roleScope: null,
+    bodyHtml:
+      '<p><em>[PLACEHOLDER TEMPLATE — replace with real employment contract content]</em></p>' +
+      '<p>Dear {{employee.fullName}},</p>' +
+      '<p>This confirms your employment as {{employee.designation}} at a monthly salary of ' +
+      '{{salary}}, effective from {{startDate}}.</p>',
+    fieldsSchema: [
+      { key: 'employee.fullName', label: 'Employee name', autoFilled: true },
+      { key: 'employee.designation', label: 'Designation', autoFilled: true },
+      { key: 'salary', label: 'Monthly salary', autoFilled: false },
+      { key: 'startDate', label: 'Start date', autoFilled: false },
+    ],
+  },
+  {
+    type: LetterTemplateType.REDUNDANCY,
+    name: 'Redundancy Letter (placeholder)',
+    roleScope: null,
+    bodyHtml:
+      '<p><em>[PLACEHOLDER TEMPLATE — replace with real redundancy letter content]</em></p>' +
+      '<p>Dear {{employee.fullName}},</p>' +
+      '<p>Your last working day will be {{lastWorkingDay}}. Reason: {{reason}}.</p>',
+    fieldsSchema: [
+      { key: 'employee.fullName', label: 'Employee name', autoFilled: true },
+      { key: 'lastWorkingDay', label: 'Last working day', autoFilled: false },
+      { key: 'reason', label: 'Reason', autoFilled: false },
+    ],
+  },
+  {
+    type: LetterTemplateType.TERMS_CHANGE,
+    name: 'Change of Contract Terms (placeholder)',
+    roleScope: null,
+    bodyHtml:
+      '<p><em>[PLACEHOLDER TEMPLATE — replace with real change-of-terms content]</em></p>' +
+      '<p>Dear {{employee.fullName}},</p>' +
+      '<p>Effective {{effectiveDate}}, the following change(s) apply to your contract: ' +
+      '{{changeSummary}}.</p>',
+    fieldsSchema: [
+      { key: 'employee.fullName', label: 'Employee name', autoFilled: true },
+      { key: 'effectiveDate', label: 'Effective date', autoFilled: false },
+      { key: 'changeSummary', label: 'Change summary', autoFilled: false },
+    ],
+  },
+  {
+    type: LetterTemplateType.WARNING,
+    name: 'Warning Letter (placeholder)',
+    roleScope: null,
+    bodyHtml:
+      '<p><em>[PLACEHOLDER TEMPLATE — replace with real warning letter content]</em></p>' +
+      '<p>Dear {{employee.fullName}},</p>' +
+      '<p>This letter serves as a formal warning regarding: {{warningReason}}. Issued on ' +
+      '{{issuedDate}}.</p>',
+    fieldsSchema: [
+      { key: 'employee.fullName', label: 'Employee name', autoFilled: true },
+      { key: 'warningReason', label: 'Warning reason', autoFilled: false },
+      { key: 'issuedDate', label: 'Issued date', autoFilled: false },
+    ],
+  },
 ];
 
 // Seed users: email prefix matches role name, per API_CONTRACT_SPRINT1.md "Seed data".

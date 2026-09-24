@@ -1,90 +1,77 @@
+import { varAlpha } from 'minimal-shared/utils';
+
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
-import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import CardContent from '@mui/material/CardContent';
 
-import { paths } from 'src/routes/paths';
-import { RouterLink } from 'src/routes/components';
-
-import { CONFIG } from 'src/global-config';
 import { DashboardContent } from 'src/layouts/dashboard';
 
-import { Logo } from 'src/components/logo';
+import { Label } from 'src/components/label';
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { CeoOverviewView } from './ceo-overview-view';
+import { AdminOverviewView } from './admin-overview-view';
+import { EmployeeOverviewView } from './employee-overview-view';
+
 // ----------------------------------------------------------------------
 
-type QuickLink = {
-  label: string;
-  href: string;
-  roles: string[];
-};
-
-const QUICK_LINKS: QuickLink[] = [
-  { label: 'Users', href: paths.dashboard.user.list, roles: ['HR', 'ADMIN'] },
-  { label: 'Staff Summary', href: paths.dashboard.staffSummary, roles: ['HR', 'CEO', 'ADMIN'] },
-  { label: 'Letters', href: paths.dashboard.letters.root, roles: ['HR', 'CEO', 'ADMIN', 'MANAGER', 'EMPLOYEE', 'PAYROLL'] },
-];
-
-// BNW OMS: replaces the minimal-kit's demo "Overview app" dashboard (charts/widgets built on
-// fake e-commerce/download data that has nothing to do with this project). This is a plain
-// placeholder home screen — real widgets (pending approvals, appraisal reminders, etc.) get added
-// module by module per the project guide's roadmap, once those modules exist.
+// BNW OMS: dashboard home page — same single app/login for everyone (see docs/PROJECT_STATUS.md),
+// but the content below the shared welcome banner is chosen per role, per explicit user request:
+// a User-facing view (own letters to sign, own E-record), an Admin view (user/template counts),
+// and a CEO view (letters awaiting their sign-off, company-wide staff count). HR, MANAGER and
+// PAYROLL fall back to the Employee-style "my stuff" view for now — they weren't part of the
+// specific 3-dashboard request, and "my own letters/E-record" is a reasonable default for any
+// role that isn't Admin or CEO. Revisit if HR/Manager get their own tailored view later.
+//
+// No logo/company-name repeated here — the sidebar already carries a big, prominent one (see
+// layout.tsx); showing it again on every dashboard page just duplicated it (the wordmark image
+// already renders "BNW CHARTERED ACCOUNTANTS" as part of the artwork, so a second Typography
+// label next to it was showing the company name twice — same mistake fixed in the sidebar).
 export function BnwOverviewView() {
   const { user } = useAuthContext();
 
-  const links = QUICK_LINKS.filter((link) => user?.role && link.roles.includes(user.role));
+  const renderRoleContent = () => {
+    if (!user) return null;
+    switch (user.role) {
+      case 'ADMIN':
+        return <AdminOverviewView />;
+      case 'CEO':
+        return <CeoOverviewView />;
+      default:
+        return <EmployeeOverviewView userId={user.id} />;
+    }
+  };
 
   return (
     <DashboardContent maxWidth="lg">
-      <Box>
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          alignItems={{ xs: 'flex-start', sm: 'center' }}
-          spacing={2}
-          sx={{ mb: 4 }}
-        >
-          <Logo isSingle={false} sx={{ width: 140, height: 44 }} />
-          <Typography variant="h5" sx={{ color: 'text.secondary' }}>
-            {CONFIG.appName}
+      <Box
+        sx={(theme) => ({
+          p: { xs: 3, md: 4 },
+          mb: 4,
+          borderRadius: 2,
+          position: 'relative',
+          overflow: 'hidden',
+          bgcolor: 'primary.lighter',
+          backgroundImage: `linear-gradient(135deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.16)}, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.04)})`,
+        })}
+      >
+        <Stack spacing={1}>
+          {user?.role && (
+            <Label color="primary" variant="soft" sx={{ alignSelf: 'flex-start' }}>
+              {user.role}
+            </Label>
+          )}
+          <Typography variant="h4">
+            Welcome back, {user?.firstName ?? user?.displayName ?? 'there'} 👋
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            Here&apos;s what&apos;s happening across BNW Chartered Accountants today.
           </Typography>
         </Stack>
-
-        <Typography variant="h4" sx={{ mb: 3 }}>
-          Welcome back, {user?.firstName ?? user?.displayName ?? 'there'} 👋
-        </Typography>
-
-        <Card>
-          <CardContent>
-            <Typography variant="subtitle1" sx={{ mb: 1 }}>
-              BNW OMS
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-              Auth, User Management, E-record, Staff Summary and the Letter Engine are live. Later
-              sprints (Appraisals, Leave, Work Orders, Attendance) will add their own dashboard
-              widgets here.
-            </Typography>
-
-            {links.length > 0 && (
-              <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
-                {links.map((link) => (
-                  <Button
-                    key={link.href}
-                    component={RouterLink}
-                    href={link.href}
-                    variant="contained"
-                  >
-                    Go to {link.label}
-                  </Button>
-                ))}
-              </Stack>
-            )}
-          </CardContent>
-        </Card>
       </Box>
+
+      {renderRoleContent()}
     </DashboardContent>
   );
 }

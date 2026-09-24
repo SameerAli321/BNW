@@ -105,6 +105,32 @@ export function LetterDetailView() {
   const canEmployeeSign = isSelfSubject && letter.status === 'SENT_TO_EMPLOYEE';
   const canDownload = letter.hasPdf;
 
+  const hasAnyAction =
+    canEditFields || canPreview || canDownload || canCeoAct || canSendToEmployee || canEmployeeSign;
+
+  // When nobody's role/the letter's current status gives the viewer anything to do (e.g. the CEO
+  // looking at a letter they already signed, waiting on HR to send it on), say so explicitly
+  // instead of just rendering an empty row of buttons — which reads as "the app is broken" rather
+  // than "there's nothing for you to do right now".
+  const waitingMessage = (() => {
+    if (hasAnyAction) return null;
+    switch (letter.status) {
+      case 'DRAFT':
+      case 'CHANGES_REQUESTED':
+        return 'Being prepared by HR/Admin.';
+      case 'PENDING_CEO':
+        return 'Waiting for the CEO to review and sign.';
+      case 'CEO_SIGNED':
+        return 'Signed by the CEO — waiting for HR/Admin to send it to the employee.';
+      case 'SENT_TO_EMPLOYEE':
+        return isSelfSubject ? null : `Waiting for ${letter.subjectName} to sign.`;
+      case 'SIGNED':
+        return 'Fully signed by both the CEO and the employee.';
+      default:
+        return null;
+    }
+  })();
+
   const values = editValues ?? letter.fieldValues;
 
   const handleFieldChange = (key: string, value: string) => {
@@ -275,6 +301,12 @@ export function LetterDetailView() {
                   <Button variant="contained" onClick={signDialog.onTrue}>
                     Sign now
                   </Button>
+                )}
+
+                {waitingMessage && (
+                  <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                    {waitingMessage}
+                  </Typography>
                 )}
               </Stack>
             </Card>

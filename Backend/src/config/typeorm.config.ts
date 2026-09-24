@@ -13,6 +13,11 @@ import { LetterTemplate } from '../entities/letter-template.entity';
 import { Letter } from '../entities/letter.entity';
 import { LetterEvent } from '../entities/letter-event.entity';
 import { Signature } from '../entities/signature.entity';
+import { EmployeeProfile } from '../entities/employee-profile.entity';
+import { AuditLog } from '../entities/audit-log.entity';
+import { Notification } from '../entities/notification.entity';
+import { AppraisalRequest } from '../entities/appraisal-request.entity';
+import { AppraisalEvent } from '../entities/appraisal-event.entity';
 
 loadEnv();
 
@@ -41,6 +46,11 @@ export const typeOrmDataSourceOptions: DataSourceOptions = {
     Letter,
     LetterEvent,
     Signature,
+    EmployeeProfile,
+    AuditLog,
+    Notification,
+    AppraisalRequest,
+    AppraisalEvent,
   ],
   migrations: [__dirname + '/../migrations/*.{ts,js}'],
   synchronize: false,

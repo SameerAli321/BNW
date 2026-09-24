@@ -1,22 +1,22 @@
 import { z as zod } from 'zod';
 import { useState } from 'react';
+import { m } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { useBoolean } from 'minimal-shared/hooks';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import Box from '@mui/material/Box';
-import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 
-import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
-import { RouterLink } from 'src/routes/components';
 
+import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 import { Form, Field } from 'src/components/hook-form';
+import { varFade, MotionContainer } from 'src/components/animate';
 
 import { useAuthContext } from '../../hooks';
 import { getErrorMessage } from '../../utils';
@@ -77,87 +77,95 @@ export function JwtSignInView() {
     }
   });
 
+  // BNW OMS has no self-service password reset yet (needs real SMTP — see docs/PROJECT_GUIDE.md
+  // §5), so this doesn't route to a dead `#`/unbuilt page — it tells the person what to actually
+  // do right now instead.
+  const handleForgotPassword = () => {
+    toast.info('Ask an HR/Admin to reset your password for now — self-service reset is coming.');
+  };
+
   const renderForm = () => (
     <Box sx={{ gap: 3, display: 'flex', flexDirection: 'column' }}>
-      <Field.Text name="email" label="Email address" slotProps={{ inputLabel: { shrink: true } }} />
+      <m.div variants={varFade('inUp')}>
+        <Field.Text
+          name="email"
+          label="Email address"
+          slotProps={{ inputLabel: { shrink: true } }}
+        />
+      </m.div>
 
       <Box sx={{ gap: 1.5, display: 'flex', flexDirection: 'column' }}>
-        <Link
-          component={RouterLink}
-          href="#"
-          variant="body2"
-          color="inherit"
-          sx={{ alignSelf: 'flex-end' }}
-        >
-          Forgot password?
-        </Link>
+        <m.div variants={varFade('inUp')}>
+          <Button
+            variant="text"
+            size="small"
+            onClick={handleForgotPassword}
+            sx={{ display: 'block', ml: 'auto' }}
+          >
+            Forgot password?
+          </Button>
+        </m.div>
 
-        <Field.Text
-          name="password"
-          label="Password"
-          placeholder="6+ characters"
-          type={showPassword.value ? 'text' : 'password'}
-          slotProps={{
-            inputLabel: { shrink: true },
-            input: {
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton onClick={showPassword.onToggle} edge="end">
-                    <Iconify
-                      icon={showPassword.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'}
-                    />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
+        <m.div variants={varFade('inUp')}>
+          <Field.Text
+            name="password"
+            label="Password"
+            placeholder="6+ characters"
+            type={showPassword.value ? 'text' : 'password'}
+            slotProps={{
+              inputLabel: { shrink: true },
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={showPassword.onToggle} edge="end">
+                      <Iconify
+                        icon={showPassword.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'}
+                      />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+        </m.div>
       </Box>
 
-      <Button
-        fullWidth
-        color="inherit"
-        size="large"
-        type="submit"
-        variant="contained"
-        loading={isSubmitting}
-        loadingIndicator="Sign in..."
-      >
-        Sign in
-      </Button>
+      <m.div variants={varFade('inUp')}>
+        <Button
+          fullWidth
+          color="inherit"
+          size="large"
+          type="submit"
+          variant="contained"
+          loading={isSubmitting}
+          loadingIndicator="Sign in..."
+        >
+          Sign in
+        </Button>
+      </m.div>
     </Box>
   );
 
   return (
-    <>
-      <FormHead
-        title="Sign in to your account"
-        description={
-          <>
-            {`Don’t have an account? `}
-            <Link component={RouterLink} href={paths.auth.jwt.signUp} variant="subtitle2">
-              Get started
-            </Link>
-          </>
-        }
-        sx={{ textAlign: { xs: 'center', md: 'left' } }}
-      />
-
-      <Alert severity="info" sx={{ mb: 3 }}>
-        Use <strong>{defaultValues.email}</strong>
-        {' with password '}
-        <strong>{defaultValues.password}</strong>
-      </Alert>
+    <MotionContainer>
+      <m.div variants={varFade('inUp')}>
+        <FormHead
+          title="Sign in to your account"
+          sx={{ textAlign: { xs: 'center', md: 'left' } }}
+        />
+      </m.div>
 
       {!!errorMessage && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {errorMessage}
-        </Alert>
+        <m.div variants={varFade('inUp')}>
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {errorMessage}
+          </Alert>
+        </m.div>
       )}
 
       <Form methods={methods} onSubmit={onSubmit}>
         {renderForm()}
       </Form>
-    </>
+    </MotionContainer>
   );
 }
