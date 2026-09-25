@@ -235,6 +235,22 @@ export function UserNewEditForm({ currentUser }: Props) {
               />
             </Box>
 
+            {currentUser && (
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Change password
+                </Typography>
+                <Field.Text
+                  name="password"
+                  label="New password"
+                  placeholder="Leave blank to keep the current password"
+                  type="text"
+                  helperText="Sets this exact password for the user and requires them to change it on next login. Minimum 8 characters."
+                  sx={{ maxWidth: { sm: 400 } }}
+                />
+              </Box>
+            )}
+
             <Stack sx={{ mt: 3, alignItems: 'flex-end' }}>
               <Button type="submit" variant="contained" loading={isSubmitting}>
                 {!currentUser ? 'Create user' : 'Save changes'}

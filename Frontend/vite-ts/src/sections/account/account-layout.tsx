@@ -4,6 +4,7 @@ import { removeLastSlash } from 'minimal-shared/utils';
 
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
+import Button from '@mui/material/Button';
 
 import { paths } from 'src/routes/paths';
 import { usePathname } from 'src/routes/hooks';
@@ -13,6 +14,8 @@ import { DashboardContent } from 'src/layouts/dashboard';
 
 import { Iconify } from 'src/components/iconify';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 
@@ -41,6 +44,13 @@ const NAV_ITEMS = [
 
 export function AccountLayout({ children, ...other }: DashboardContentProps) {
   const pathname = usePathname();
+  const { user } = useAuthContext();
+
+  // Sprint 2: "My E-record" — reachable from a user's own account area (see
+  // docs/API_CONTRACT_SPRINT2.md, U5). Not a tab under this layout's <Tabs> (it's a separate
+  // route, not one of AccountLayout's own pages), so it's a plain link alongside the tabs rather
+  // than a NAV_ITEMS entry.
+  const myRecordHref = user?.id ? paths.dashboard.employees.record(user.id) : undefined;
 
   return (
     <DashboardContent {...other}>
@@ -51,6 +61,18 @@ export function AccountLayout({ children, ...other }: DashboardContentProps) {
           { name: 'User', href: paths.dashboard.user.root },
           { name: 'Account' },
         ]}
+        action={
+          myRecordHref && (
+            <Button
+              component={RouterLink}
+              href={myRecordHref}
+              variant="outlined"
+              startIcon={<Iconify icon="solar:add-folder-bold" />}
+            >
+              My E-record
+            </Button>
+          )
+        }
         sx={{ mb: 3 }}
       />
 
