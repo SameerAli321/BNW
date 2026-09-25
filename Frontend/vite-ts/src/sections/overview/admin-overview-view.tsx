@@ -14,23 +14,14 @@ import { RouterLink } from 'src/routes/components';
 import { useGetUsers } from 'src/actions/users';
 import { useGetLetterTemplates } from 'src/actions/letters';
 
-import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
 
+import { DashboardBarChart } from './dashboard-bar-chart';
 import { DashboardStatCard } from './dashboard-stat-card';
 
 // ----------------------------------------------------------------------
 
 const ROLE_ORDER = ['EMPLOYEE', 'MANAGER', 'HR', 'CEO', 'PAYROLL', 'ADMIN'] as const;
-
-const ROLE_COLOR: Record<(typeof ROLE_ORDER)[number], 'default' | 'info' | 'success' | 'warning'> = {
-  EMPLOYEE: 'default',
-  MANAGER: 'info',
-  HR: 'success',
-  CEO: 'warning',
-  PAYROLL: 'info',
-  ADMIN: 'success',
-};
 
 // BNW OMS: Admin dashboard home. Counts are computed client-side from the existing `GET /users`
 // list (same "fetch up to 200, no dedicated stats endpoint" approach the Sprint 1 Users list
@@ -46,6 +37,11 @@ export function AdminOverviewView() {
     users.forEach((user) => counts.set(user.role, (counts.get(user.role) ?? 0) + 1));
     return counts;
   }, [users]);
+
+  const roleChartData = useMemo(
+    () => ROLE_ORDER.map((role) => ({ label: role, value: roleCounts.get(role) ?? 0 })),
+    [roleCounts]
+  );
 
   const activeCount = users.filter((user) => user.status === 'ACTIVE').length;
   const onboardingCount = users.filter((user) => user.status === 'ONBOARDING').length;
@@ -88,25 +84,15 @@ export function AdminOverviewView() {
         </Grid>
       </Grid>
 
-      <Card>
-        <CardHeader
-          title="Users by role"
-          action={
-            <Button component={RouterLink} href={paths.dashboard.user.list} size="small">
-              Manage users
-            </Button>
-          }
-        />
-        <CardContent sx={{ pt: 0 }}>
-          <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
-            {ROLE_ORDER.map((role) => (
-              <Label key={role} color={ROLE_COLOR[role]} sx={{ px: 2, py: 2, fontSize: 13 }}>
-                {roleCounts.get(role) ?? 0} {role}
-              </Label>
-            ))}
-          </Stack>
-        </CardContent>
-      </Card>
+      <DashboardBarChart
+        title="Users by role"
+        data={roleChartData}
+        action={
+          <Button component={RouterLink} href={paths.dashboard.user.list} size="small">
+            Manage users
+          </Button>
+        }
+      />
 
       <Card>
         <CardHeader

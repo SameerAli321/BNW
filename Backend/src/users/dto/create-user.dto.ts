@@ -43,4 +43,9 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   employeeCode?: string;
+
+  // Required: HR/ADMIN set the new user's exact password at creation time.
+  @IsString()
+  @MinLength(8)
+  password: string;
 }

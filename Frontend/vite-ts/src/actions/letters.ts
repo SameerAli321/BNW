@@ -249,9 +249,15 @@ export async function ceoSignLetter(id: number | string, signatureText: string):
   await revalidateAfterAction(id);
 }
 
-/** POST /letters/:id/send-to-employee — HR/ADMIN only. CEO_SIGNED -> SENT_TO_EMPLOYEE. */
-export async function sendLetterToEmployee(id: number | string): Promise<void> {
-  await axiosInstance.post(endpoints.letters.sendToEmployee(id));
+/**
+ * POST /letters/:id/send-to-employee — HR/ADMIN only. CEO_SIGNED -> SENT_TO_EMPLOYEE. `message` is
+ * an optional note shown to the employee on the letter's timeline.
+ */
+export async function sendLetterToEmployee(
+  id: number | string,
+  message?: string
+): Promise<void> {
+  await axiosInstance.post(endpoints.letters.sendToEmployee(id), { message });
   await revalidateAfterAction(id);
 }
 

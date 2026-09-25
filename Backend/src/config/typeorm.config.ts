@@ -18,6 +18,9 @@ import { AuditLog } from '../entities/audit-log.entity';
 import { Notification } from '../entities/notification.entity';
 import { AppraisalRequest } from '../entities/appraisal-request.entity';
 import { AppraisalEvent } from '../entities/appraisal-event.entity';
+import { Candidate } from '../entities/candidate.entity';
+import { JoiningPackItem } from '../entities/joining-pack-item.entity';
+import { JoiningPackAck } from '../entities/joining-pack-ack.entity';
 
 loadEnv();
 
@@ -51,6 +54,9 @@ export const typeOrmDataSourceOptions: DataSourceOptions = {
     Notification,
     AppraisalRequest,
     AppraisalEvent,
+    Candidate,
+    JoiningPackItem,
+    JoiningPackAck,
   ],
   migrations: [__dirname + '/../migrations/*.{ts,js}'],
   synchronize: false,

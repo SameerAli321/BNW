@@ -116,6 +116,52 @@ ownership check for `GET /appraisal-requests/:id` is a new case (not quite like 
 `assertCanView*`) — write a dedicated `AppraisalsService.assertCanView`, modeled on the existing
 ones but for this table's specific role set.
 
+## Addendum (post-launch fix, per user feedback)
+
+Two changes made after the user actually used the feature live:
+
+1. **A MANAGER's own appraisal skips the manager-review stage entirely and goes straight to the
+   CEO.** The original flow above assumed every submitter has a manager to review them first — but
+   a MANAGER frequently has no `managerId` of their own (confirmed in this app's own seed data:
+   `manager@bnw.local` reports to no one), and even when they do, having their own manager rubber-
+   stamp it before the CEO does the real review is redundant. Rule: if the submitting user's
+   `role === MANAGER`, `POST /appraisal-requests` creates the row with `status = PENDING_CEO`
+   directly (skipping `PENDING_MANAGER`), and `managerId` is no longer required to be set for that
+   role (still snapshotted if they do have one, for `CEO_SENT_BACK` routing). Every other role is
+   unchanged — still needs a `managerId` and still starts at `PENDING_MANAGER`. The CEO is still
+   never a submitter (no appraisal for the owner).
+   - `ceo-decision`'s `SEND_BACK` option is rejected with 400 if `managerId` is `null` on the
+     request (nowhere to send it back to) — CEO must accept or reject instead in that case.
+2. **`GET /appraisal-requests/team` now returns full history by default, not just
+   `PENDING_MANAGER`.** The original spec's "`status = PENDING_MANAGER` by default" meant a
+   manager's own frontend "My Team's Appraisals" tab silently hid every past decision unless a
+   specific status was picked one at a time — there was no way to see "all of it". Fixed: no
+   `?status=` filter now means all statuses (real history); pass `?status=PENDING_MANAGER` to get
+   the old action-items-only view.
+
+## Addendum 2: appraisal-result letters, sent by HR through the Letter Engine
+
+Once an appraisal reaches a final CEO decision, HR sends the employee a letter — reusing the
+existing Letter Engine (`docs/API_CONTRACT_SPRINT3.md`) rather than building a separate notification
+path. Two new letter types:
+
+- `APPRECIATION` — for `CEO_ACCEPTED`. Body is the **real, owner-provided content** ("Appraisal
+  Letter.pdf"), not a placeholder — the one field HR fills manually is `context` (the "[specific
+  project, period, or situation]" blank in the original).
+- `APPRAISAL_REJECTION` — for `CEO_REJECTED`. No owner-provided wording exists for this one; the
+  seeded template is a drafted variant clearly marked `[DRAFT TEMPLATE]` and named "(draft — please
+  review wording)" so nobody mistakes it for final copy. HR fills a `feedback` field manually.
+
+Both go through the exact same flow as every other letter type: HR drafts it → CEO e-signs →
+HR sends to employee → employee e-signs → auto-filed to their E-record. This is a second,
+independent signature step even though the CEO already made the appraisal decision — kept
+consistent with how every other letter type works rather than special-casing this one.
+
+Frontend: on the Appraisal detail page, once `status` is `CEO_ACCEPTED` or `CEO_REJECTED`, HR/ADMIN
+see a "Send appreciation letter" / "Send outcome letter" button that jumps to New Letter with the
+employee and the right template pre-selected (`?subjectUserId=&letterType=`) — still just the
+normal New Letter form underneath, nothing bypassed.
+
 ## Definition of done
 
 1. An employee (with a manager set) can submit a self-evaluation. Trying again within 3 months is

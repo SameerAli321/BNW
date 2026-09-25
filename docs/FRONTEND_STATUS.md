@@ -1053,3 +1053,102 @@ documents). Frontend-side notes for the backend agent:
      outcome with the CEO's message.
   6. Confirm nothing from Sprint 1/2/3/gap-fix regressed: Users CRUD, Staff Summary, E-record,
      Letters, Audit Log, and Personal details all still work.
+
+## 2026-09-25 — Sprint 5 (Hiring: candidates, bulk CV upload, convert-to-employee, joining pack)
+
+Frontend half of `docs/API_CONTRACT_SPRINT5.md`, built while the backend agent built the matching
+API in parallel against the same doc. Unlike prior sprints, the backend was already live and
+matching by the time this work was verified — see "Verification performed" below, no gaps found.
+
+### What was built
+
+- **Types** (`src/types/candidate.ts`, new): `CandidateDto`, `CandidateStatus` +
+  `CANDIDATE_STATUS_OPTIONS`, `UpdateCandidateDto`, `ConvertCandidateDto`,
+  `ConvertCandidateResponse`, `ICandidateListMeta`, `ICandidateTableFilters`, and the joining-pack
+  side: `JoiningPackItemDto`, `JoiningPackItemKind` + `JOINING_PACK_ITEM_KIND_OPTIONS`,
+  `CreateJoiningPackItemDto`, `UpdateJoiningPackItemDto` — all mirroring the contract's DTOs
+  exactly, same file-per-module pattern as `types/appraisal.ts`.
+- **Endpoints** (`src/lib/axios.ts`): added `endpoints.candidates.{list, bulkUpload, details(id),
+  cv(id), convert(id)}` and `endpoints.joiningPackItems.{list, details(id), acknowledge(id)}`.
+- **Data layer**: `src/actions/candidates.ts` (`useGetCandidates` filtered/paginated list,
+  `useGetCandidate`, `bulkUploadCandidateCvs` — multipart `FormData` with repeated `files` fields,
+  same pattern as `uploadEmployeeDocument` in `actions/employee-records.ts`, `updateCandidate`,
+  `downloadCandidateCv` — blob download via the shared `downloadBlob` util, same pattern as
+  `downloadDocument`, `convertCandidate`) and `src/actions/joining-pack.ts`
+  (`useGetJoiningPackItems`, `createJoiningPackItem`, `updateJoiningPackItem`,
+  `acknowledgeJoiningPackItem`). Same SWR + revalidate-on-mutate template every prior sprint uses.
+- **Candidates UI** (`src/sections/candidate/`): `view/candidate-list-view.tsx` — status-tab +
+  search table (same `useTable`/`TableHeadCustom`/pagination plumbing as the Users list),
+  `candidate-table-row.tsx` (row menu: Download CV / Edit / Convert to employee, the latter two
+  hidden once a candidate is `HIRED`), `candidate-bulk-upload-dialog.tsx` (multi-file `Field.Upload`,
+  PDF-only, reuses `schemaHelper.files`), `candidate-edit-dialog.tsx` (name/email/phone/status —
+  status options exclude `HIRED`, since that transition only happens via convert),
+  `candidate-convert-dialog.tsx` (role, **mandatory min-8 password** — identical requirement to
+  `UserNewEditForm`'s create mode per the contract's explicit callout, manager, department,
+  designation, join date, employee code, plus optional firstName/lastName/email overrides with the
+  candidate's own values shown as placeholders).
+- **Joining pack UI** (`src/sections/joining-pack/view/joining-pack-view.tsx`): a single screen at
+  `paths.dashboard.joiningPack`, reachable by every role — lists items as cards with an "I have
+  read this" checkbox (disabled once acknowledged, shows the acknowledged timestamp). HR/ADMIN see
+  an additional "New item" button and a per-item edit action (title/kind/description/isActive) —
+  same `GET /joining-pack-items` call for everyone, since the contract already computes
+  `acknowledged`/`acknowledgedAt` per caller server-side; no separate manage-only route was built
+  (see Deviations below).
+- **Routing/paths**: `paths.dashboard.candidates.{root, list}`, `paths.dashboard.joiningPack`;
+  routes `dashboard/candidates` → `CandidateListPage`, `dashboard/joining-pack` → `JoiningPackPage`,
+  both lazy-loaded same as every other module.
+- **Nav** (`src/layouts/nav-config-dashboard.tsx`): "Hiring" (→ candidates list, `allowedRoles:
+  ['HR', 'ADMIN']`) and "Joining Pack" (no `allowedRoles` — every role) added under "Management",
+  positioned after "Audit Log". "Joining Pack" reuses the template's existing `ic-external.svg`
+  navbar icon (already shipped, unused elsewhere) — no new SVG asset added.
+
+### Deviations from `docs/API_CONTRACT_SPRINT5.md` (and why)
+
+No changes to the contract's endpoints or DTOs. Frontend-side judgment calls, per the contract's
+own "use your judgment" note on the joining-pack UI split:
+
+- **One joining-pack screen, not two.** The contract's frontend section suggested either "a
+  separate 'Joining Pack' entry for everyone" or folding manage controls into the Hiring section
+  for HR/ADMIN. Built as a single screen at `/dashboard/joining-pack`: every role acknowledges
+  there, and HR/ADMIN additionally see inline add/edit controls on the very same list — rather
+  than a second, HR/ADMIN-only CRUD route under "Hiring" showing the same rows a second time. No
+  separate `paths.dashboard.joiningPackItems` route exists as a result. Flag if a dedicated
+  manage-only screen (e.g. for a denser admin table view) is wanted later.
+- **No separate candidate detail page.** The contract's frontend section describes a list +
+  bulk-upload + convert-dialog flow, not an explicit detail route. Rather than add
+  `paths.dashboard.candidates.details(id)`, "view" is covered by the row menu's Download CV action
+  plus the edit dialog showing all editable fields — kept in scope with what the contract's DoD
+  checklist actually exercises. Flag if HR wants a dedicated page (e.g. to show `createdAt`/
+  `uploadedByName` more prominently, or once a CV preview is wanted instead of a raw download).
+- **`GET /candidates`'s `page` param is sent 1-based**, same assumption/caveat as every prior
+  sprint's server-paginated list (confirmed correct this time — see verification below).
+
+### Verification performed
+
+- `npx tsc --noEmit` — clean, zero errors.
+- `npx eslint <all new/changed files> --fix` — clean after one auto-fix pass (import-order/grouping
+  only, same class of issue every prior sprint's first pass hits — no logic changes); re-run clean.
+- Compile-through-Vite check: `curl`'d every new page/view/dialog module through
+  `http://localhost:8080` — all transformed without an error overlay.
+- **Live backend round-trip** (`http://localhost:5000/api/v1`, already running and matching the
+  contract by the time this was tested — no gaps found this sprint). Created a disposable HR test
+  user directly in Postgres (bcrypt-hashed password, `sprint5.tester@disposable.local`), logged in
+  via `POST /auth/login`, then exercised every Sprint 5 endpoint directly with `curl` and diffed
+  the raw JSON against this sprint's TS types field-by-field:
+  - `GET /candidates` (empty list, correct envelope) and `GET /candidates?status=&q=` (filtered).
+  - `POST /candidates/bulk-upload` with a real (minimal) PDF — returned a `CandidateDto[]` matching
+    the type exactly, including the filename-derived `name`/placeholder `email` default.
+  - `PATCH /candidates/:id` (name/email/status) — response matches `CandidateDto`.
+  - `GET /candidates/:id/cv` — `Content-Type: application/pdf`, streamed correctly.
+  - `POST /candidates/:id/convert` (`{ role: 'EMPLOYEE', password }`) — returned
+    `{ candidate, user }`, candidate flipped to `HIRED` with `convertedUserId` set; confirmed the
+    new user can actually log in with the password just set. Confirmed the two 409s: re-converting
+    an already-`HIRED` candidate, and `PATCH`-ing `status` on a `HIRED` candidate.
+  - `GET /joining-pack-items` — returned the 3 seeded items with `acknowledged: false`.
+  - `POST /joining-pack-items/:id/acknowledge` — set `acknowledged: true` +`acknowledgedAt`;
+    re-acknowledging returned the identical `acknowledgedAt` unchanged (idempotent, as specified).
+  - All disposable rows (2 test users, 1 candidate, 1 acknowledge row) deleted directly from
+    Postgres afterwards; no throwaway scripts left on disk.
+- Not yet clicked through in an actual browser (no browser available in this environment) — the
+  curl-based backend verification plus the Vite compile check are this sprint's equivalent, same
+  approach as every prior sprint's initial pass.

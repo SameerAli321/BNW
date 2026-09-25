@@ -84,8 +84,8 @@ Full architecture reasoning and every deliberate deviation from the original gui
 | **My Profile** | ✅ Built, confirmed working | Every logged-in person sees their own real identity info (name, role, department, manager, etc.) on the Account page, plus an editable "Personal details" tab (phone, address, DOB, emergency contact, national ID, bank details). |
 | **Audit Log** | ✅ Built | CEO/Admin-only page logging who did what and when — logins, letter status changes, signatures, document downloads. |
 | **Appraisals** | ✅ Built, backend live-tested | Employee requests one every 3 months → manager reviews (remarks + message + accept/reject) → on accept, CEO reviews (remarks + message + accept/reject/send back to manager) → result visible to HR, the manager, and the employee. Built to your exact spec — this is **not** the original guide's more complex "HR schedules a quarterly cycle for everyone" version, it's the simpler employee-initiated flow you described. |
-| Hiring extras (CV upload, candidates, joining pack) | ❌ Not built yet | Next per the original roadmap order. |
-| Leave, Feedback boxes, Announcements | ❌ Not built yet | |
+| Hiring (CV upload, candidates, convert-to-employee, joining pack) | ✅ Built, live-tested | HR bulk-uploads CVs, manages candidates, converts one to a real employee account, then sends them an offer/contract via the existing Letter Engine. **Deviates from the guide**: no pre-account email-link signing (needs real SMTP/passwordless auth first) — see `docs/PROJECT_STATUS.md`. |
+| Leave, Feedback boxes, Announcements | ❌ Not built yet | Next per the original roadmap order. |
 | Work Orders (reimbursement/equipment requests) | ❌ Not built yet | |
 | Payslips | ❌ Not built yet | |
 | Attendance (biometric import) | ❌ Not built yet | |
@@ -153,15 +153,14 @@ These aren't things I can decide — they need real input from BNW/the client:
 
 ## 6. What's next
 
-Appraisals is now built. Tell me either:
-- **"Build Hiring next"** — CV upload, candidate tracking, converting a candidate to an employee
-  account, or
+Appraisals and Hiring are now built. Tell me either:
 - **"Build Leave next"** — leave requests + approval + balances, or
 - **keep polishing** what's already built and verifying it live — you've been finding real, useful
   things to fix by actually using the app (the logo bugs, the toggle button, the dead sign-in
   links, the fake "General" profile tab all came from this), and there's still a checklist of
-  Sprint 2/3/4 things worth clicking through yourself (see `docs/PROJECT_STATUS.md`), or
-- pick anything else from the roadmap.
+  things worth clicking through yourself (see `docs/PROJECT_STATUS.md`), including the brand-new
+  Hiring flow (bulk CV upload → candidate → convert to employee → send them a real letter), or
+- pick anything else from the roadmap (Feedback/Announcements, Work Orders, Payslips, Attendance).
 
 Whatever's next, the pattern stays the same: I write a contract doc pinning down exactly what's
 being built, build backend and frontend in parallel against it, verify it actually works, and

@@ -39,7 +39,7 @@ export class AppraisalsController {
     return { data };
   }
 
-  @Roles(RoleName.HR, RoleName.ADMIN)
+  @Roles(RoleName.HR, RoleName.ADMIN, RoleName.CEO)
   @Get()
   async findAll(@Query() query: QueryAppraisalRequestsDto) {
     return this.appraisalsService.listAll(query);

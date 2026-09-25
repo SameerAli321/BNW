@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 import { useParams } from 'src/routes/hooks';
+import { RouterLink } from 'src/routes/components';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
@@ -85,6 +86,15 @@ export function AppraisalDetailView() {
   const canManagerAct = isTheManager && appraisal.status === 'PENDING_MANAGER';
   const canCeoAct = isCeo && appraisal.status === 'PENDING_CEO';
 
+  // Once the CEO has made a final call, HR/ADMIN can send the employee the matching letter
+  // (Appreciation for an accept, an outcome letter for a reject) — reuses the existing Letter
+  // Engine flow rather than sending anything outside it. See docs/API_CONTRACT_SPRINT4.md addendum.
+  const canSendResultLetter =
+    (currentRole === 'HR' || currentRole === 'ADMIN') &&
+    (appraisal.status === 'CEO_ACCEPTED' || appraisal.status === 'CEO_REJECTED');
+  const resultLetterType = appraisal.status === 'CEO_ACCEPTED' ? 'APPRECIATION' : 'APPRAISAL_REJECTION';
+  const resultLetterHref = `${paths.dashboard.letters.new}?subjectUserId=${appraisal.employeeId}&letterType=${resultLetterType}`;
+
   const waitingMessage = (() => {
     if (canManagerAct || canCeoAct) return null;
     switch (appraisal.status) {
@@ -154,6 +164,14 @@ export function AppraisalDetailView() {
                 {canCeoAct && (
                   <Button variant="contained" onClick={ceoDialog.onTrue}>
                     Review as CEO
+                  </Button>
+                )}
+
+                {canSendResultLetter && (
+                  <Button variant="outlined" component={RouterLink} href={resultLetterHref}>
+                    {appraisal.status === 'CEO_ACCEPTED'
+                      ? 'Send appreciation letter'
+                      : 'Send outcome letter'}
                   </Button>
                 )}
 

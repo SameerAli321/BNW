@@ -1,6 +1,8 @@
+import { randomUUID } from 'crypto';
+import { copyFile } from 'fs/promises';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { join } from 'path';
+import { extname, join } from 'path';
 import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { DocumentType } from '../entities/document-type.entity';
@@ -105,6 +107,56 @@ export class EmployeesService {
       size: file.size,
       source: DocumentSource.UPLOAD,
       uploadedBy,
+    });
+    const saved = await this.employeeDocumentsRepo.save(doc);
+
+    const full = await this.employeeDocumentsRepo.findOne({
+      where: { id: saved.id },
+      relations: ['documentType', 'uploadedByUser'],
+    });
+    return toEmployeeDocumentDto(full!);
+  }
+
+  /**
+   * Attaches a file that already exists on disk elsewhere (not a fresh multer upload) to an
+   * employee's E-record — e.g. copying a converted candidate's CV in on hire, per the original
+   * guide's "CVs are retained in employee E-record" (H1). Copies the bytes into
+   * `employee-documents/` under a fresh filename (leaving the source file where it was) and
+   * creates the DB row exactly like `uploadDocument` does.
+   */
+  async attachExistingFile(params: {
+    employeeId: number;
+    documentTypeName: string;
+    sourceAbsolutePath: string;
+    originalName: string;
+    mime: string;
+    size: number;
+    source: DocumentSource;
+    uploadedBy: number;
+  }): Promise<EmployeeDocumentDto> {
+    await this.findEmployeeOrThrow(params.employeeId);
+    const documentType = await this.documentTypesRepo.findOne({
+      where: { name: params.documentTypeName },
+    });
+    if (!documentType) {
+      throw new BadRequestException(`Unknown document type: ${params.documentTypeName}`);
+    }
+
+    const destRelativePath = join(
+      'employee-documents',
+      `${randomUUID()}${extname(params.originalName)}`,
+    );
+    await copyFile(params.sourceAbsolutePath, join(UPLOADS_ROOT_DIR, destRelativePath));
+
+    const doc = this.employeeDocumentsRepo.create({
+      userId: params.employeeId,
+      documentTypeId: documentType.id,
+      filePath: destRelativePath,
+      originalName: params.originalName,
+      mime: params.mime,
+      size: params.size,
+      source: params.source,
+      uploadedBy: params.uploadedBy,
     });
     const saved = await this.employeeDocumentsRepo.save(doc);
 

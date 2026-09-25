@@ -129,11 +129,14 @@ export class LettersService {
 
   /**
    * Ownership check for the "self if subject" endpoints (GET /letters/:id, GET /letters/:id/pdf):
-   * HR/CEO/ADMIN always allowed, otherwise only the letter's own subject. Unlike
-   * UsersService.assertCanViewRecord there's no "manager-of" case here — letters are between HR/
-   * CEO and the named subject only, per API_CONTRACT_SPRINT3.md.
+   * HR/CEO/ADMIN always allowed. The letter's own subject is only let through once it has actually
+   * been sent to them (`SENT_TO_EMPLOYEE`/`SIGNED`) — HR/CEO's internal drafting-and-signing pass
+   * (DRAFT/PENDING_CEO/CHANGES_REQUESTED/CEO_SIGNED) is not visible to the subject until it's
+   * explicitly released, same boundary as `listLetters` below. Unlike UsersService.assertCanViewRecord
+   * there's no "manager-of" case here — letters are between HR/CEO and the named subject only, per
+   * API_CONTRACT_SPRINT3.md.
    */
-  assertCanView(caller: JwtUserPayload, subjectUserId: number): void {
+  assertCanView(caller: JwtUserPayload, subjectUserId: number, status: LetterStatus): void {
     if (
       caller.role === RoleName.HR ||
       caller.role === RoleName.CEO ||
@@ -141,7 +144,10 @@ export class LettersService {
     ) {
       return;
     }
-    if (caller.sub === subjectUserId) {
+    if (
+      caller.sub === subjectUserId &&
+      (status === LetterStatus.SENT_TO_EMPLOYEE || status === LetterStatus.SIGNED)
+    ) {
       return;
     }
     throw new ForbiddenException('You do not have access to this letter');
@@ -175,8 +181,14 @@ export class LettersService {
       caller.role === RoleName.HR || caller.role === RoleName.CEO || caller.role === RoleName.ADMIN;
     if (!isPrivileged) {
       // Non-HR/CEO/ADMIN callers only ever see letters where they're the subject — server-side
-      // filter, not a caller-controlled query param, per API_CONTRACT_SPRINT3.md.
-      qb.andWhere('letter.subjectUserId = :callerId', { callerId: caller.sub });
+      // filter, not a caller-controlled query param, per API_CONTRACT_SPRINT3.md. AND only once
+      // the letter has actually been sent to them: HR/CEO's internal drafting-and-signing pass
+      // (DRAFT/PENDING_CEO/CHANGES_REQUESTED/CEO_SIGNED) must not leak to the subject before it's
+      // explicitly released — matches assertCanView's boundary above.
+      qb.andWhere('letter.subjectUserId = :callerId', { callerId: caller.sub }).andWhere(
+        'letter.status IN (:...visibleStatuses)',
+        { visibleStatuses: [LetterStatus.SENT_TO_EMPLOYEE, LetterStatus.SIGNED] },
+      );
     }
 
     if (query.type) {
@@ -196,7 +208,7 @@ export class LettersService {
 
   async getLetter(id: number, caller: JwtUserPayload): Promise<LetterDto> {
     const letter = await this.loadLetterWithRelations(id);
-    this.assertCanView(caller, letter.subjectUserId);
+    this.assertCanView(caller, letter.subjectUserId, letter.status);
 
     const events = await this.eventsRepo.find({
       where: { letterId: id },
@@ -363,7 +375,11 @@ export class LettersService {
     return toLetterDto(await this.loadLetterWithRelations(id));
   }
 
-  async sendToEmployee(id: number, caller: JwtUserPayload): Promise<LetterDto> {
+  async sendToEmployee(
+    id: number,
+    message: string | null,
+    caller: JwtUserPayload,
+  ): Promise<LetterDto> {
     const letter = await this.loadLetterWithRelations(id);
     if (letter.status !== LetterStatus.CEO_SIGNED) {
       throw new ConflictException(
@@ -372,13 +388,19 @@ export class LettersService {
     }
     letter.status = LetterStatus.SENT_TO_EMPLOYEE;
     await this.lettersRepo.save(letter);
-    await this.logEvent(id, caller.sub, LetterEventAction.SENT_TO_EMPLOYEE);
+    // Optional HR note, shown to the employee on the letter's timeline (same event.comment
+    // pattern the frontend already renders for CHANGES_REQUESTED) — see docs/API_CONTRACT_SPRINT3.md
+    // addendum "Send to employee message".
+    await this.logEvent(id, caller.sub, LetterEventAction.SENT_TO_EMPLOYEE, message);
 
-    // STUB: replace with a real mail service call (SMTP) once B8 is resolved with the client.
+    // STUB: replace with a real mail service call (SMTP) once B8 is resolved with the client. The
+    // real email would attach the rendered PDF (letter.pdfPath) and include `message` in the body;
+    // for now the employee gets it in-app (letter detail page + timeline note) once they log in.
     // eslint-disable-next-line no-console
     console.log(
       `[stub email] "A letter is waiting for your signature" -> ${letter.subjectUser.email} ` +
-        `| letter #${letter.id} (${letter.template.name})`,
+        `| letter #${letter.id} (${letter.template.name})` +
+        (message ? ` | message: ${message}` : ''),
     );
 
     return toLetterDto(await this.loadLetterWithRelations(id));
@@ -478,7 +500,7 @@ export class LettersService {
     caller: JwtUserPayload,
   ): Promise<{ absolutePath: string; letter: Letter }> {
     const letter = await this.loadLetterWithRelations(id);
-    this.assertCanView(caller, letter.subjectUserId);
+    this.assertCanView(caller, letter.subjectUserId, letter.status);
     if (!letter.pdfPath) {
       throw new NotFoundException('This letter has not been rendered yet — call /preview first');
     }

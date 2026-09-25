@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   ParseIntPipe,
@@ -36,7 +37,8 @@ export class EmployeesController {
     return this.employeesService.getRecord(id);
   }
 
-  @Roles(RoleName.HR, RoleName.ADMIN)
+  // HR, ADMIN, or self — an employee can now upload their own documents to their own E-record;
+  // unlike @Roles(HR, ADMIN), this isn't a route-level role gate since "self" depends on :id.
   @Post(':id/documents')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -51,6 +53,10 @@ export class EmployeesController {
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() caller: JwtUserPayload,
   ) {
+    const isPrivileged = caller.role === RoleName.HR || caller.role === RoleName.ADMIN;
+    if (!isPrivileged && caller.sub !== id) {
+      throw new ForbiddenException('You do not have access to this resource');
+    }
     return this.employeesService.uploadDocument(id, dto, file, caller.sub);
   }
 

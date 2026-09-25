@@ -125,6 +125,9 @@ export const paths = {
     employees: {
       record: (id: number | string) => `${ROOTS.DASHBOARD}/employees/${id}/record`,
     },
+    // Stable, per-user-agnostic sidebar entry point — redirects to employees.record(currentUser.id)
+    // so the nav item's path doesn't need to know the logged-in user's id ahead of time.
+    myRecord: `${ROOTS.DASHBOARD}/my-e-record`,
     // Sprint 3 — Letter engine, see docs/API_CONTRACT_SPRINT3.md.
     letterTemplates: {
       root: `${ROOTS.DASHBOARD}/letter-templates`,
@@ -142,6 +145,16 @@ export const paths = {
       root: `${ROOTS.DASHBOARD}/appraisals`,
       details: (id: number | string) => `${ROOTS.DASHBOARD}/appraisals/${id}`,
     },
+    // Sprint 5 — Hiring (candidates, bulk CV upload, convert-to-employee, joining pack), see
+    // docs/API_CONTRACT_SPRINT5.md.
+    candidates: {
+      root: `${ROOTS.DASHBOARD}/candidates`,
+      list: `${ROOTS.DASHBOARD}/candidates`,
+    },
+    // Single screen for `GET/POST/PATCH /joining-pack-items` + the acknowledge action — reachable
+    // by every role (role-agnostic, same idea as `myRecord` above), with HR/ADMIN-only manage
+    // controls (add/edit item) rendered inline for callers with those roles.
+    joiningPack: `${ROOTS.DASHBOARD}/joining-pack`,
     product: {
       root: `${ROOTS.DASHBOARD}/product`,
       new: `${ROOTS.DASHBOARD}/product/new`,

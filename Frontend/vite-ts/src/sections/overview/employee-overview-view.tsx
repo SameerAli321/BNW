@@ -114,26 +114,6 @@ export function EmployeeOverviewView({ userId }: Props) {
           </Stack>
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader
-          title="My E-record"
-          action={
-            <Button
-              component={RouterLink}
-              href={paths.dashboard.employees.record(userId)}
-              size="small"
-            >
-              Open
-            </Button>
-          }
-        />
-        <CardContent sx={{ pt: 0 }}>
-          <Label color="default" sx={{ px: 2, py: 2, fontSize: 13 }}>
-            Every CV, signed letter, and contract we file for you shows up here.
-          </Label>
-        </CardContent>
-      </Card>
     </Stack>
   );
 }

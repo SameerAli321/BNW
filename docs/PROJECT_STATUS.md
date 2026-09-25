@@ -36,8 +36,9 @@ BNW/
 | 2 | E-record & Staff Summary | **Done, in active use** — user has been navigating Staff Summary and employee E-record pages live (confirmed working — see the "where do I upload a document" exchange, which was about role permissions, not a bug: only HR/Admin can upload, via Staff Summary → an employee's row → E-record page). |
 | 3 | Letter Engine | **Done, core flow confirmed live** — user created a letter, had the CEO sign it, and worked through the "send to employee" step live in their own running instance. One real misunderstanding surfaced and got resolved (a letter only shows up for whoever it's addressed to — the user's first test letter was addressed to their own Admin account, not the employee account they expected to see it on) and one real bug got found and fixed (a status-dependent action panel going blank with no explanation instead of saying "waiting on X"). Not yet fully confirmed: the CSV export, document-request flow, and the very last "employee signs → shows up in E-record" step. |
 | Gap-fix | Employee profile fields, audit log, notifications table, missing letter templates | **Done, backend live-tested** — see `docs/API_CONTRACT_GAPS_FIX.md`. An audit against the original guide found 4 things it put in Sprint 0/1/3 scope that our own narrower contract docs had silently dropped: extended employee profile fields (phone/DOB/emergency contact/etc.), a system-wide audit log (login, letter status changes, signatures, document downloads), a `notifications` table (backend plumbing only — no frontend UI, since the fake notification bell was just removed at explicit request and isn't being revived), and 4 of the 6 required letter template types that had no placeholder at all (Contract/Redundancy/Terms-Change/Warning). All fixed. Frontend: real profile summary + editable "Personal details" tab, CEO/Admin-only Audit Log page. |
-| 4 | Appraisals | **Done, backend live-tested end-to-end** — built to the user's own explicit spec (see `docs/API_CONTRACT_SPRINT4.md`), which is a **deliberate deviation from the original guide**: employee-initiated quarterly requests, not an HR-scheduled cycle. Flow: employee submits a self-evaluation (blocked for 3 months after) → manager adds remarks + a message and accepts/rejects → on accept, CEO adds remarks + a message and accepts/rejects/sends back to the manager → final result visible to HR, the manager, and the employee. Backend ran the full flow live including the send-back loop and the reject path. Frontend built a role-aware tabbed page (My Appraisals / My Team's / Pending My Review / All Appraisals) reusing the Letter Engine's timeline/dialog patterns. |
-| 5–9 | See guide §11 (Hiring extras, Leave/Feedback/Announcements, Work Orders, Payslips, Attendance) | Not started |
+| 4 | Appraisals | **Done, backend live-tested end-to-end** — built to the user's own explicit spec (see `docs/API_CONTRACT_SPRINT4.md`), which is a **deliberate deviation from the original guide**: employee-initiated quarterly requests, not an HR-scheduled cycle. Flow: employee submits a self-evaluation (blocked for 3 months after) → manager adds remarks + a message and accepts/rejects → on accept, CEO adds remarks + a message and accepts/rejects/sends back to the manager → final result visible to HR, the manager, and the employee. Backend ran the full flow live including the send-back loop and the reject path. Frontend built a role-aware tabbed page (My Appraisals / My Team's / Pending My Review / All Appraisals) reusing the Letter Engine's timeline/dialog patterns. Post-launch fix (see addendum in the contract doc): a MANAGER's own appraisal now skips straight to the CEO instead of requiring a `managerId` that most managers don't have, and the "My Team's Appraisals" tab now shows real history by default instead of only pending items. A second addendum added two new Letter Engine template types — `APPRECIATION` (real content, provided by the owner) and `APPRAISAL_REJECTION` (drafted, needs the owner's review) — so HR can send the employee a proper letter once the CEO's decision is final, via the same draft → CEO-sign → send-to-employee flow as every other letter type. |
+| 5 | Hiring (candidates, CV upload, convert-to-employee, joining pack) | **Done, live-verified end-to-end** (post-launch fix: converting a candidate now automatically copies their CV into the new employee's E-record — `EmployeesService.attachExistingFile()`, `source: CV` — closing guide requirement H1 "CVs are retained in employee E-record", which the first pass had missed). — see `docs/API_CONTRACT_SPRINT5.md`. **Deliberate deviation from the original guide**: the guide assumes a candidate can e-sign an offer/contract letter before they have an account, via an emailed secure link — we don't have passwordless auth or real SMTP built, so that's out of scope for this pass. Instead: HR bulk-uploads CVs (PDF) → candidates list (search/filter/status: NEW/SHORTLISTED/OFFERED/HIRED/REJECTED) → HR **converts a candidate into a real employee account** (sets role/department/manager/a mandatory password, same rule as regular user creation) → HR then sends that new employee an OFFER/CONTRACT letter through the **already-built Letter Engine**, unmodified. Also built: a joining pack (Operating Guide / Team Introduction / Policy Notes, seeded) that any employee can view and acknowledge ("I have read this", idempotent). One real addition beyond the contract: bulk CV upload generates a placeholder email (a CV has no structured email in it) that HR corrects before converting. Backend and frontend both live-tested independently and then re-verified together end-to-end (bulk upload → convert → new employee logs in with the password HR set) — no contract mismatches found. |
+| 6–9 | See guide §11 (Leave/Feedback/Announcements, Work Orders, Payslips, Attendance) | Not started |
 
 ### Post-Sprint-3 UI/UX polish (ongoing, in direct response to live usage)
 
@@ -60,6 +61,50 @@ running the app and reporting real problems — full detail in `docs/FRONTEND_ST
   behind them yet), per explicit request.
 - **Sign-in page** — stripped of dead demo links/alerts (self-registration, a FAQ page, a
   multi-provider switcher — none apply to this app), given real branding and entrance animations.
+
+### "Send to employee" can now include a message
+
+User asked whether the PDF is shared with the employee along with a message when HR sends a
+letter. The PDF itself was already reachable (view/download/sign in-app, per the earlier
+visibility fix) but there was no way to attach a note. Added an optional `message` to `POST
+/letters/:id/send-to-employee` — shown to the employee on the letter's timeline as the
+`SENT_TO_EMPLOYEE` event's comment (same pattern the UI already uses for CEO's "Request changes"
+comment). Frontend: clicking "Send to employee" now opens a small dialog with an optional message
+field instead of sending immediately. Fully backward compatible — sending with no message still
+works exactly as before. Real email delivery (with the PDF attached) is still the same open SMTP
+item as everywhere else in the app — for now the employee gets it in-app once they log in.
+
+### "My E-record" moved to the sidebar (every role)
+
+Was previously only reachable via a small button on the Account page and a card on the employee
+dashboard home — the user asked for it as its own sidebar item instead, positioned right above
+Letters, for every role (not just Admin/HR). Since the nav item's path can't know the logged-in
+user's id ahead of time, added a stable redirect route `paths.dashboard.myRecord` (`/dashboard/my-
+e-record`) that immediately forwards to that user's own `employees/:id/record` page. Removed the
+old Account-page button and dashboard-home card (redundant now). Confirmed with the user that
+"Letters" stays in the sidebar too — it's still the only way to open/sign a letter sent to you, a
+flow already tested and working; this was purely a nav reorganization, not a feature removal.
+
+### Real bug fixed: a Letter's own subject could see it before HR sent it
+
+User noticed an employee's Letters page showed a "Draft" letter (and a "CEO signed" one) about
+themselves — letters HR/CEO hadn't actually released to them yet. Root cause: `GET /letters` and
+`GET /letters/:id` let a non-HR/CEO/ADMIN caller see any letter where they're the subject,
+regardless of status. Fixed: for a non-privileged subject, both endpoints now only show/allow a
+letter once its status is `SENT_TO_EMPLOYEE` or `SIGNED` — HR/CEO's internal drafting-and-signing
+pass (`DRAFT`/`PENDING_CEO`/`CHANGES_REQUESTED`/`CEO_SIGNED`) stays invisible to the subject until
+explicitly sent, both in the list and by direct-URL-guessing the letter id. Live-verified the full
+lifecycle: hidden at every pre-send status, appears the instant `send-to-employee` runs.
+
+### Employees can now upload their own E-record documents
+
+The E-record page ("My E-record", reachable from Account → the button next to the page heading)
+already let an employee view their own documents; uploading was HR/ADMIN-only. Now `POST
+/employees/:id/documents` also allows the record's own owner (self), not just HR/ADMIN — "Request
+document" stays HR/ADMIN-only (doesn't make sense self-directed). Frontend: the "Upload document"
+button now also shows for the record's own owner; "Request document" unchanged. Live-verified: self
+upload succeeds, a third party (CEO, in the test) is still correctly blocked with 403, HR-uploading-
+to-someone-else still works.
 
 ### Also added: Admin/HR can reset a user's password
 

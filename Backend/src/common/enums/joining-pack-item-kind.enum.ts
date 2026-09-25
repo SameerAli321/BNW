@@ -1,0 +1,5 @@
+export enum JoiningPackItemKind {
+  OPERATING_GUIDE = 'OPERATING_GUIDE',
+  TEAM_INTRO = 'TEAM_INTRO',
+  POLICY_NOTE = 'POLICY_NOTE',
+}

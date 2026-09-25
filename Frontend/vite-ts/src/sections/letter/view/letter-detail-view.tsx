@@ -37,6 +37,7 @@ import { LetterSignDialog } from '../letter-sign-dialog';
 import { LetterStatusLabel } from '../letter-status-label';
 import { LetterManualFields } from '../letter-manual-fields';
 import { LetterRequestChangesDialog } from '../letter-request-changes-dialog';
+import { LetterSendToEmployeeDialog } from '../letter-send-to-employee-dialog';
 
 // ----------------------------------------------------------------------
 
@@ -63,6 +64,7 @@ export function LetterDetailView() {
 
   const signDialog = useBoolean();
   const requestChangesDialog = useBoolean();
+  const sendToEmployeeDialog = useBoolean();
 
   if (letterLoading) {
     return (
@@ -190,23 +192,14 @@ export function LetterDetailView() {
     }
   };
 
-  const handleSendToEmployee = async () => {
-    setBusy(true);
-    try {
-      await sendLetterToEmployee(letter.id);
-      toast.success('Sent to employee!');
-    } catch (error) {
-      console.error(error);
-      toast.error(error instanceof Error ? error.message : 'Send failed!');
-    } finally {
-      setBusy(false);
-    }
+  const handleSendToEmployee = async (message: string | undefined) => {
+    await sendLetterToEmployee(letter.id, message);
   };
 
   return (
     <DashboardContent>
       <CustomBreadcrumbs
-        heading={`Letter #${letter.id}`}
+        heading={letter.templateName}
         links={[
           { name: 'Dashboard', href: paths.dashboard.root },
           { name: 'Letters', href: paths.dashboard.letters.root },
@@ -292,7 +285,7 @@ export function LetterDetailView() {
                 )}
 
                 {canSendToEmployee && (
-                  <Button variant="contained" onClick={handleSendToEmployee} disabled={busy}>
+                  <Button variant="contained" onClick={sendToEmployeeDialog.onTrue} disabled={busy}>
                     Send to employee
                   </Button>
                 )}
@@ -365,6 +358,14 @@ export function LetterDetailView() {
           onConfirm={(signatureText) =>
             employeeSignLetter(letter.id, signatureText, letter.subjectUserId)
           }
+        />
+      )}
+
+      {canSendToEmployee && (
+        <LetterSendToEmployeeDialog
+          open={sendToEmployeeDialog.value}
+          onClose={sendToEmployeeDialog.onFalse}
+          onConfirm={handleSendToEmployee}
         />
       )}
     </DashboardContent>

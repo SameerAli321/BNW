@@ -6,9 +6,11 @@ import { Department } from '../entities/department.entity';
 import { User } from '../entities/user.entity';
 import { DocumentType } from '../entities/document-type.entity';
 import { LetterTemplate, LetterFieldSchemaEntry } from '../entities/letter-template.entity';
+import { JoiningPackItem } from '../entities/joining-pack-item.entity';
 import { RoleName, ALL_ROLES } from '../common/enums/role.enum';
 import { UserStatus } from '../common/enums/user-status.enum';
 import { LetterTemplateType } from '../common/enums/letter-template-type.enum';
+import { JoiningPackItemKind } from '../common/enums/joining-pack-item-kind.enum';
 import { generateTempPassword } from '../common/utils/temp-password';
 
 const DEPARTMENTS = ['Operations', 'HR', 'Finance', 'Engineering'];
@@ -129,6 +131,96 @@ const LETTER_TEMPLATES: Array<{
       { key: 'issuedDate', label: 'Issued date', autoFilled: false },
     ],
   },
+  // Appraisal-result letters — sent by HR once an appraisal reaches a final CEO decision, per
+  // docs/API_CONTRACT_SPRINT4.md addendum. APPRECIATION's body is the OWNER-PROVIDED real content
+  // (not a placeholder) — verbatim from the "Appraisal Letter.pdf" they supplied. APPRAISAL_REJECTION
+  // is a drafted variant (no equivalent was provided) — flagged for HR/the owner to review/edit.
+  {
+    type: LetterTemplateType.APPRECIATION,
+    name: 'Appreciation for Outstanding Performance',
+    roleScope: null,
+    bodyHtml:
+      '<p style="text-align:right">[Date]</p>' +
+      '<p><strong>Appreciation for Outstanding Performance</strong></p>' +
+      '<p>Dear {{employee.fullName}},</p>' +
+      '<p>I am pleased to write this letter to express our heartfelt appreciation for your ' +
+      'exceptional performance and dedication during challenging times. Your ability to excel ' +
+      'under pressure has been truly remarkable and has made a significant impact on our team ' +
+      'and organization.</p>' +
+      '<p>Throughout {{context}}, you consistently demonstrated resilience, resourcefulness, and ' +
+      'a calm demeanor, which were instrumental in achieving our goals. Your positive attitude ' +
+      'and proactive approach were inspiring to your colleagues and contributed immensely to our ' +
+      'collective success.</p>' +
+      '<p>Your capacity to handle high-pressure situations with professionalism and efficiency ' +
+      'reflects not only your skills and experience but also your commitment to excellence. Your ' +
+      'contributions have not gone unnoticed, and we are grateful for your unwavering dedication ' +
+      'to delivering results, even under demanding circumstances.</p>' +
+      '<p>We value your exceptional work ethic and the positive example you set for others in ' +
+      'the team. Your ability to maintain focus and productivity during challenging times is a ' +
+      "testament to your strong work ethic and dedication to our organization's success.</p>" +
+      '<p>In recognition of your outstanding contributions, we are pleased to award you an ' +
+      'appraisal amount of <strong>{{amount}}</strong>.</p>' +
+      '<p>Please accept our sincere gratitude for your outstanding performance. We look forward ' +
+      'to your continued contributions and success at BNW Consultants. Thank you once again for ' +
+      'your hard work and dedication.</p>' +
+      '<p>Warm regards,<br/>HR Executive<br/>BNW Consultants</p>',
+    fieldsSchema: [
+      { key: 'employee.fullName', label: 'Employee name', autoFilled: true },
+      {
+        key: 'context',
+        label: 'Specific project, period, or situation',
+        autoFilled: false,
+      },
+      { key: 'amount', label: 'Appraisal amount', autoFilled: false },
+    ],
+  },
+  {
+    type: LetterTemplateType.APPRAISAL_REJECTION,
+    name: 'Appraisal Review Outcome (draft — please review wording)',
+    roleScope: null,
+    bodyHtml:
+      '<p><em>[DRAFT TEMPLATE — no owner-provided wording for this one yet; ' +
+      'please review/edit before relying on it]</em></p>' +
+      '<p style="text-align:right">[Date]</p>' +
+      '<p><strong>Appraisal Review Outcome</strong></p>' +
+      '<p>Dear {{employee.fullName}},</p>' +
+      '<p>Thank you for submitting your appraisal request and for your continued contributions ' +
+      'to BNW Consultants. After careful review by your manager and the CEO, we are not able to ' +
+      'approve your appraisal at this time.</p>' +
+      '<p>{{feedback}}</p>' +
+      '<p>We encourage you to keep working towards your goals, and your manager will be ' +
+      'available to discuss this feedback in more detail and support your development going ' +
+      'forward.</p>' +
+      '<p>We appreciate your effort and look forward to your continued growth with the team.</p>' +
+      '<p>Warm regards,<br/>HR Executive<br/>BNW Consultants</p>',
+    fieldsSchema: [
+      { key: 'employee.fullName', label: 'Employee name', autoFilled: true },
+      { key: 'feedback', label: 'Feedback / reason', autoFilled: false },
+    ],
+  },
+];
+
+// Starter joining pack items (Sprint 5), per docs/API_CONTRACT_SPRINT5.md's "New tables" section.
+const JOINING_PACK_ITEMS: Array<{
+  title: string;
+  description: string | null;
+  kind: JoiningPackItemKind;
+}> = [
+  {
+    title: 'Operating Guide',
+    description: 'How things work day-to-day at BNW — tools, expectations, and workflows.',
+    kind: JoiningPackItemKind.OPERATING_GUIDE,
+  },
+  {
+    title: 'Team Introduction',
+    description: 'Meet the team you will be working with and who to reach out to for what.',
+    kind: JoiningPackItemKind.TEAM_INTRO,
+  },
+  {
+    title: 'Policy Notes',
+    description: 'Key HR policies every new joiner should read and acknowledge.',
+    kind: JoiningPackItemKind.POLICY_NOTE,
+  },
 ];
 
 // Seed users: email prefix matches role name, per API_CONTRACT_SPRINT1.md "Seed data".
@@ -149,6 +241,7 @@ async function seed() {
   const userRepo = dataSource.getRepository(User);
   const documentTypeRepo = dataSource.getRepository(DocumentType);
   const letterTemplateRepo = dataSource.getRepository(LetterTemplate);
+  const joiningPackItemRepo = dataSource.getRepository(JoiningPackItem);
 
   // Roles
   for (const name of ALL_ROLES) {
@@ -195,6 +288,22 @@ async function seed() {
         }),
       );
       console.log(`[seed] letter template created: ${spec.name}`);
+    }
+  }
+
+  // Joining pack items (Sprint 5)
+  for (const spec of JOINING_PACK_ITEMS) {
+    const existing = await joiningPackItemRepo.findOne({ where: { title: spec.title } });
+    if (!existing) {
+      await joiningPackItemRepo.save(
+        joiningPackItemRepo.create({
+          title: spec.title,
+          description: spec.description,
+          kind: spec.kind,
+          isActive: true,
+        }),
+      );
+      console.log(`[seed] joining pack item created: ${spec.title}`);
     }
   }
 

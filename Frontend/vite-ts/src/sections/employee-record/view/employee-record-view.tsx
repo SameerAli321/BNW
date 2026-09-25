@@ -45,7 +45,11 @@ export function EmployeeRecordView() {
   const isPrivileged = ['HR', 'ADMIN', 'CEO'].includes(currentRole);
   const mayAttempt = isSelf || isPrivileged || currentRole === 'MANAGER';
 
+  // "Request document" only makes sense HR/ADMIN -> someone else. "Upload document" also makes
+  // sense for the record's own owner uploading their own file — matches the backend now allowing
+  // self on POST /employees/:id/documents.
   const canManage = ['HR', 'ADMIN'].includes(currentRole);
+  const canUpload = canManage || isSelf;
 
   const uploadDialog = useBoolean();
   const requestDialog = useBoolean();
@@ -70,23 +74,26 @@ export function EmployeeRecordView() {
             { name: 'E-record' },
           ]}
           action={
-            canManage &&
-            record && (
+            record && (canManage || canUpload) && (
               <Stack direction="row" spacing={1.5}>
-                <Button
-                  variant="outlined"
-                  startIcon={<Iconify icon="custom:send-fill" />}
-                  onClick={requestDialog.onTrue}
-                >
-                  Request document
-                </Button>
-                <Button
-                  variant="contained"
-                  startIcon={<Iconify icon="eva:cloud-upload-fill" />}
-                  onClick={uploadDialog.onTrue}
-                >
-                  Upload document
-                </Button>
+                {canManage && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<Iconify icon="custom:send-fill" />}
+                    onClick={requestDialog.onTrue}
+                  >
+                    Request document
+                  </Button>
+                )}
+                {canUpload && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Iconify icon="eva:cloud-upload-fill" />}
+                    onClick={uploadDialog.onTrue}
+                  >
+                    Upload document
+                  </Button>
+                )}
               </Stack>
             )
           }
@@ -118,21 +125,22 @@ export function EmployeeRecordView() {
         )}
       </DashboardContent>
 
-      {canManage && record && (
-        <>
-          <EmployeeDocumentUploadDialog
-            open={uploadDialog.value}
-            onClose={uploadDialog.onFalse}
-            userId={id}
-            documentTypes={documentTypes}
-          />
-          <EmployeeDocumentRequestDialog
-            open={requestDialog.value}
-            onClose={requestDialog.onFalse}
-            userId={id}
-            documentTypes={documentTypes}
-          />
-        </>
+      {record && canUpload && (
+        <EmployeeDocumentUploadDialog
+          open={uploadDialog.value}
+          onClose={uploadDialog.onFalse}
+          userId={id}
+          documentTypes={documentTypes}
+        />
+      )}
+
+      {record && canManage && (
+        <EmployeeDocumentRequestDialog
+          open={requestDialog.value}
+          onClose={requestDialog.onFalse}
+          userId={id}
+          documentTypes={documentTypes}
+        />
       )}
     </RoleBasedGuard>
   );

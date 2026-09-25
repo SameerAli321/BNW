@@ -10,7 +10,6 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
-import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
@@ -27,28 +26,37 @@ import { USER_ROLE_OPTIONS, USER_ACCOUNT_STATUS_OPTIONS } from 'src/types/user';
 
 // ----------------------------------------------------------------------
 
-export type NewUserSchemaType = zod.infer<typeof NewUserSchema>;
+export type NewUserSchemaType = zod.infer<ReturnType<typeof buildUserSchema>>;
 
-export const NewUserSchema = zod.object({
-  firstName: zod.string().min(1, { message: 'First name is required!' }),
-  lastName: zod.string().min(1, { message: 'Last name is required!' }),
-  email: zod
-    .string()
-    .min(1, { message: 'Email is required!' })
-    .email({ message: 'Email must be a valid email address!' }),
-  role: zod.string().min(1, { message: 'Role is required!' }),
-  managerId: zod.union([zod.number(), zod.literal('')]).optional(),
-  departmentId: zod.union([zod.number(), zod.literal('')]).optional(),
-  designation: zod.string().optional(),
-  joinDate: zod.string().optional(),
-  status: zod.string().optional(),
-  password: zod
-    .string()
-    .optional()
-    .refine((value) => !value || value.length >= 8, {
-      message: 'Password must be at least 8 characters!',
-    }),
-});
+/**
+ * `isEdit` toggles whether `password` is required: mandatory when creating a new user (HR/ADMIN
+ * must set it up front, no more auto-generated fallback), optional when editing (blank = leave the
+ * current password unchanged, via PATCH /users/:id).
+ */
+function buildUserSchema(isEdit: boolean) {
+  return zod.object({
+    firstName: zod.string().min(1, { message: 'First name is required!' }),
+    lastName: zod.string().min(1, { message: 'Last name is required!' }),
+    email: zod
+      .string()
+      .min(1, { message: 'Email is required!' })
+      .email({ message: 'Email must be a valid email address!' }),
+    role: zod.string().min(1, { message: 'Role is required!' }),
+    managerId: zod.union([zod.number(), zod.literal('')]).optional(),
+    departmentId: zod.union([zod.number(), zod.literal('')]).optional(),
+    designation: zod.string().optional(),
+    joinDate: zod.string().optional(),
+    status: zod.string().optional(),
+    password: isEdit
+      ? zod
+          .string()
+          .optional()
+          .refine((value) => !value || value.length >= 8, {
+            message: 'Password must be at least 8 characters!',
+          })
+      : zod.string().min(8, { message: 'Password is required and must be at least 8 characters!' }),
+  });
+}
 
 // ----------------------------------------------------------------------
 
@@ -58,6 +66,7 @@ type Props = {
 
 export function UserNewEditForm({ currentUser }: Props) {
   const router = useRouter();
+  const isEdit = !!currentUser;
 
   const { users } = useGetUsers({ limit: 200 });
   const { departments } = useGetDepartments();
@@ -98,7 +107,7 @@ export function UserNewEditForm({ currentUser }: Props) {
 
   const methods = useForm<NewUserSchemaType>({
     mode: 'onSubmit',
-    resolver: zodResolver(NewUserSchema),
+    resolver: zodResolver(buildUserSchema(isEdit)),
     defaultValues,
     values: currentValues,
   });
@@ -128,7 +137,7 @@ export function UserNewEditForm({ currentUser }: Props) {
           ...(data.password ? { password: data.password } : {}),
         });
       } else {
-        await createUser(payload);
+        await createUser({ ...payload, password: data.password ?? '' });
       }
 
       toast.success(currentUser ? 'Update success!' : 'Create success!');
@@ -144,13 +153,6 @@ export function UserNewEditForm({ currentUser }: Props) {
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 12 }}>
           <Card sx={{ p: 3 }}>
-            {!currentUser && (
-              <Alert severity="info" sx={{ mb: 3 }}>
-                No password field — the backend generates a temporary password and emails (logs,
-                for now) a &quot;set your password&quot; notice to the new user.
-              </Alert>
-            )}
-
             {currentUser?.mustChangePassword && (
               <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -213,6 +215,24 @@ export function UserNewEditForm({ currentUser }: Props) {
                   ))}
                 </Field.Select>
               )}
+            </Box>
+
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                {currentUser ? 'Change password' : 'Password'}
+              </Typography>
+              <Field.Text
+                name="password"
+                label={currentUser ? 'New password' : 'Password'}
+                placeholder={currentUser ? 'Leave blank to keep the current password' : undefined}
+                type="text"
+                helperText={
+                  currentUser
+                    ? 'Sets this exact password for the user and requires them to change it on next login. Minimum 8 characters.'
+                    : 'Sets this new user’s password. They must change it on first login. Minimum 8 characters.'
+                }
+                sx={{ maxWidth: { sm: 400 } }}
+              />
             </Box>
 
             {currentUser && (
