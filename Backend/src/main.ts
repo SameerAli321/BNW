@@ -31,7 +31,7 @@ async function bootstrap() {
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  const port = process.env.PORT || 5000;
+  const port = Number(process.env.PORT) || 5000;
   await app.listen(port);
   // eslint-disable-next-line no-console
   console.log(`BNW OMS backend running on http://localhost:${port}/api/v1`);

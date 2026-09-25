@@ -71,19 +71,26 @@ export function AppraisalListView() {
   const { user: currentAuthUser } = useAuthContext();
   const currentRole = currentAuthUser?.role ?? '';
 
+  // The CEO is the owner — nobody reviews their performance, so they have no "own appraisal" of
+  // their own to submit/track. Every other role (including HR/Admin, who still have a manager
+  // above them for this purpose) keeps "My Appraisals".
+  const canSeeMine = currentRole !== 'CEO';
   const canSeeTeam = currentRole === 'MANAGER' || currentRole === 'HR' || currentRole === 'ADMIN';
   const canSeePendingCeo = currentRole === 'CEO';
-  const canSeeAll = currentRole === 'HR' || currentRole === 'ADMIN';
+  // CEO also gets "All Appraisals" so past-decided requests (accepted/rejected/sent back) remain
+  // visible after they leave "Pending My Review" — same history view HR/ADMIN already have.
+  const canSeeAll = currentRole === 'HR' || currentRole === 'ADMIN' || currentRole === 'CEO';
 
   const tabsList = useMemo(() => {
-    const list: { value: ScopeTab; label: string }[] = [{ value: 'mine', label: 'My Appraisals' }];
+    const list: { value: ScopeTab; label: string }[] = [];
+    if (canSeeMine) list.push({ value: 'mine', label: 'My Appraisals' });
     if (canSeeTeam) list.push({ value: 'team', label: "My Team's Appraisals" });
     if (canSeePendingCeo) list.push({ value: 'pending-ceo', label: 'Pending My Review' });
     if (canSeeAll) list.push({ value: 'all', label: 'All Appraisals' });
     return list;
-  }, [canSeeTeam, canSeePendingCeo, canSeeAll]);
+  }, [canSeeMine, canSeeTeam, canSeePendingCeo, canSeeAll]);
 
-  const tabs = useTabs<ScopeTab>('mine');
+  const tabs = useTabs<ScopeTab>(canSeeMine ? 'mine' : 'pending-ceo');
   const table = useTable({ defaultRowsPerPage: 25 });
   const requestDialog = useBoolean();
 

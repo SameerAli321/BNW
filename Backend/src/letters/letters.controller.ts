@@ -22,6 +22,7 @@ import { UpdateLetterDto } from './dto/update-letter.dto';
 import { QueryLettersDto } from './dto/query-letters.dto';
 import { RequestChangesDto } from './dto/request-changes.dto';
 import { SignLetterDto } from './dto/sign-letter.dto';
+import { SendToEmployeeDto } from './dto/send-to-employee.dto';
 
 function requestMeta(req: Request): { ipAddress: string | null; userAgent: string | null } {
   return {
@@ -96,9 +97,10 @@ export class LettersController {
   @Post(':id/send-to-employee')
   async sendToEmployee(
     @Param('id', ParseIntPipe) id: number,
+    @Body() dto: SendToEmployeeDto,
     @CurrentUser() caller: JwtUserPayload,
   ) {
-    return this.lettersService.sendToEmployee(id, caller);
+    return this.lettersService.sendToEmployee(id, dto.message ?? null, caller);
   }
 
   // Self only (subjectUserId === caller.id) — enforced in the service, no @Roles gate (any role

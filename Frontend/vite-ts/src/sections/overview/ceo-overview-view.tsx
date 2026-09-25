@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
@@ -15,7 +17,19 @@ import { useGetStaffSummary } from 'src/actions/employee-records';
 import { Label } from 'src/components/label';
 import { EmptyContent } from 'src/components/empty-content';
 
+import { DashboardBarChart } from './dashboard-bar-chart';
 import { DashboardStatCard } from './dashboard-stat-card';
+
+// ----------------------------------------------------------------------
+
+const LETTER_STATUS_ORDER = [
+  'DRAFT',
+  'PENDING_CEO',
+  'CHANGES_REQUESTED',
+  'CEO_SIGNED',
+  'SENT_TO_EMPLOYEE',
+  'SIGNED',
+] as const;
 
 // ----------------------------------------------------------------------
 
@@ -28,6 +42,19 @@ export function CeoOverviewView() {
     limit: 5,
   });
   const { rowsMeta, rowsLoading } = useGetStaffSummary({ limit: 1 });
+
+  // Company-wide letters-by-status breakdown for the chart below — same "fetch up to 200, count
+  // client-side" approach the Admin dashboard's "users by role" chart uses (no dedicated backend
+  // aggregate endpoint for a handful of counts).
+  const { letters: allLetters, lettersLoading: allLettersLoading } = useGetLetters({ limit: 200 });
+  const letterStatusChartData = useMemo(() => {
+    const counts = new Map<string, number>();
+    allLetters.forEach((letter) => counts.set(letter.status, (counts.get(letter.status) ?? 0) + 1));
+    return LETTER_STATUS_ORDER.map((status) => ({
+      label: status.split('_').join(' '),
+      value: counts.get(status) ?? 0,
+    }));
+  }, [allLetters]);
 
   return (
     <Stack spacing={3}>
@@ -49,6 +76,10 @@ export function CeoOverviewView() {
           />
         </Grid>
       </Grid>
+
+      {!allLettersLoading && (
+        <DashboardBarChart title="Letters by status (company-wide)" data={letterStatusChartData} />
+      )}
 
       <Card>
         <CardHeader

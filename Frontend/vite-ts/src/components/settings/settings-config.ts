@@ -13,7 +13,9 @@ export const defaultSettings: SettingsState = {
   contrast: 'default',
   navLayout: 'vertical',
   primaryColor: 'default',
-  navColor: 'integrate',
+  // Dark sidebar by default (built-in minimal-kit mode, not custom CSS) — matches the reference
+  // design the user asked to follow. Still user-adjustable via the settings drawer.
+  navColor: 'apparent',
   compactLayout: true,
   fontSize: 16,
   fontFamily: themeConfig.fontFamily.primary,

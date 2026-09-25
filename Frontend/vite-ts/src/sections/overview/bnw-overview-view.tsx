@@ -4,6 +4,8 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
+import { fDate } from 'src/utils/format-time';
+
 import { DashboardContent } from 'src/layouts/dashboard';
 
 import { Label } from 'src/components/label';
@@ -13,6 +15,14 @@ import { useAuthContext } from 'src/auth/hooks';
 import { CeoOverviewView } from './ceo-overview-view';
 import { AdminOverviewView } from './admin-overview-view';
 import { EmployeeOverviewView } from './employee-overview-view';
+
+// ----------------------------------------------------------------------
+
+function greeting(hour: number): string {
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
 // ----------------------------------------------------------------------
 
@@ -56,17 +66,28 @@ export function BnwOverviewView() {
           backgroundImage: `linear-gradient(135deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.16)}, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.04)})`,
         })}
       >
-        <Stack spacing={1}>
-          {user?.role && (
-            <Label color="primary" variant="soft" sx={{ alignSelf: 'flex-start' }}>
-              {user.role}
-            </Label>
-          )}
-          <Typography variant="h4">
-            Welcome back, {user?.firstName ?? user?.displayName ?? 'there'} 👋
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Here&apos;s what&apos;s happening across BNW Chartered Accountants today.
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          alignItems={{ sm: 'center' }}
+          justifyContent="space-between"
+          spacing={2}
+        >
+          <Stack spacing={1}>
+            {user?.role && (
+              <Label color="primary" variant="soft" sx={{ alignSelf: 'flex-start' }}>
+                {user.role}
+              </Label>
+            )}
+            <Typography variant="h4">
+              {greeting(new Date().getHours())}, {user?.firstName ?? user?.displayName ?? 'there'}
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Here&apos;s what&apos;s happening across BNW Chartered Accountants today.
+            </Typography>
+          </Stack>
+
+          <Typography variant="subtitle2" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+            {fDate(new Date())}
           </Typography>
         </Stack>
       </Box>

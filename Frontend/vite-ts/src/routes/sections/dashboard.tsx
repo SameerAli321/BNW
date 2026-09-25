@@ -40,6 +40,7 @@ const AuditLogListPage = lazy(() => import('src/pages/dashboard/audit-log/list')
 // Sprint 2 — E-record & Staff summary (see docs/API_CONTRACT_SPRINT2.md)
 const StaffSummaryListPage = lazy(() => import('src/pages/dashboard/staff-summary/list'));
 const EmployeeRecordPage = lazy(() => import('src/pages/dashboard/employees/record'));
+const MyERecordPage = lazy(() => import('src/pages/dashboard/my-e-record'));
 // Sprint 3 — Letter engine (see docs/API_CONTRACT_SPRINT3.md)
 const LetterListPage = lazy(() => import('src/pages/dashboard/letters/list'));
 const LetterCreatePage = lazy(() => import('src/pages/dashboard/letters/new'));
@@ -50,6 +51,9 @@ const LetterTemplateEditPage = lazy(() => import('src/pages/dashboard/letter-tem
 // Sprint 4 — Appraisals (see docs/API_CONTRACT_SPRINT4.md)
 const AppraisalListPage = lazy(() => import('src/pages/dashboard/appraisals/list'));
 const AppraisalDetailPage = lazy(() => import('src/pages/dashboard/appraisals/detail'));
+// Sprint 5 — Hiring (see docs/API_CONTRACT_SPRINT5.md)
+const CandidateListPage = lazy(() => import('src/pages/dashboard/candidates/list'));
+const JoiningPackPage = lazy(() => import('src/pages/dashboard/joining-pack'));
 
 // ----------------------------------------------------------------------
 
@@ -100,6 +104,7 @@ export const dashboardRoutes: RouteObject[] = [
       },
       { path: 'staff-summary', element: <StaffSummaryListPage /> },
       { path: 'audit-log', element: <AuditLogListPage /> },
+      { path: 'my-e-record', element: <MyERecordPage /> },
       {
         path: 'employees',
         children: [{ path: ':id/record', element: <EmployeeRecordPage /> }],
@@ -127,6 +132,8 @@ export const dashboardRoutes: RouteObject[] = [
           { path: ':id', element: <AppraisalDetailPage /> },
         ],
       },
+      { path: 'candidates', element: <CandidateListPage /> },
+      { path: 'joining-pack', element: <JoiningPackPage /> },
     ],
   },
 ];

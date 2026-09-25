@@ -20,6 +20,7 @@ const ICONS = {
   file: icon('ic-file'),
   lock: icon('ic-lock'),
   job: icon('ic-job'),
+  external: icon('ic-external'),
 };
 
 // ----------------------------------------------------------------------
@@ -58,6 +59,15 @@ export const navData: NavSectionProps['data'] = [
         allowedRoles: ['HR', 'CEO', 'ADMIN'],
       },
       {
+        // "My E-record" — every role's own profile + document upload, reached via a stable
+        // redirect route (`paths.dashboard.myRecord`) that forwards to the logged-in user's own
+        // `employees/:id/record` page. No `allowedRoles`: everyone has their own record. Replaces
+        // the old "My E-record" button that lived on the Account page and the dashboard-home card.
+        title: 'My E-record',
+        path: paths.dashboard.myRecord,
+        icon: ICONS.folder,
+      },
+      {
         // Sprint 3 — Letter engine (see docs/API_CONTRACT_SPRINT3.md). No `allowedRoles`: every
         // role can see this item, since an employee needs it to find/sign their own pending
         // letters — `GET /letters` is server-filtered to "my letters only" for non-HR/CEO/ADMIN
@@ -90,6 +100,24 @@ export const navData: NavSectionProps['data'] = [
         path: paths.dashboard.auditLog,
         icon: ICONS.lock,
         allowedRoles: ['CEO', 'ADMIN'],
+      },
+      {
+        // Sprint 5 — Hiring (see docs/API_CONTRACT_SPRINT5.md). HR/ADMIN manage candidates
+        // (bulk CV upload, shortlist/status, convert to employee) — same gating as "Users".
+        title: 'Hiring',
+        path: paths.dashboard.candidates.root,
+        icon: ICONS.job,
+        allowedRoles: ['HR', 'ADMIN'],
+      },
+      {
+        // Sprint 5 — Joining pack. Every employee needs to see and acknowledge their own joining
+        // pack (same reasoning as "My E-record"); HR/ADMIN additionally get manage controls
+        // (add/edit item) inline on the same page. CEO has no joining pack of their own, so it's
+        // hidden from their sidebar.
+        title: 'Joining Pack',
+        path: paths.dashboard.joiningPack,
+        icon: ICONS.external,
+        allowedRoles: ['HR', 'MANAGER', 'PAYROLL', 'ADMIN', 'EMPLOYEE'],
       },
     ],
   },

@@ -99,19 +99,17 @@ export class UsersService {
   }
 
   /**
-   * Creates a user with a server-generated temporary password.
-   * NOTE: real SMTP delivery is not wired up yet (per the guide's Phase 1 plan — Nodemailer + SMTP
-   * comes later). For now the temp password is logged to the console so it can be used for manual
-   * testing; replace this with a real "set your password" email service in a later sprint.
+   * Creates a user. HR/ADMIN set the exact password on the create form — required, min 8 chars
+   * (enforced by CreateUserDto). No more server-generated temp password on create; `mustChangePassword`
+   * still forces them to change it on first login regardless.
    */
-  async create(dto: CreateUserDto): Promise<{ user: UserDto; tempPassword: string }> {
+  async create(dto: CreateUserDto): Promise<{ user: UserDto }> {
     const existing = await this.usersRepo.findOne({ where: { email: dto.email } });
     if (existing) {
       throw new ConflictException('A user with this email already exists');
     }
 
-    const tempPassword = generateTempPassword();
-    const password_hash = await bcrypt.hash(tempPassword, 10);
+    const password_hash = await bcrypt.hash(dto.password, 10);
 
     const user = this.usersRepo.create({
       firstName: dto.firstName,
@@ -130,14 +128,8 @@ export class UsersService {
 
     const saved = await this.usersRepo.save(user);
 
-    // STUB: replace with a real mail service call (SMTP) in a later sprint.
-    // eslint-disable-next-line no-console
-    console.log(
-      `[stub email] "Set your password" -> ${saved.email} | temp password: ${tempPassword}`,
-    );
-
     const full = await this.findOneEntity(saved.id);
-    return { user: toUserDto(full), tempPassword };
+    return { user: toUserDto(full) };
   }
 
   async update(id: number, dto: UpdateUserDto, actorId?: number): Promise<UserDto> {

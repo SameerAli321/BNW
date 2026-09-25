@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -10,7 +10,7 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 
 import { paths } from 'src/routes/paths';
-import { useRouter } from 'src/routes/hooks';
+import { useRouter, useSearchParams } from 'src/routes/hooks';
 
 import { useGetUsers } from 'src/actions/users';
 import { DashboardContent } from 'src/layouts/dashboard';
@@ -33,17 +33,32 @@ import { LetterManualFields } from '../letter-manual-fields';
  */
 export function LetterCreateView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user: currentAuthUser } = useAuthContext();
   const currentRole = currentAuthUser?.role ?? '';
 
+  // Optional prefill from a query string, e.g. `?subjectUserId=27&letterType=APPRECIATION` — used
+  // by the Appraisal detail page to jump straight here with the employee + the right
+  // appreciation/rejection template pre-selected once a CEO decision is final.
+  const prefillSubjectUserId = searchParams.get('subjectUserId');
+  const prefillLetterType = searchParams.get('letterType');
+
   const [templateId, setTemplateId] = useState<number | ''>('');
-  const [subjectUserId, setSubjectUserId] = useState<number | ''>('');
+  const [subjectUserId, setSubjectUserId] = useState<number | ''>(
+    prefillSubjectUserId ? Number(prefillSubjectUserId) : ''
+  );
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   const { templates } = useGetLetterTemplates({ isActive: true });
   const { users } = useGetUsers({ limit: 200 });
   const { fieldsSchema } = useGetLetterTemplateFields(templateId || undefined);
+
+  useEffect(() => {
+    if (!prefillLetterType || templateId !== '' || !templates.length) return;
+    const match = templates.find((t) => t.type === prefillLetterType);
+    if (match) setTemplateId(match.id);
+  }, [prefillLetterType, templateId, templates]);
 
   const autoFilledFields = useMemo(() => fieldsSchema.filter((f) => f.autoFilled), [fieldsSchema]);
 

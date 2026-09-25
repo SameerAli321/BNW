@@ -805,3 +805,169 @@ it doesn't affect any request/response shape:
   same as every other module's notification-wiring gap noted in the gap-fix section above.
 - Frontend UI for this flow (per `docs/FRONTEND_STATUS.md`) — this slice is backend-only.
 - Automated tests for the new module — none written yet, same gap as every prior sprint.
+
+---
+
+# Sprint 5 — Hiring (candidates, bulk CV upload, convert-to-employee, joining pack)
+
+Adds the **Hiring module**: HR bulk-uploads candidate CVs, manages candidate status, converts a
+candidate straight into a real employee account, and a simple joining-pack read-and-acknowledge
+flow, per `docs/API_CONTRACT_SPRINT5.md` (guide §3.3 H1–H10, minus the letter-engine parts already
+built in Sprint 3). Builds on Sprints 1-4 and the gap-fix — same envelope, auth, roles, camelCase
+JSON, migration/seed conventions, and reuses `UsersService.create()` and `AuditLogService`.
+
+## Deviation from the original guide — flagged here too, not just in the contract doc
+
+The original guide's hiring flow assumes a candidate can e-sign an offer/contract letter **before**
+they have a BNW OMS account, via an emailed secure link — this project has no passwordless/public
+auth or real SMTP built yet. Per `API_CONTRACT_SPRINT5.md`'s explicit "Deviation from the original
+guide" section, this sprint instead has HR **convert** a candidate into a real employee account
+first, then send them an OFFER/CONTRACT letter through the already-built, unmodified Letter Engine
+(draft → CEO sign → send-to-employee → e-sign → E-record) — no new signing infrastructure. No
+`candidates.status` is automatically linked to a `Letter` row; HR manually marks a candidate
+`OFFERED` once they've sent the letter.
+
+## How to run it
+
+Same bootstrap as Sprints 1-4/gap-fix (`docker compose up -d`, `npm install`), plus:
+
+```bash
+cd Backend
+npm run migration:run   # now also creates candidates / joining_pack_items / joining_pack_acks
+npm run seed             # now also seeds 3 starter joining_pack_items (Operating Guide, Team
+                          # Introduction, Policy Notes), idempotent by title
+npm run start:dev
+```
+
+No new env vars. Uploaded CVs land on local disk at `Backend/uploads/candidate-cvs/` (created
+automatically on first upload, already covered by `.gitignore`'s `uploads/` entry from Sprint 2).
+
+## What's implemented
+
+- **Entities** (`src/entities/`): `Candidate` (`candidates` — `name`, `email`, `phone` nullable,
+  `cvFilePath`/`cvOriginalName`/`cvMime`/`cvSize` (same shape as `EmployeeDocument`'s file columns),
+  `status` enum, `convertedUserId` FK `users` nullable (`ON DELETE SET NULL`), `uploadedBy` FK
+  `users`), `JoiningPackItem` (`joining_pack_items` — `title`, `description` nullable text, `kind`
+  enum, `isActive` default true, same simple CRUD shape as `LetterTemplate` but no versioning), and
+  `JoiningPackAck` (`joining_pack_acks` — `userId`/`itemId` FKs, `acknowledgedAt`, unique on
+  `(userId, itemId)` for idempotent acknowledgement). Same `SnakeNamingStrategy`/camelCase-property
+  convention as every prior sprint. New enums: `src/common/enums/candidate-status.enum.ts`
+  (`NEW|SHORTLISTED|OFFERED|HIRED|REJECTED`), `joining-pack-item-kind.enum.ts`
+  (`OPERATING_GUIDE|TEAM_INTRO|POLICY_NOTE`).
+- **Migration** (`src/migrations/1759050000000-Hiring.ts`): creates all three tables plus their 2
+  enum types and indexes, written by hand in the same style as every prior sprint's migration —
+  separate file, none of the existing migrations touched. `synchronize` stays `false`. All three
+  entities added to both `app.module.ts`'s `TypeOrmModule.forRootAsync` entity list and
+  `src/config/typeorm.config.ts`'s CLI/seed DataSource entity list, matching how every prior
+  sprint's new entities were registered.
+- **Seed extension** (`src/database/seed.ts`): adds `JOINING_PACK_ITEMS` (Operating Guide, Team
+  Introduction, Policy Notes) seeded the same idempotent-by-`title` way as every other seed block —
+  the existing role/department/user/document-type/letter-template seeding logic is untouched, just
+  extended below it.
+- **CV storage** (`src/hiring/candidate-cv.storage.ts`): reuses Sprint 2's `UPLOADS_ROOT_DIR` and
+  `MAX_DOCUMENT_SIZE_BYTES` (10MB) constants from `employee-documents.storage.ts`, same disk-storage/
+  randomized-filename pattern, but its own `ALLOWED_CV_MIME_TYPES` allowlist restricted to
+  `application/pdf` only, per the contract's "PDF only" requirement. Files land under
+  `uploads/candidate-cvs/`.
+- **Hiring module** (`src/hiring/`): `CandidatesController` (`@Roles(HR, ADMIN)` at the controller
+  level — every candidate endpoint is HR/ADMIN-only per the contract) with
+  `POST /candidates/bulk-upload` (multipart, field `files`, `FilesInterceptor`, one `Candidate` row
+  per file), `GET /candidates` (`?status=&q=&page=&limit=`, `q` matches name/email like the Users
+  list), `GET /candidates/:id`, `PATCH /candidates/:id`, `GET /candidates/:id/cv` (streamed download,
+  same pattern as `GET /documents/:id/download`, audit-logged via the existing `AuditLogService`),
+  `POST /candidates/:id/convert`; and `JoiningPackController` with `GET /joining-pack-items` (any
+  authenticated caller, no `@Roles`), `POST`/`PATCH /joining-pack-items[/:id]` (`@Roles(HR, ADMIN)`
+  per-route), `POST /joining-pack-items/:id/acknowledge` (any authenticated caller). Backed by
+  `CandidatesService`/`JoiningPackService`, wired into `AppModule` as `HiringModule` (imports
+  `UsersModule` for `UsersService.create()` reuse and `AuditLogModule`, same pattern as
+  `LettersModule`/`AppraisalsModule`).
+- **Candidate → employee conversion** (`CandidatesService.convert`): calls the existing
+  `UsersService.create(dto)` directly (no duplicated user-creation logic, per the contract's
+  explicit instruction) with `firstName`/`lastName`/`email` defaulted from the candidate's `name`
+  (split on whitespace)/`email`, overridable via the request body's optional fields. Lets
+  `UsersService.create`'s own `ConflictException` (409, duplicate email) propagate unchanged. On
+  success, sets `candidate.status = HIRED` and `candidate.convertedUserId`, returns
+  `{ candidate, user }`. 409 if the candidate is already `HIRED`.
+- **Status-change guard**: `PATCH /candidates/:id` 409s if the candidate is already `HIRED` and the
+  request tries to change `status` (that transition is convert-only, per the contract) — editing
+  `name`/`email`/`phone` on a `HIRED` candidate is still allowed (the contract only restricts
+  `status`).
+- **Mappers** (`src/common/mappers/`): `candidate.mapper.ts` (`toCandidateDto`, resolves
+  `uploadedByName` from the loaded `uploadedByUser` relation, same "denormalized name from a loaded
+  relation" pattern as `appraisal.mapper.ts`), `joining-pack-item.mapper.ts`
+  (`toJoiningPackItemDto(item, ack)` — computes `acknowledged`/`acknowledgedAt` from a passed-in ack
+  row or `null`, used both by the per-caller list view and the acknowledge endpoint's own response).
+
+## Deviation not in the contract doc — flagged here since it affects a stored value
+
+`API_CONTRACT_SPRINT5.md`'s bulk-upload endpoint says "`name` defaulted from the filename" but
+doesn't say where `email` (a required, non-nullable column) comes from — a CV file has no
+structured email field without actually parsing/OCR-ing the PDF, which is out of scope for "add a
+Hiring module." This implementation generates a unique placeholder address
+(`candidate-<8-hex>@pending.local`) at upload time, which HR is expected to correct via
+`PATCH /candidates/:id` before converting (the UI's "HR edits it after" note in the contract already
+covers `name`; this extends that same expectation to `email`). Flagging here rather than silently
+deviating — worth revisiting if a future sprint wants CV text extraction.
+
+## Verification performed
+
+- `npx tsc --noEmit` — **0 errors**.
+- `npx eslint` on every new/changed file (`src/hiring/**`, the 3 new entities, 2 new enums, 2 new
+  mappers, the new migration, `app.module.ts`, `src/config/typeorm.config.ts`, `src/database/
+  seed.ts`) — **0 errors/warnings** after `--fix` (formatting-only fixes, no logic changes).
+- **Live-verified against the same reachable dev Postgres used for every prior sprint**
+  (`localhost:5432`/`BNW`, already migrated/seeded through Sprint 4):
+  - `npm run migration:run` applied `Hiring1759050000000` cleanly (6 → 7 migrations applied, all
+    three tables/2 enums/indexes/FKs created as written).
+  - `npm run seed` created the 3 joining pack items and, as expected, skipped all 6 existing Sprint
+    1 demo users untouched; reran a second time with no duplicates (idempotency confirmed for both
+    the new items and the already-existing data).
+  - Booted against the already-running `npm run start:dev` (hot-reloaded automatically) and drove
+    the full lifecycle with `curl` using **2 disposable test accounts**
+    (`sprint5.hr@bnw.local`, `sprint5.emp@bnw.local`) created directly in Postgres via a temporary,
+    not-committed script (bcrypt-hashed password, inserted directly, deleted afterward) — the real
+    seeded demo users' passwords aren't known to this session, so real accounts were left untouched:
+    - `POST /candidates/bulk-upload` (HR, 2 small real PDF files) → 201, 2 `Candidate` rows created,
+      `status: 'NEW'`, `name` defaulted from each filename (underscores → spaces).
+    - Same endpoint as EMPLOYEE → **403** (role-gated permission boundary).
+    - `GET /candidates?status=NEW` → both new candidates, correct pagination `meta`.
+    - `PATCH /candidates/:id` (HR, `status: SHORTLISTED` + real `email`/`phone`) → 200, fields
+      updated.
+    - `GET /candidates/:id/cv` → 200, `Content-Type: application/pdf`, byte-identical to the
+      uploaded file (`diff` confirmed).
+    - `POST /candidates/:id/convert` (HR, role `EMPLOYEE`, a real password) → 201, returned
+      `{ candidate, user }` with `candidate.status: 'HIRED'` and `candidate.convertedUserId` set to
+      the new user's id.
+    - Logged in as the newly converted user with the password HR set — **succeeded**, `201` with a
+      valid access token, `mustChangePassword: true`, `status: 'ONBOARDING'` (exactly `UsersService.
+      create`'s existing behavior, reused unchanged).
+    - Re-`POST /candidates/:id/convert` on the now-`HIRED` candidate → **409**.
+    - `PATCH /candidates/:id` with `status` on the now-`HIRED` candidate → **409**.
+    - `GET /joining-pack-items` (HR) → the 3 seeded items, each `acknowledged: false`.
+    - `POST /joining-pack-items` (HR) → 201, new item created; same call as EMPLOYEE → **403**.
+    - `POST /joining-pack-items/:id/acknowledge` (EMPLOYEE, 1st call) → `acknowledged: true` with a
+      fresh `acknowledgedAt`; **2nd call one second later** → identical `acknowledgedAt` (byte-for-
+      byte same timestamp), confirming the idempotent upsert creates no duplicate row.
+    - `GET /joining-pack-items` (EMPLOYEE) after acknowledging → the acknowledged item correctly
+      shows `acknowledged: true`.
+    - `PATCH /joining-pack-items/:id` (HR, `isActive: false`) → 200; confirmed the item then
+      disappears entirely from `GET /joining-pack-items`'s active-only list.
+  - Cleaned up afterwards: deleted the 2 disposable candidates, the 1 disposable joining-pack-item,
+    all `joining_pack_acks`/`audit_logs`/`refresh_tokens` rows tied to the 2 disposable accounts,
+    then the accounts themselves; deleted the uploaded CV files from `Backend/uploads/candidate-
+    cvs/` (directory now empty); deleted the temporary setup/cleanup scripts and test PDF fixtures.
+    Confirmed via direct query that `candidates` is empty again, `joining_pack_items` contains only
+    the 3 seeded rows, and all 6 Sprint 1 demo users are untouched. `git status --short` shows only
+    this sprint's new/changed source files — no stray scripts or fixtures.
+
+## What's left for later sprints
+
+- Real candidate email capture at upload time (CV text extraction/OCR, or a manual email field on
+  the bulk-upload form) instead of the placeholder-address workaround above.
+- Automatic linkage between a sent OFFER/CONTRACT `Letter` and a `Candidate` row (currently HR
+  manually marks a candidate `OFFERED`) — explicitly out of scope per the contract.
+- True pre-account candidate e-signing via an emailed secure link — deferred until real SMTP and
+  passwordless/public auth are in scope, per the contract's "Deviation from the original guide."
+- Frontend UI for this flow — a parallel frontend agent was building against this same contract;
+  this slice is backend-only.
+- Automated tests for the new module — none written yet, same gap as every prior sprint.

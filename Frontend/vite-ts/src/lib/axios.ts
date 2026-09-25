@@ -74,6 +74,20 @@ export const endpoints = {
     managerDecision: (id: number | string) => `/appraisal-requests/${id}/manager-decision`,
     ceoDecision: (id: number | string) => `/appraisal-requests/${id}/ceo-decision`,
   },
+  // Sprint 5 — Hiring (candidates, bulk CV upload, convert-to-employee, joining pack), see
+  // docs/API_CONTRACT_SPRINT5.md.
+  candidates: {
+    list: '/candidates',
+    bulkUpload: '/candidates/bulk-upload',
+    details: (id: number | string) => `/candidates/${id}`,
+    cv: (id: number | string) => `/candidates/${id}/cv`,
+    convert: (id: number | string) => `/candidates/${id}/convert`,
+  },
+  joiningPackItems: {
+    list: '/joining-pack-items',
+    details: (id: number | string) => `/joining-pack-items/${id}`,
+    acknowledge: (id: number | string) => `/joining-pack-items/${id}/acknowledge`,
+  },
   // Demo-only endpoints kept from the minimal-kit template (out of scope for BNW OMS Sprint 1,
   // not reachable from the app nav — see docs/FRONTEND_STATUS.md).
   chat: '/api/chat',

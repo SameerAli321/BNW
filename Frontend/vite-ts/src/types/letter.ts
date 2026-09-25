@@ -9,7 +9,9 @@ export type LetterType =
   | 'REDUNDANCY'
   | 'TERMS_CHANGE'
   | 'WARNING'
-  | 'EXPERIENCE';
+  | 'EXPERIENCE'
+  | 'APPRECIATION'
+  | 'APPRAISAL_REJECTION';
 
 export const LETTER_TYPE_OPTIONS: LetterType[] = [
   'OFFER',
@@ -18,6 +20,8 @@ export const LETTER_TYPE_OPTIONS: LetterType[] = [
   'TERMS_CHANGE',
   'WARNING',
   'EXPERIENCE',
+  'APPRECIATION',
+  'APPRAISAL_REJECTION',
 ];
 
 export type LetterStatus =

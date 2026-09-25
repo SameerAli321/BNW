@@ -134,7 +134,19 @@ export class AppraisalsService {
     caller: JwtUserPayload,
   ): Promise<AppraisalRequestDto> {
     const employee = await this.usersService.findOneEntity(caller.sub);
-    if (!employee.managerId) {
+
+    // The CEO is the owner — nobody reviews their performance, so there's no appraisal for them
+    // to submit. Explicit check rather than relying on them incidentally having no managerId set.
+    if (employee.role === RoleName.CEO) {
+      throw new BadRequestException('The CEO does not submit appraisal requests');
+    }
+
+    // A MANAGER's own appraisal skips the manager-review stage entirely and goes straight to the
+    // CEO — there's no meaningful "have their manager review it" step when the submitter IS a
+    // manager (and per seed data / the org chart, a manager frequently has no managerId of their
+    // own at all). Everyone else still needs a manager assigned to review them first.
+    const isManager = employee.role === RoleName.MANAGER;
+    if (!isManager && !employee.managerId) {
       throw new BadRequestException(
         "You have no manager set — an appraisal request can't be submitted without one",
       );
@@ -151,8 +163,8 @@ export class AppraisalsService {
     const request = this.requestsRepo.create({
       employeeId: caller.sub,
       selfEvaluation: dto.selfEvaluation,
-      status: AppraisalStatus.PENDING_MANAGER,
-      managerId: employee.managerId,
+      status: isManager ? AppraisalStatus.PENDING_CEO : AppraisalStatus.PENDING_MANAGER,
+      managerId: employee.managerId ?? null,
     });
     const saved = await this.requestsRepo.save(request);
     await this.logEvent(saved.id, caller.sub, AppraisalEventAction.SUBMITTED);
@@ -177,12 +189,22 @@ export class AppraisalsService {
     return { data: rows.map((row) => toAppraisalRequestDto(row)), meta };
   }
 
+  /**
+   * A manager's full appraisal history for their team, not just what's currently pending their
+   * decision — this is the manager-side history view. Pass `?status=` to narrow it down (e.g. to
+   * just `PENDING_MANAGER` for an action-items view); with no filter, every status is returned.
+   */
   async team(
     query: QueryTeamAppraisalsDto,
     caller: JwtUserPayload,
   ): Promise<AppraisalRequestDto[]> {
+    const where: { managerId: number; status?: AppraisalStatus } = { managerId: caller.sub };
+    if (query.status) {
+      where.status = query.status;
+    }
+
     const rows = await this.requestsRepo.find({
-      where: { managerId: caller.sub, status: query.status ?? AppraisalStatus.PENDING_MANAGER },
+      where,
       relations: ['employee', 'manager'],
       order: { submittedAt: 'DESC' },
     });
@@ -309,10 +331,18 @@ export class AppraisalsService {
       await this.requestsRepo.save(request);
       await this.logEvent(id, caller.sub, AppraisalEventAction.CEO_REJECTED, dto.message);
     } else {
-      // SEND_BACK: puts it back in the manager's queue. The OLD manager remarks/message/decision
-      // stay in appraisal_events (already written on the prior MANAGER_ACCEPTED event); only the
-      // LIVE manager_* columns on this row are cleared so the manager can act again on their next
-      // pass — per docs/API_CONTRACT_SPRINT4.md's status-machine note.
+      // SEND_BACK: puts it back in the manager's queue. Not possible for a MANAGER's own
+      // appraisal that skipped straight to PENDING_CEO with no managerId — there's no one to send
+      // it back to, so the CEO must accept or reject instead.
+      if (request.managerId === null) {
+        throw new BadRequestException(
+          'This request has no manager to send back to — accept or reject it instead',
+        );
+      }
+      // The OLD manager remarks/message/decision stay in appraisal_events (already written on the
+      // prior MANAGER_ACCEPTED event); only the LIVE manager_* columns on this row are cleared so
+      // the manager can act again on their next pass — per API_CONTRACT_SPRINT4.md's status-machine
+      // note.
       request.status = AppraisalStatus.PENDING_MANAGER;
       request.managerRemarks = null;
       request.managerMessage = null;

@@ -43,7 +43,10 @@ export interface UserDto {
   updatedAt: string;
 }
 
-/** `CreateUserDto` — contract §"Users". No password field: backend generates a temp password. */
+/**
+ * `CreateUserDto` — contract §"Users". `password` is required: HR/ADMIN set the exact password for
+ * the new user up front (no more server-generated fallback).
+ */
 export type CreateUserDto = {
   firstName: string;
   lastName: string;
@@ -54,6 +57,7 @@ export type CreateUserDto = {
   designation?: string | null;
   joinDate?: string | null;
   employeeCode?: string | null;
+  password: string;
 };
 
 /**
