@@ -88,6 +88,13 @@ export const endpoints = {
     details: (id: number | string) => `/joining-pack-items/${id}`,
     acknowledge: (id: number | string) => `/joining-pack-items/${id}/acknowledge`,
   },
+  // Daily activity log (guide §3.1 U3), see docs/API_CONTRACT_ACTIVITY_LOG.md.
+  activityLogs: {
+    list: '/activity-logs',
+    mine: '/activity-logs/mine',
+    team: '/activity-logs/team',
+    details: (id: number | string) => `/activity-logs/${id}`,
+  },
   // Demo-only endpoints kept from the minimal-kit template (out of scope for BNW OMS Sprint 1,
   // not reachable from the app nav — see docs/FRONTEND_STATUS.md).
   chat: '/api/chat',

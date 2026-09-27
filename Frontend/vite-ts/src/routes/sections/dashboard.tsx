@@ -54,6 +54,8 @@ const AppraisalDetailPage = lazy(() => import('src/pages/dashboard/appraisals/de
 // Sprint 5 — Hiring (see docs/API_CONTRACT_SPRINT5.md)
 const CandidateListPage = lazy(() => import('src/pages/dashboard/candidates/list'));
 const JoiningPackPage = lazy(() => import('src/pages/dashboard/joining-pack'));
+// Daily activity log (see docs/API_CONTRACT_ACTIVITY_LOG.md)
+const ActivityLogListPage = lazy(() => import('src/pages/dashboard/activity/list'));
 
 // ----------------------------------------------------------------------
 
@@ -134,6 +136,7 @@ export const dashboardRoutes: RouteObject[] = [
       },
       { path: 'candidates', element: <CandidateListPage /> },
       { path: 'joining-pack', element: <JoiningPackPage /> },
+      { path: 'activity', element: <ActivityLogListPage /> },
     ],
   },
 ];
