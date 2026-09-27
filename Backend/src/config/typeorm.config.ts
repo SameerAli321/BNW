@@ -21,6 +21,7 @@ import { AppraisalEvent } from '../entities/appraisal-event.entity';
 import { Candidate } from '../entities/candidate.entity';
 import { JoiningPackItem } from '../entities/joining-pack-item.entity';
 import { JoiningPackAck } from '../entities/joining-pack-ack.entity';
+import { DailyActivityLog } from '../entities/daily-activity-log.entity';
 
 loadEnv();
 
@@ -57,6 +58,7 @@ export const typeOrmDataSourceOptions: DataSourceOptions = {
     Candidate,
     JoiningPackItem,
     JoiningPackAck,
+    DailyActivityLog,
   ],
   migrations: [__dirname + '/../migrations/*.{ts,js}'],
   synchronize: false,

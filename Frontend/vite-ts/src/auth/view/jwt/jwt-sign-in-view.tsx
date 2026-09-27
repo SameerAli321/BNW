@@ -30,6 +30,8 @@ export type SignInSchemaType = zod.infer<typeof SignInSchema>;
 export const SignInSchema = zod.object({
   email: zod
     .string()
+    // Pasted emails often carry invisible leading/trailing spaces that fail `.email()`.
+    .trim()
     .min(1, { message: 'Email is required!' })
     .email({ message: 'Email must be a valid email address!' }),
   password: zod
