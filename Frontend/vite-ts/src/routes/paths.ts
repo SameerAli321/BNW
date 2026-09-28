@@ -155,6 +155,8 @@ export const paths = {
     // by every role (role-agnostic, same idea as `myRecord` above), with HR/ADMIN-only manage
     // controls (add/edit item) rendered inline for callers with those roles.
     joiningPack: `${ROOTS.DASHBOARD}/joining-pack`,
+    // Daily activity log (guide §3.1 U3), see docs/API_CONTRACT_ACTIVITY_LOG.md.
+    activity: `${ROOTS.DASHBOARD}/activity`,
     product: {
       root: `${ROOTS.DASHBOARD}/product`,
       new: `${ROOTS.DASHBOARD}/product/new`,

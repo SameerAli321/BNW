@@ -23,6 +23,7 @@ import { AppraisalEvent } from './entities/appraisal-event.entity';
 import { Candidate } from './entities/candidate.entity';
 import { JoiningPackItem } from './entities/joining-pack-item.entity';
 import { JoiningPackAck } from './entities/joining-pack-ack.entity';
+import { DailyActivityLog } from './entities/daily-activity-log.entity';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
@@ -35,6 +36,7 @@ import { AuditLogModule } from './audit-log/audit-log.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AppraisalsModule } from './appraisals/appraisals.module';
 import { HiringModule } from './hiring/hiring.module';
+import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -73,6 +75,7 @@ import { RolesGuard } from './common/guards/roles.guard';
           Candidate,
           JoiningPackItem,
           JoiningPackAck,
+          DailyActivityLog,
         ],
         synchronize: false, // migrations only — never sync() against a real schema
         autoLoadEntities: true,
@@ -90,6 +93,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     NotificationsModule,
     AppraisalsModule,
     HiringModule,
+    ActivityLogsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

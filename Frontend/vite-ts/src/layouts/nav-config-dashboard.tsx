@@ -94,6 +94,14 @@ export const navData: NavSectionProps['data'] = [
         icon: ICONS.job,
       },
       {
+        // Daily activity log (see docs/API_CONTRACT_ACTIVITY_LOG.md). No `allowedRoles`: every
+        // role logs their own work. Team/Managers/All Staff tabs inside the page only render for
+        // MANAGER / CEO / ADMIN, and the backend scopes each endpoint by role.
+        title: 'Daily Activity',
+        path: paths.dashboard.activity,
+        icon: ICONS.file,
+      },
+      {
         // Gap-fix — Audit Log (see docs/API_CONTRACT_GAPS_FIX.md Gap 2). CEO/ADMIN only, same
         // `allowedRoles` pattern as "Staff Summary".
         title: 'Audit Log',
