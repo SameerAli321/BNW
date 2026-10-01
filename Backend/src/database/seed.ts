@@ -300,6 +300,10 @@ async function seed() {
 
   const credentials: Array<{ email: string; password: string }> = [];
 
+  // Optional fixed starting password for every seeded user (set in the host's env, never in code).
+  // Unset -> each user gets a random temp password. Either way they must change it on first login.
+  const seedPassword = process.env.SEED_USER_PASSWORD?.trim() || null;
+
   // Users
   for (const spec of SEED_USERS) {
     let user = await userRepo.findOne({ where: { email: spec.email } });
@@ -308,7 +312,7 @@ async function seed() {
       continue;
     }
 
-    const tempPassword = generateTempPassword();
+    const tempPassword = seedPassword ?? generateTempPassword();
     const password_hash = await bcrypt.hash(tempPassword, 10);
 
     user = userRepo.create({
