@@ -1,0 +1,12 @@
+{
+  "name": "bnw-oms",
+  "private": true,
+  "description": "Repo root for SiteGround Node.js deploys: builds and runs only the Backend app.",
+  "scripts": {
+    "build": "cd Backend && npm ci --include=dev && npm run build",
+    "start": "cd Backend && npm run start:deploy"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
