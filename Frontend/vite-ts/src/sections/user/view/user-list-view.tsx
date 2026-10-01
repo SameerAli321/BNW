@@ -202,7 +202,6 @@ export function UserListView() {
                     }
                     color={
                       (tab.value === 'ACTIVE' && 'success') ||
-                      (tab.value === 'ONBOARDING' && 'warning') ||
                       (tab.value === 'INACTIVE' && 'error') ||
                       'default'
                     }

@@ -24,6 +24,15 @@ import { Candidate } from './entities/candidate.entity';
 import { JoiningPackItem } from './entities/joining-pack-item.entity';
 import { JoiningPackAck } from './entities/joining-pack-ack.entity';
 import { DailyActivityLog } from './entities/daily-activity-log.entity';
+import { Complaint } from './entities/complaint.entity';
+import { AttendanceRegularization } from './entities/attendance-regularization.entity';
+import { OnboardingForm } from './entities/onboarding-form.entity';
+import { LeaveType } from './entities/leave-type.entity';
+import { LeaveRequest } from './entities/leave-request.entity';
+import { Announcement } from './entities/announcement.entity';
+import { Interview } from './entities/interview.entity';
+import { WorkOrder } from './entities/work-order.entity';
+import { AppSetting } from './entities/app-setting.entity';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
@@ -37,6 +46,15 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { AppraisalsModule } from './appraisals/appraisals.module';
 import { HiringModule } from './hiring/hiring.module';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
+import { ComplaintsModule } from './complaints/complaints.module';
+import { AttendanceRegularizationsModule } from './attendance-regularizations/attendance-regularizations.module';
+import { OnboardingFormsModule } from './onboarding-forms/onboarding-forms.module';
+import { LeaveModule } from './leave/leave.module';
+import { AnnouncementsModule } from './announcements/announcements.module';
+import { MailModule } from './mail/mail.module';
+import { InterviewsModule } from './interviews/interviews.module';
+import { WorkOrdersModule } from './work-orders/work-orders.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -76,6 +94,15 @@ import { RolesGuard } from './common/guards/roles.guard';
           JoiningPackItem,
           JoiningPackAck,
           DailyActivityLog,
+          Complaint,
+          AttendanceRegularization,
+          OnboardingForm,
+          LeaveType,
+          LeaveRequest,
+          Announcement,
+          Interview,
+          WorkOrder,
+          AppSetting,
         ],
         synchronize: false, // migrations only — never sync() against a real schema
         autoLoadEntities: true,
@@ -94,6 +121,15 @@ import { RolesGuard } from './common/guards/roles.guard';
     AppraisalsModule,
     HiringModule,
     ActivityLogsModule,
+    ComplaintsModule,
+    AttendanceRegularizationsModule,
+    OnboardingFormsModule,
+    LeaveModule,
+    AnnouncementsModule,
+    MailModule,
+    InterviewsModule,
+    WorkOrdersModule,
+    DashboardModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

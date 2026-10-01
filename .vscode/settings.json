@@ -1,0 +1,4 @@
+{
+  // Lint each project from its own folder so it picks up its own ESLint/Prettier config
+  "eslint.workingDirectories": [{ "mode": "auto" }]
+}

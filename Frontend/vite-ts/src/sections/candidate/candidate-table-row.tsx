@@ -1,4 +1,5 @@
 import type { CandidateDto } from 'src/types/candidate';
+import type { InterviewDto } from 'src/actions/interviews';
 
 import { useBoolean, usePopover } from 'minimal-shared/hooks';
 
@@ -9,6 +10,7 @@ import MenuItem from '@mui/material/MenuItem';
 import TableRow from '@mui/material/TableRow';
 import TableCell from '@mui/material/TableCell';
 import IconButton from '@mui/material/IconButton';
+import ButtonBase from '@mui/material/ButtonBase';
 
 import { fDate } from 'src/utils/format-time';
 
@@ -21,17 +23,23 @@ import { CustomPopover } from 'src/components/custom-popover';
 
 import { CandidateEditDialog } from './candidate-edit-dialog';
 import { CandidateConvertDialog } from './candidate-convert-dialog';
+import { InterviewScheduleDialog } from './interview-schedule-dialog';
+import { interviewWhen, CandidateInterviewsDialog } from './candidate-interviews-dialog';
 
 // ----------------------------------------------------------------------
 
 type Props = {
   row: CandidateDto;
+  /** The candidate's next upcoming interview, if any. */
+  nextInterview?: InterviewDto;
 };
 
-export function CandidateTableRow({ row }: Props) {
+export function CandidateTableRow({ row, nextInterview }: Props) {
   const menuActions = usePopover();
   const editDialog = useBoolean();
   const convertDialog = useBoolean();
+  const scheduleDialog = useBoolean();
+  const interviewsDialog = useBoolean();
 
   const isHired = row.status === 'HIRED';
 
@@ -53,6 +61,28 @@ export function CandidateTableRow({ row }: Props) {
       slotProps={{ arrow: { placement: 'right-top' } }}
     >
       <MenuList>
+        {row.status === 'SHORTLISTED' && (
+          <MenuItem
+            onClick={() => {
+              scheduleDialog.onTrue();
+              menuActions.onClose();
+            }}
+          >
+            <Iconify icon="solar:calendar-date-bold" />
+            Schedule interview
+          </MenuItem>
+        )}
+
+        <MenuItem
+          onClick={() => {
+            interviewsDialog.onTrue();
+            menuActions.onClose();
+          }}
+        >
+          <Iconify icon="solar:clock-circle-bold" />
+          Interviews
+        </MenuItem>
+
         <MenuItem onClick={handleDownloadCv}>
           <Iconify icon="solar:download-bold" />
           Download CV
@@ -114,6 +144,23 @@ export function CandidateTableRow({ row }: Props) {
           >
             {row.status}
           </Label>
+          {nextInterview && (
+            <ButtonBase
+              onClick={interviewsDialog.onTrue}
+              sx={{
+                mt: 0.75,
+                gap: 0.5,
+                display: 'flex',
+                borderRadius: 0.5,
+                typography: 'caption',
+                color: 'info.main',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <Iconify icon="solar:calendar-date-bold" width={14} />
+              {interviewWhen(nextInterview).replace(/\s\d{4}/, '')}
+            </ButtonBase>
+          )}
         </TableCell>
 
         <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.uploadedByName}</TableCell>
@@ -134,6 +181,14 @@ export function CandidateTableRow({ row }: Props) {
 
       {editDialog.value && (
         <CandidateEditDialog open={editDialog.value} onClose={editDialog.onFalse} candidate={row} />
+      )}
+
+      {scheduleDialog.value && (
+        <InterviewScheduleDialog open onClose={scheduleDialog.onFalse} candidate={row} />
+      )}
+
+      {interviewsDialog.value && (
+        <CandidateInterviewsDialog open onClose={interviewsDialog.onFalse} candidate={row} />
       )}
 
       {convertDialog.value && (

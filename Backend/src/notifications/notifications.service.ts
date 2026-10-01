@@ -22,7 +22,7 @@ export class NotificationsService {
     if (query.unreadOnly) {
       qb.andWhere('notification.readAt IS NULL');
     }
-    qb.orderBy('notification.createdAt', 'DESC');
+    qb.orderBy('notification.createdAt', 'DESC').take(query.limit ?? 30);
 
     const [rows, total] = await qb.getManyAndCount();
     const unreadCount = await this.notificationsRepo.count({
@@ -30,6 +30,15 @@ export class NotificationsService {
     });
 
     return { data: rows.map(toNotificationDto), meta: { total, unreadCount } };
+  }
+
+  /** Marks every unread notification of the caller as read. */
+  async markAllRead(callerId: number): Promise<{ updated: number }> {
+    const result = await this.notificationsRepo.update(
+      { userId: callerId, readAt: IsNull() },
+      { readAt: new Date() },
+    );
+    return { updated: result.affected ?? 0 };
   }
 
   async markRead(id: number, callerId: number): Promise<NotificationDto> {

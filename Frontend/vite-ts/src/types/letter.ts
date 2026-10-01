@@ -11,7 +11,8 @@ export type LetterType =
   | 'WARNING'
   | 'EXPERIENCE'
   | 'APPRECIATION'
-  | 'APPRAISAL_REJECTION';
+  | 'APPRAISAL_REJECTION'
+  | 'EMPLOYMENT_CONFIRMATION';
 
 export const LETTER_TYPE_OPTIONS: LetterType[] = [
   'OFFER',
@@ -22,6 +23,7 @@ export const LETTER_TYPE_OPTIONS: LetterType[] = [
   'EXPERIENCE',
   'APPRECIATION',
   'APPRAISAL_REJECTION',
+  'EMPLOYMENT_CONFIRMATION',
 ];
 
 export type LetterStatus =
@@ -76,6 +78,9 @@ export interface LetterTemplateDto {
   createdAt: string;
   updatedAt: string;
 }
+
+/** `GET /letter-templates/:id` — the detail response adds the stored `bodyHtml` for the edit form. */
+export type LetterTemplateDetailDto = LetterTemplateDto & { bodyHtml: string };
 
 /** `POST /letter-templates` body — ADMIN only. */
 export type CreateLetterTemplateDto = {

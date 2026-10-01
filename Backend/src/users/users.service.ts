@@ -7,6 +7,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { existsSync, unlinkSync } from 'fs';
+import { join } from 'path';
 import { User } from '../entities/user.entity';
 import { EmployeeProfile } from '../entities/employee-profile.entity';
 import { UserStatus } from '../common/enums/user-status.enum';
@@ -23,6 +25,7 @@ import { UpdateEmployeeProfileDto } from './dto/update-employee-profile.dto';
 import { generateTempPassword } from '../common/utils/temp-password';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { AVATARS_DIR } from './avatar.storage';
 
 @Injectable()
 export class UsersService {
@@ -87,6 +90,33 @@ export class UsersService {
     return toUserDto(await this.findOneEntity(id));
   }
 
+  /** Sets the caller's profile picture to the just-uploaded file, removing the previous one. */
+  async setAvatar(userId: number, fileName: string): Promise<UserDto> {
+    const user = await this.findOneEntity(userId);
+    this.removeAvatarFile(user.avatarPath);
+    user.avatarPath = fileName;
+    await this.usersRepo.update(userId, { avatarPath: fileName });
+    return toUserDto(user);
+  }
+
+  async removeAvatar(userId: number): Promise<UserDto> {
+    const user = await this.findOneEntity(userId);
+    this.removeAvatarFile(user.avatarPath);
+    user.avatarPath = null;
+    await this.usersRepo.update(userId, { avatarPath: null });
+    return toUserDto(user);
+  }
+
+  private removeAvatarFile(fileName: string | null): void {
+    if (!fileName) return;
+    const path = join(AVATARS_DIR, fileName);
+    try {
+      if (existsSync(path)) unlinkSync(path);
+    } catch {
+      // A leftover file is harmless — never fail the request over it.
+    }
+  }
+
   async findReports(id: number): Promise<UserDto[]> {
     // Ensure the "manager" user itself exists first, so /users/:id/reports 404s cleanly.
     await this.findOneEntity(id);
@@ -121,7 +151,7 @@ export class UsersService {
       designation: dto.designation ?? null,
       joinDate: dto.joinDate ?? null,
       employeeCode: dto.employeeCode ?? null,
-      status: UserStatus.ONBOARDING,
+      status: UserStatus.ACTIVE,
       mustChangePassword: true,
       password_hash,
     });

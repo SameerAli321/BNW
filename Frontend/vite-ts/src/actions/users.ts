@@ -10,6 +10,7 @@ import type {
 import { useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 
+import { CONFIG } from 'src/global-config';
 import axiosInstance, { fetcher, endpoints } from 'src/lib/axios';
 
 // ----------------------------------------------------------------------
@@ -143,5 +144,32 @@ export async function deleteUser(id: number | string): Promise<void> {
  */
 export async function resetUserPassword(id: number | string): Promise<{ tempPassword: string }> {
   const res = await axiosInstance.post(endpoints.users.resetPassword(id));
+  return res.data.data;
+}
+
+// ----------------------------------------------------------------------
+// Profile picture (own account only).
+
+/** Full URL for an `avatarUrl` from the API (which is relative to the API base), or undefined. */
+export function avatarSrc(avatarUrl?: string | null): string | undefined {
+  return avatarUrl ? `${CONFIG.serverUrl}${avatarUrl}` : undefined;
+}
+
+export const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // matches the backend's 2MB cap
+export const AVATAR_ACCEPT = 'image/jpeg,image/png,image/webp';
+
+/** POST /users/me/avatar — upload / replace the caller's profile picture. */
+export async function uploadMyAvatar(file: File): Promise<UserDto> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await axiosInstance.post(endpoints.users.myAvatar, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data.data;
+}
+
+/** DELETE /users/me/avatar — back to the initial-letter avatar. */
+export async function removeMyAvatar(): Promise<UserDto> {
+  const res = await axiosInstance.delete(endpoints.users.myAvatar);
   return res.data.data;
 }

@@ -78,10 +78,20 @@ export const navData: NavSectionProps['data'] = [
         icon: ICONS.mail,
       },
       {
-        title: 'Letter Templates',
-        path: paths.dashboard.letterTemplates.root,
+        // One hub for every HR form (Complaint, Attendance Regularization, Onboarding) and letter
+        // template (Appraisal, Intern employment). No `allowedRoles`: everyone uses the forms;
+        // the letter cards inside only render for HR / CEO / ADMIN. The old "Letter Templates"
+        // table is reached from here ("Manage letter templates").
+        title: 'Requests & Forms',
+        path: paths.dashboard.requestsForms,
         icon: ICONS.file,
-        allowedRoles: ['HR', 'CEO', 'ADMIN'],
+      },
+      {
+        // Announcement board. No `allowedRoles`: everyone reads it (it's also on every dashboard);
+        // the Post / Edit / Delete controls inside only render for CEO / ADMIN / HR.
+        title: 'Announcements',
+        path: paths.dashboard.announcements,
+        icon: ICONS.mail,
       },
       {
         // Sprint 4 — Appraisals (see docs/API_CONTRACT_SPRINT4.md). No `allowedRoles`: every

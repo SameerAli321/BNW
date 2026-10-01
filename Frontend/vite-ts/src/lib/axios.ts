@@ -27,6 +27,8 @@ export const endpoints = {
     // Gap-fix — see docs/API_CONTRACT_GAPS_FIX.md Gap 1.
     profile: (id: number | string) => `/users/${id}/profile`,
     resetPassword: (id: number | string) => `/users/${id}/reset-password`,
+    // Own profile picture — POST (multipart 'file') to upload / replace, DELETE to remove.
+    myAvatar: '/users/me/avatar',
   },
   roles: '/roles',
   departments: '/departments',
@@ -83,6 +85,21 @@ export const endpoints = {
     cv: (id: number | string) => `/candidates/${id}/cv`,
     convert: (id: number | string) => `/candidates/${id}/convert`,
   },
+  // Interview scheduling — HR / ADMIN; the candidate + interviewers are emailed an invitation.
+  interviews: {
+    list: '/interviews',
+    forCandidate: (candidateId: number | string) => `/candidates/${candidateId}/interviews`,
+    preview: (candidateId: number | string) => `/candidates/${candidateId}/interviews/preview`,
+    details: (id: number | string) => `/interviews/${id}`,
+    cancel: (id: number | string) => `/interviews/${id}/cancel`,
+    resend: (id: number | string) => `/interviews/${id}/resend`,
+    outcome: (id: number | string) => `/interviews/${id}/outcome`,
+  },
+  // Outgoing email (SMTP) — status for HR / ADMIN, test send for ADMIN.
+  smtp: {
+    status: '/mail/status',
+    test: '/mail/test',
+  },
   joiningPackItems: {
     list: '/joining-pack-items',
     details: (id: number | string) => `/joining-pack-items/${id}`,
@@ -94,6 +111,77 @@ export const endpoints = {
     mine: '/activity-logs/mine',
     team: '/activity-logs/team',
     details: (id: number | string) => `/activity-logs/${id}`,
+  },
+  // Complaint form — anyone submits, HR/ADMIN respond.
+  complaints: {
+    list: '/complaints',
+    mine: '/complaints/mine',
+    details: (id: number | string) => `/complaints/${id}`,
+    hrResponse: (id: number | string) => `/complaints/${id}/hr-response`,
+    pdf: (id: number | string) => `/complaints/${id}/pdf`,
+  },
+  // Attendance regularization form — employee submits, HOD recommends, HR records.
+  attendanceRegularizations: {
+    list: '/attendance-regularizations',
+    mine: '/attendance-regularizations/mine',
+    team: '/attendance-regularizations/team',
+    details: (id: number | string) => `/attendance-regularizations/${id}`,
+    hodRecommendation: (id: number | string) =>
+      `/attendance-regularizations/${id}/hod-recommendation`,
+    hrDecision: (id: number | string) => `/attendance-regularizations/${id}/hr-decision`,
+    pdf: (id: number | string) => `/attendance-regularizations/${id}/pdf`,
+  },
+  // Leave / holiday — employee applies, manager approves, HR gives final approval.
+  leaveTypes: {
+    list: '/leave-types',
+    details: (id: number | string) => `/leave-types/${id}`,
+  },
+  leaveRequests: {
+    list: '/leave-requests',
+    mine: '/leave-requests/mine',
+    team: '/leave-requests/team',
+    balance: (userId: number | string) => `/leave-requests/balance/${userId}`,
+    details: (id: number | string) => `/leave-requests/${id}`,
+    managerDecision: (id: number | string) => `/leave-requests/${id}/manager-decision`,
+    hrDecision: (id: number | string) => `/leave-requests/${id}/hr-decision`,
+    cancel: (id: number | string) => `/leave-requests/${id}/cancel`,
+    pdf: (id: number | string) => `/leave-requests/${id}/pdf`,
+  },
+  // Work orders — reimbursement claims + equipment requests (manager → CEO over limit → Payroll / HR).
+  workOrders: {
+    list: '/work-orders',
+    mine: '/work-orders/mine',
+    team: '/work-orders/team',
+    queue: '/work-orders/queue',
+    settings: '/work-orders/settings',
+    details: (id: number | string) => `/work-orders/${id}`,
+    pdf: (id: number | string) => `/work-orders/${id}/pdf`,
+    receipt: (id: number | string) => `/work-orders/${id}/receipt`,
+    managerDecision: (id: number | string) => `/work-orders/${id}/manager-decision`,
+    ceoDecision: (id: number | string) => `/work-orders/${id}/ceo-decision`,
+    process: (id: number | string) => `/work-orders/${id}/process`,
+    cancel: (id: number | string) => `/work-orders/${id}/cancel`,
+  },
+  // In-app notifications (the bell in the header) — always the caller's own.
+  notifications: {
+    list: '/notifications',
+    readAll: '/notifications/read-all',
+    read: (id: number | string) => `/notifications/${id}/read`,
+  },
+  // Dashboard home — counts and chart series for the caller (personal / team / company).
+  dashboard: '/dashboard',
+  // Announcement board — CEO / ADMIN / HR post, everyone reads.
+  announcements: {
+    list: '/announcements',
+    details: (id: number | string) => `/announcements/${id}`,
+  },
+  // Employee onboarding form — each user fills their own; HR / ADMIN record it.
+  onboardingForms: {
+    list: '/onboarding-forms',
+    mine: '/onboarding-forms/mine',
+    details: (id: number | string) => `/onboarding-forms/${id}`,
+    hrRecord: (id: number | string) => `/onboarding-forms/${id}/hr-record`,
+    pdf: (id: number | string) => `/onboarding-forms/${id}/pdf`,
   },
   // Demo-only endpoints kept from the minimal-kit template (out of scope for BNW OMS Sprint 1,
   // not reachable from the app nav — see docs/FRONTEND_STATUS.md).

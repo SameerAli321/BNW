@@ -10,7 +10,16 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -19,6 +28,14 @@ import { UpdateEmployeeProfileDto } from './dto/update-employee-profile.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RoleName } from '../common/enums/role.enum';
 import { CurrentUser, JwtUserPayload } from '../common/decorators/current-user.decorator';
+import { Public } from '../common/decorators/public.decorator';
+import {
+  AVATARS_DIR,
+  avatarStorage,
+  avatarFileFilter,
+  MAX_AVATAR_SIZE_BYTES,
+  AVATAR_FILE_NAME_PATTERN,
+} from './avatar.storage';
 
 @Controller('users')
 export class UsersController {
@@ -35,6 +52,48 @@ export class UsersController {
   async create(@Body() dto: CreateUserDto) {
     const { user } = await this.usersService.create(dto);
     return user;
+  }
+
+  // Everyone — upload / replace your own profile picture (JPG, PNG or WEBP, up to 2MB).
+  @Post('me/avatar')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: avatarStorage,
+      fileFilter: avatarFileFilter,
+      limits: { fileSize: MAX_AVATAR_SIZE_BYTES },
+    }),
+  )
+  async uploadAvatar(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() caller: JwtUserPayload,
+  ) {
+    if (!file) throw new BadRequestException('Choose an image to upload');
+    return this.usersService.setAvatar(caller.sub, file.filename);
+  }
+
+  @Delete('me/avatar')
+  @HttpCode(HttpStatus.OK)
+  async removeAvatar(@CurrentUser() caller: JwtUserPayload) {
+    return this.usersService.removeAvatar(caller.sub);
+  }
+
+  // Public so <img src> works without the Bearer token — file names are random UUIDs (unguessable)
+  // and must match the storage's own pattern, so nothing else on disk can be reached. Declared
+  // before ':id' so 'avatars' isn't parsed as an id.
+  @Public()
+  @Get('avatars/:file')
+  serveAvatar(@Param('file') file: string, @Res() res: Response) {
+    const path = join(AVATARS_DIR, file);
+    if (!AVATAR_FILE_NAME_PATTERN.test(file) || !existsSync(path)) {
+      throw new NotFoundException('Profile picture not found');
+    }
+    res.set({
+      // helmet defaults this to same-origin, which would block the frontend (another origin).
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+      // Each upload gets a new file name, so the image at a given URL never changes.
+      'Cache-Control': 'public, max-age=31536000, immutable',
+    });
+    res.sendFile(path);
   }
 
   // Allowed for HR/ADMIN, or the user themself ("self"), or their direct manager ("manager-of").

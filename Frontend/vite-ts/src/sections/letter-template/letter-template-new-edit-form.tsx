@@ -10,7 +10,6 @@ import Switch from '@mui/material/Switch';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
 import { paths } from 'src/routes/paths';
@@ -28,7 +27,7 @@ import { LetterTemplateFieldsEditor } from './letter-template-fields-editor';
 
 type Props = {
   currentTemplate?: LetterTemplateDto;
-  // The list DTO omits `bodyHtml` (see the contract's DTO comment) — a fresh template starts with
+  // The stored body, from the template detail endpoint — a fresh template starts with
   // clearly-marked placeholder copy, matching the seeded templates' pattern.
   currentBodyHtml?: string;
 };
@@ -45,11 +44,8 @@ export function LetterTemplateNewEditForm({ currentTemplate, currentBodyHtml }: 
   const [roleScope, setRoleScope] = useState(currentTemplate?.roleScope ?? '');
   const [isActive, setIsActive] = useState(currentTemplate?.isActive ?? true);
   const [bodyHtml, setBodyHtml] = useState(currentBodyHtml ?? DEFAULT_BODY_HTML);
-  // We never actually have the real stored bodyHtml on edit (the list/detail API omits it — see
-  // the Alert below), so only send it on save if the user explicitly typed something here.
-  // Otherwise PUT would silently blank out real content once real templates replace the
-  // placeholders. The backend's partial-update (`if (dto.bodyHtml !== undefined) ...`) preserves
-  // whatever's already stored when this field is left out of the payload.
+  // Only send bodyHtml on save if it was edited here; the backend's partial update
+  // (`if (dto.bodyHtml !== undefined) ...`) keeps the stored body when it's left out.
   const [bodyHtmlTouched, setBodyHtmlTouched] = useState(false);
   const [fieldsSchema, setFieldsSchema] = useState(currentTemplate?.fieldsSchema ?? []);
 
@@ -100,20 +96,14 @@ export function LetterTemplateNewEditForm({ currentTemplate, currentBodyHtml }: 
     <Grid container spacing={3}>
       <Grid size={{ xs: 12 }}>
         <Card sx={{ p: 3 }}>
-          <Typography variant="subtitle2" sx={{ mb: 2 }}>
-            Templates are placeholder content this sprint — pick a type/name and define the
-            fields HR fills in, no rich body editor needed yet.
-          </Typography>
-
-          {currentTemplate && (
-            <Alert severity="info" sx={{ mb: 3 }}>
-              The template list/detail API intentionally omits <code>bodyHtml</code> (it&apos;s
-              template source, not needed by the letter-creation or detail UI — see
-              docs/API_CONTRACT_SPRINT3.md), so this form can&apos;t show you the current stored
-              body. The field below is left as placeholder text and is only saved if you actually
-              type something in it — leaving it alone keeps whatever&apos;s already stored.
-            </Alert>
-          )}
+          <Alert severity="info" sx={{ mb: 3 }}>
+            The body is filled in when the letter PDF is generated: <code>{'{{date}}'}</code>{' '}
+            becomes the date the CEO signs, <code>{'{{employee.fullName}}'}</code> (and other{' '}
+            <code>employee.*</code> keys) come from the employee the letter is for, and any other{' '}
+            <code>{'{{key}}'}</code> is the value HR enters for that field below. The CEO&apos;s
+            signature, name and title are added automatically after the body — end it with the
+            closing line (e.g. &quot;Warm regards,&quot;).
+          </Alert>
 
           <Stack spacing={3}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -156,14 +146,15 @@ export function LetterTemplateNewEditForm({ currentTemplate, currentBodyHtml }: 
             </Stack>
 
             <TextField
-              label="Body (placeholder text — {{placeholder}} syntax)"
+              label="Body (HTML — <p>, <strong>, <em>, <br/>; {{key}} placeholders)"
               value={bodyHtml}
               onChange={(event) => {
                 setBodyHtml(event.target.value);
                 setBodyHtmlTouched(true);
               }}
               multiline
-              rows={4}
+              minRows={8}
+              maxRows={24}
               fullWidth
             />
 

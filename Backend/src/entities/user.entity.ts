@@ -58,11 +58,15 @@ export class User {
   @Column({ type: 'varchar', length: 150, nullable: true })
   designation: string | null;
 
-  @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ONBOARDING })
+  @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
   status: UserStatus;
 
   @Column({ name: 'join_date', type: 'date', nullable: true })
   joinDate: string | null;
+
+  // Randomized file name under uploads/avatars/ — null until the user uploads a profile picture.
+  @Column({ name: 'avatar_path', type: 'varchar', length: 255, nullable: true })
+  avatarPath: string | null;
 
   @Column({ name: 'must_change_password', type: 'boolean', default: true })
   mustChangePassword: boolean;

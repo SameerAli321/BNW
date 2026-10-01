@@ -1,13 +1,11 @@
 import type { IconButtonProps } from '@mui/material/IconButton';
 
-import { varAlpha } from 'minimal-shared/utils';
 import { useBoolean } from 'minimal-shared/hooks';
 
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Avatar from '@mui/material/Avatar';
 import Drawer from '@mui/material/Drawer';
-import Tooltip from '@mui/material/Tooltip';
 import MenuList from '@mui/material/MenuList';
 import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
@@ -17,7 +15,7 @@ import { paths } from 'src/routes/paths';
 import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
-import { _mock } from 'src/_mock';
+import { avatarSrc } from 'src/actions/users';
 
 import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
@@ -26,7 +24,6 @@ import { AnimateBorder } from 'src/components/animate';
 
 import { useAuthContext } from 'src/auth/hooks';
 
-import { UpgradeBlock } from './nav-upgrade';
 import { AccountButton } from './account-button';
 import { SignOutButton } from './sign-out-button';
 
@@ -57,7 +54,7 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
         primaryBorder: { size: 120, sx: { color: 'primary.main' } },
       }}
     >
-      <Avatar alt={displayName} sx={{ width: 1, height: 1 }}>
+      <Avatar alt={displayName} src={avatarSrc(user?.avatarUrl)} sx={{ width: 1, height: 1 }}>
         {displayName?.charAt(0).toUpperCase()}
       </Avatar>
     </AnimateBorder>
@@ -94,7 +91,8 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
                 display: 'flex',
                 typography: 'body2',
                 alignItems: 'center',
-                color: 'text.secondary',
+                color: pathname === option.href ? 'primary.main' : 'text.secondary',
+                fontWeight: pathname === option.href ? 600 : 400,
                 '& svg': { width: 24, height: 24 },
                 '&:hover': { color: 'text.primary' },
               }}
@@ -119,7 +117,10 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
 
   return (
     <>
-      <AccountButton onClick={onOpen} photoURL="" displayName={displayName ?? ''} sx={sx} {...other} />
+      <AccountButton
+        onClick={onOpen}
+        photoURL={avatarSrc(user?.avatarUrl) ?? ''}
+        displayName={displayName ?? ''} sx={sx} {...other} />
 
       <Drawer
         open={open}
@@ -160,49 +161,15 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
             <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }} noWrap>
               {user?.email}
             </Typography>
-          </Box>
 
-          <Box
-            sx={{
-              p: 3,
-              gap: 1,
-              flexWrap: 'wrap',
-              display: 'flex',
-              justifyContent: 'center',
-            }}
-          >
-            {Array.from({ length: 3 }, (_, index) => (
-              <Tooltip
-                key={_mock.fullName(index + 1)}
-                title={`Switch to: ${_mock.fullName(index + 1)}`}
-              >
-                <Avatar
-                  alt={_mock.fullName(index + 1)}
-                  src={_mock.image.avatar(index + 1)}
-                  onClick={() => {}}
-                />
-              </Tooltip>
-            ))}
-
-            <Tooltip title="Add account">
-              <IconButton
-                sx={[
-                  (theme) => ({
-                    bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.08),
-                    border: `dashed 1px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.32)}`,
-                  }),
-                ]}
-              >
-                <Iconify icon="mingcute:add-line" />
-              </IconButton>
-            </Tooltip>
+            {user?.role && (
+              <Label color="primary" variant="soft" sx={{ mt: 1.5, mb: 3 }}>
+                {user.role}
+              </Label>
+            )}
           </Box>
 
           {renderList()}
-
-          <Box sx={{ px: 2.5, py: 3 }}>
-            <UpgradeBlock />
-          </Box>
         </Scrollbar>
 
         <Box sx={{ p: 2.5 }}>

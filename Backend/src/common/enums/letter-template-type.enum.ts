@@ -10,4 +10,6 @@ export enum LetterTemplateType {
   // type (draft -> CEO sign -> send to employee -> E-record), not a special case.
   APPRECIATION = 'APPRECIATION',
   APPRAISAL_REJECTION = 'APPRAISAL_REJECTION',
+  // "To Whom It May Concern" employment confirmation for interns / trainees.
+  EMPLOYMENT_CONFIRMATION = 'EMPLOYMENT_CONFIRMATION',
 }

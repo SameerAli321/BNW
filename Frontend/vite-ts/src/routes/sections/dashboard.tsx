@@ -56,6 +56,38 @@ const CandidateListPage = lazy(() => import('src/pages/dashboard/candidates/list
 const JoiningPackPage = lazy(() => import('src/pages/dashboard/joining-pack'));
 // Daily activity log (see docs/API_CONTRACT_ACTIVITY_LOG.md)
 const ActivityLogListPage = lazy(() => import('src/pages/dashboard/activity/list'));
+// Requests & Forms hub (every HR form + the letter templates)
+const RequestsFormsPage = lazy(() => import('src/pages/dashboard/requests-forms'));
+// Complaint form (submitted by anyone to HR)
+const ComplaintListPage = lazy(() => import('src/pages/dashboard/complaints/list'));
+const ComplaintCreatePage = lazy(() => import('src/pages/dashboard/complaints/new'));
+const ComplaintDetailPage = lazy(() => import('src/pages/dashboard/complaints/detail'));
+// Attendance regularization form (employee -> HOD -> HR)
+const AttendanceRegularizationListPage = lazy(
+  () => import('src/pages/dashboard/attendance-regularizations/list')
+);
+const AttendanceRegularizationCreatePage = lazy(
+  () => import('src/pages/dashboard/attendance-regularizations/new')
+);
+const AttendanceRegularizationDetailPage = lazy(
+  () => import('src/pages/dashboard/attendance-regularizations/detail')
+);
+// Leave / holiday (employee -> manager -> HR)
+const LeaveRequestListPage = lazy(() => import('src/pages/dashboard/leave-requests/list'));
+const LeaveRequestCreatePage = lazy(() => import('src/pages/dashboard/leave-requests/new'));
+const LeaveRequestDetailPage = lazy(() => import('src/pages/dashboard/leave-requests/detail'));
+// Work orders (reimbursement / equipment: employee -> manager -> CEO over limit -> Payroll / HR)
+const WorkOrderListPage = lazy(() => import('src/pages/dashboard/work-orders/list'));
+const WorkOrderCreatePage = lazy(() => import('src/pages/dashboard/work-orders/new'));
+const WorkOrderDetailPage = lazy(() => import('src/pages/dashboard/work-orders/detail'));
+// Announcement board
+const AnnouncementsPage = lazy(() => import('src/pages/dashboard/announcements'));
+// Notifications (full list behind the header bell)
+const NotificationsPage = lazy(() => import('src/pages/dashboard/notifications'));
+// Employee onboarding form (fills the E-record; HR records it)
+const OnboardingFormListPage = lazy(() => import('src/pages/dashboard/onboarding-forms/list'));
+const OnboardingFormMinePage = lazy(() => import('src/pages/dashboard/onboarding-forms/mine'));
+const OnboardingFormDetailPage = lazy(() => import('src/pages/dashboard/onboarding-forms/detail'));
 
 // ----------------------------------------------------------------------
 
@@ -137,6 +169,49 @@ export const dashboardRoutes: RouteObject[] = [
       { path: 'candidates', element: <CandidateListPage /> },
       { path: 'joining-pack', element: <JoiningPackPage /> },
       { path: 'activity', element: <ActivityLogListPage /> },
+      { path: 'requests-forms', element: <RequestsFormsPage /> },
+      {
+        path: 'complaints',
+        children: [
+          { index: true, element: <ComplaintListPage /> },
+          { path: 'new', element: <ComplaintCreatePage /> },
+          { path: ':id', element: <ComplaintDetailPage /> },
+        ],
+      },
+      {
+        path: 'attendance-regularizations',
+        children: [
+          { index: true, element: <AttendanceRegularizationListPage /> },
+          { path: 'new', element: <AttendanceRegularizationCreatePage /> },
+          { path: ':id', element: <AttendanceRegularizationDetailPage /> },
+        ],
+      },
+      {
+        path: 'leave-requests',
+        children: [
+          { index: true, element: <LeaveRequestListPage /> },
+          { path: 'new', element: <LeaveRequestCreatePage /> },
+          { path: ':id', element: <LeaveRequestDetailPage /> },
+        ],
+      },
+      {
+        path: 'work-orders',
+        children: [
+          { index: true, element: <WorkOrderListPage /> },
+          { path: 'new', element: <WorkOrderCreatePage /> },
+          { path: ':id', element: <WorkOrderDetailPage /> },
+        ],
+      },
+      { path: 'announcements', element: <AnnouncementsPage /> },
+      { path: 'notifications', element: <NotificationsPage /> },
+      {
+        path: 'onboarding-forms',
+        children: [
+          { index: true, element: <OnboardingFormListPage /> },
+          { path: 'mine', element: <OnboardingFormMinePage /> },
+          { path: ':id', element: <OnboardingFormDetailPage /> },
+        ],
+      },
     ],
   },
 ];
