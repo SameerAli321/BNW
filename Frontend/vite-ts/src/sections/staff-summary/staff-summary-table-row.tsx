@@ -13,6 +13,8 @@ import { fDate } from 'src/utils/format-time';
 
 import { Label } from 'src/components/label';
 
+import { userStatusLabel } from 'src/types/user';
+
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -64,12 +66,11 @@ export function StaffSummaryTableRow({ row, recordHref }: Props) {
           variant="soft"
           color={
             (row.status === 'ACTIVE' && 'success') ||
-            (row.status === 'ONBOARDING' && 'warning') ||
             (row.status === 'INACTIVE' && 'error') ||
             'default'
           }
         >
-          {row.status}
+          {userStatusLabel(row.status)}
         </Label>
       </TableCell>
 

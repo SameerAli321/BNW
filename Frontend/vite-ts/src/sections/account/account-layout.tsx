@@ -28,7 +28,7 @@ const NAV_ITEMS = [
     href: paths.dashboard.user.account,
   },
   {
-    label: 'Security',
+    label: 'Change password',
     icon: <Iconify width={24} icon="ic:round-vpn-key" />,
     href: `${paths.dashboard.user.account}/change-password`,
   },

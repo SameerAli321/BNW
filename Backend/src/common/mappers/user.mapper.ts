@@ -14,6 +14,8 @@ export interface UserDto {
   designation: string | null;
   status: string;
   joinDate: string | null;
+  /** Relative to the API base, e.g. '/users/avatars/<uuid>.jpg' — null when no picture. */
+  avatarUrl: string | null;
   mustChangePassword: boolean;
   createdAt: string;
   updatedAt: string;
@@ -39,6 +41,7 @@ export function toUserDto(user: User): UserDto {
     designation: user.designation,
     status: user.status,
     joinDate: user.joinDate,
+    avatarUrl: user.avatarPath ? `/users/avatars/${user.avatarPath}` : null,
     mustChangePassword: user.mustChangePassword,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),

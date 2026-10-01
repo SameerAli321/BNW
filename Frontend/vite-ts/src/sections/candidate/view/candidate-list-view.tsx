@@ -8,6 +8,7 @@ import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Card from '@mui/material/Card';
 import Table from '@mui/material/Table';
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import TableBody from '@mui/material/TableBody';
@@ -17,6 +18,7 @@ import { paths } from 'src/routes/paths';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useGetCandidates } from 'src/actions/candidates';
+import { useGetMailStatus, useGetUpcomingInterviews } from 'src/actions/interviews';
 
 import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
@@ -38,6 +40,7 @@ import { RoleBasedGuard } from 'src/auth/guard';
 import { CANDIDATE_STATUS_OPTIONS } from 'src/types/candidate';
 
 import { CandidateTableRow } from '../candidate-table-row';
+import { MailSettingsDialog } from '../mail-settings-dialog';
 import { CandidateBulkUploadDialog } from '../candidate-bulk-upload-dialog';
 
 // ----------------------------------------------------------------------
@@ -51,7 +54,7 @@ const TABLE_HEAD: TableHeadCellProps[] = [
   { id: 'name', label: 'Candidate' },
   { id: 'phone', label: 'Phone', width: 140 },
   { id: 'cv', label: 'CV' },
-  { id: 'status', label: 'Status', width: 130 },
+  { id: 'status', label: 'Status', width: 170 },
   { id: 'uploadedBy', label: 'Uploaded by', width: 160 },
   { id: 'createdAt', label: 'Uploaded', width: 120 },
   { id: '', width: 68 },
@@ -66,6 +69,18 @@ export function CandidateListView() {
   const currentRole = currentAuthUser?.role ?? '';
 
   const uploadDialog = useBoolean();
+  const mailDialog = useBoolean();
+
+  const canView = ['HR', 'ADMIN'].includes(currentRole);
+  const { mailStatus } = useGetMailStatus(canView);
+  const { upcomingInterviews } = useGetUpcomingInterviews(canView);
+  // Soonest upcoming interview per candidate (the list comes back soonest-first).
+  const nextInterviewByCandidate = new Map<number, (typeof upcomingInterviews)[number]>();
+  upcomingInterviews.forEach((interview) => {
+    if (!nextInterviewByCandidate.has(interview.candidateId)) {
+      nextInterviewByCandidate.set(interview.candidateId, interview);
+    }
+  });
 
   const filters = useSetState<{ name: string; status: string }>({ name: '', status: 'all' });
   const { state: currentFilters, setState: updateFilters } = filters;
@@ -96,16 +111,33 @@ export function CandidateListView() {
             { name: 'Candidates' },
           ]}
           action={
-            <Button
-              variant="contained"
-              startIcon={<Iconify icon="eva:cloud-upload-fill" />}
-              onClick={uploadDialog.onTrue}
-            >
-              Bulk upload CVs
-            </Button>
+            <Box sx={{ gap: 1.5, display: 'flex', flexWrap: 'wrap' }}>
+              <Button
+                variant="outlined"
+                color={mailStatus && !mailStatus.connected ? 'warning' : 'inherit'}
+                startIcon={<Iconify icon="solar:letter-bold" />}
+                onClick={mailDialog.onTrue}
+              >
+                Email settings
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<Iconify icon="eva:cloud-upload-fill" />}
+                onClick={uploadDialog.onTrue}
+              >
+                Bulk upload CVs
+              </Button>
+            </Box>
           }
           sx={{ mb: { xs: 3, md: 5 } }}
         />
+
+        {mailStatus && !mailStatus.configured && (
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            Interview invitations can be scheduled, but they won&apos;t be emailed until outgoing
+            email is set up — see <strong>Email settings</strong>.
+          </Alert>
+        )}
 
         <Card>
           <Tabs
@@ -182,7 +214,11 @@ export function CandidateListView() {
 
                 <TableBody>
                   {dataInPage.map((row) => (
-                    <CandidateTableRow key={row.id} row={row} />
+                    <CandidateTableRow
+                      key={row.id}
+                      row={row}
+                      nextInterview={nextInterviewByCandidate.get(row.id)}
+                    />
                   ))}
 
                   <TableEmptyRows
@@ -209,6 +245,7 @@ export function CandidateListView() {
       </DashboardContent>
 
       <CandidateBulkUploadDialog open={uploadDialog.value} onClose={uploadDialog.onFalse} />
+      {mailDialog.value && <MailSettingsDialog open onClose={mailDialog.onFalse} />}
     </RoleBasedGuard>
   );
 }

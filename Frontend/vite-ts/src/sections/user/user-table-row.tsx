@@ -31,6 +31,8 @@ import { Iconify } from 'src/components/iconify';
 import { ConfirmDialog } from 'src/components/custom-dialog';
 import { CustomPopover } from 'src/components/custom-popover';
 
+import { userStatusLabel } from 'src/types/user';
+
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -268,12 +270,11 @@ export function UserTableRow({
             variant="soft"
             color={
               (row.status === 'ACTIVE' && 'success') ||
-              (row.status === 'ONBOARDING' && 'warning') ||
               (row.status === 'INACTIVE' && 'error') ||
               'default'
             }
           >
-            {row.status}
+            {userStatusLabel(row.status)}
           </Label>
         </TableCell>
 

@@ -15,13 +15,17 @@ export const USER_ROLE_OPTIONS: UserRole[] = [
   'ADMIN',
 ];
 
-export type UserAccountStatus = 'ONBOARDING' | 'ACTIVE' | 'INACTIVE';
+// New users start ACTIVE. INACTIVE is shown as "Removed" — they can no longer sign in.
+export type UserAccountStatus = 'ACTIVE' | 'INACTIVE';
 
 export const USER_ACCOUNT_STATUS_OPTIONS: { value: UserAccountStatus; label: string }[] = [
-  { value: 'ONBOARDING', label: 'Onboarding' },
   { value: 'ACTIVE', label: 'Active' },
-  { value: 'INACTIVE', label: 'Inactive' },
+  { value: 'INACTIVE', label: 'Removed' },
 ];
+
+export function userStatusLabel(status: string): string {
+  return USER_ACCOUNT_STATUS_OPTIONS.find((option) => option.value === status)?.label ?? status;
+}
 
 /** `UserDto` — contract §"Auth", used in login/me responses and the Users list/detail. */
 export interface UserDto {
@@ -38,6 +42,8 @@ export interface UserDto {
   designation: string | null;
   status: UserAccountStatus;
   joinDate: string | null; // ISO date
+  /** Profile picture, relative to the API base — use `avatarSrc()` from actions/users. */
+  avatarUrl: string | null;
   mustChangePassword: boolean;
   createdAt: string;
   updatedAt: string;

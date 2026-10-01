@@ -2,19 +2,74 @@ import { randomUUID } from 'crypto';
 import { join } from 'path';
 import { writeFile } from 'fs/promises';
 import { Injectable } from '@nestjs/common';
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
 import { Letter } from '../entities/letter.entity';
 import { LetterTemplate, LetterFieldSchemaEntry } from '../entities/letter-template.entity';
+import { Signature } from '../entities/signature.entity';
 import { User } from '../entities/user.entity';
+import { EmployeeProfile } from '../entities/employee-profile.entity';
+import { RoleName } from '../common/enums/role.enum';
+import { Gender } from '../common/enums/gender.enum';
 import { ensureLettersDirExists, LETTERS_DIR } from './letter-pdf.storage';
 
+const COMPANY_NAME = 'BNW Consultants';
+
+// Keys resolvable from the subject User — usable as `{{key}}` in any template body, whether or not
+// the template lists them in fieldsSchema.
+const AUTO_FIELD_KEYS = [
+  'employee.fullName',
+  'employee.firstName',
+  'employee.lastName',
+  'employee.designation',
+  'employee.email',
+  'employee.employeeCode',
+  'employee.department',
+  'employee.joinDate',
+  'employee.cnic',
+  'employee.relation',
+  'employee.he',
+  'employee.He',
+  'employee.his',
+  'employee.His',
+  'employee.him',
+];
+
+// Gendered wording from the E-record profile; unknown/unset gender keeps the letter's "he/she".
+const GENDERED: Record<string, { MALE: string; FEMALE: string; fallback: string }> = {
+  'employee.relation': { MALE: 'Son', FEMALE: 'Daughter', fallback: 'Son/Daughter' },
+  'employee.he': { MALE: 'he', FEMALE: 'she', fallback: 'he/she' },
+  'employee.He': { MALE: 'He', FEMALE: 'She', fallback: 'He/She' },
+  'employee.his': { MALE: 'his', FEMALE: 'her', fallback: 'his/her' },
+  'employee.His': { MALE: 'His', FEMALE: 'Her', fallback: 'His/Her' },
+  'employee.him': { MALE: 'him', FEMALE: 'her', fallback: 'him/her' },
+};
+
+/** 'YYYY-MM-DD' -> "5 July 2024"; anything unparseable is returned as-is. */
+function formatDateOnly(value: string | null): string {
+  if (!value) return '';
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : formatLetterDate(date);
+}
+
 /**
- * Resolves an auto-filled field's value from the subject User entity. Per
- * docs/API_CONTRACT_SPRINT3.md, auto-fields pull from the employee record (e.g.
- * `employee.fullName`, `employee.designation`) and are never stored in `letters.fieldValues` —
- * they're resolved fresh at render time so they always reflect the current user record.
+ * Resolves an auto-filled field's value from the subject User entity (and their E-record profile,
+ * for CNIC and gendered wording). Per docs/API_CONTRACT_SPRINT3.md, auto-fields pull from the
+ * employee record (e.g. `employee.fullName`, `employee.designation`) and are never stored in
+ * `letters.fieldValues` — they're resolved fresh at render time so they always reflect the
+ * current user record.
  */
-function resolveAutoFieldValue(key: string, subject: User): string {
+function resolveAutoFieldValue(
+  key: string,
+  subject: User,
+  profile: EmployeeProfile | null = null,
+): string {
+  const gendered = GENDERED[key];
+  if (gendered) {
+    const gender = profile?.gender;
+    return gender === Gender.MALE || gender === Gender.FEMALE
+      ? gendered[gender]
+      : gendered.fallback;
+  }
   switch (key) {
     case 'employee.fullName':
       return `${subject.firstName} ${subject.lastName}`;
@@ -31,7 +86,9 @@ function resolveAutoFieldValue(key: string, subject: User): string {
     case 'employee.department':
       return subject.department?.name ?? '';
     case 'employee.joinDate':
-      return subject.joinDate ?? '';
+      return formatDateOnly(subject.joinDate);
+    case 'employee.cnic':
+      return profile?.nationalId ?? '';
     default:
       return '';
   }
@@ -45,95 +102,341 @@ export function resolveLetterFieldValues(
   fieldsSchema: LetterFieldSchemaEntry[],
   manualValues: Record<string, string>,
   subject: User,
+  profile: EmployeeProfile | null = null,
 ): Array<{ key: string; label: string; value: string }> {
   return fieldsSchema.map((entry) => ({
     key: entry.key,
     label: entry.label,
     value: entry.autoFilled
-      ? resolveAutoFieldValue(entry.key, subject)
+      ? resolveAutoFieldValue(entry.key, subject, profile)
       : (manualValues[entry.key] ?? ''),
   }));
 }
 
+function formatLetterDate(date: Date): string {
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function decodeEntities(value: string): string {
+  return value
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
 /**
- * Sprint 3 PDF rendering, per docs/API_CONTRACT_SPRINT3.md scope cut #4: a simple pdf-lib text
- * layout, NOT the guide's puppeteer HTML->PDF pipeline (headless Chromium is unreliable to
- * provision in a sandboxed build environment). It will not look like a polished letterhead
- * document — that's explicitly acceptable for now. Swappable later: swap this service's internals
- * for a puppeteer + real bodyHtml/CSS renderer without changing `letters.pdfPath` or the
- * `GET /letters/:id/pdf` contract.
+ * Replaces `{{key}}` tokens (and the legacy literal `[Date]`) in a template body. Values are
+ * HTML-escaped and their line breaks kept, so free-text fields like `feedback` render as typed. A
+ * token with no value renders as a blank line to fill, so gaps are obvious in a preview.
+ */
+export function fillLetterPlaceholders(bodyHtml: string, values: Record<string, string>): string {
+  const toHtml = (key: string) => {
+    const value = values[key]?.trim();
+    return value ? escapeHtml(value).replace(/\r?\n/g, '<br/>') : '__________';
+  };
+  return bodyHtml
+    .replace(/\[Date\]/g, () => toHtml('date'))
+    .replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key: string) => toHtml(key));
+}
+
+type TextRun = { text: string; bold: boolean; italic: boolean };
+type TextBlock = { align: 'left' | 'center' | 'right'; runs: TextRun[] };
+
+function parseInlineRuns(html: string): TextRun[] {
+  const runs: TextRun[] = [];
+  let bold = 0;
+  let italic = 0;
+  for (const part of html.split(/(<[^>]+>)/)) {
+    if (!part) continue;
+    if (part.startsWith('<')) {
+      const tag = /^<\s*(\/)?\s*([a-z0-9]+)/i.exec(part);
+      if (!tag) continue;
+      const delta = tag[1] ? -1 : 1;
+      const name = tag[2].toLowerCase();
+      if (name === 'strong' || name === 'b') bold = Math.max(0, bold + delta);
+      else if (name === 'em' || name === 'i') italic = Math.max(0, italic + delta);
+      else if (name === 'br') runs.push({ text: '\n', bold: false, italic: false });
+      continue;
+    }
+    const text = decodeEntities(part.replace(/\s+/g, ' '));
+    if (text) runs.push({ text, bold: bold > 0, italic: italic > 0 });
+  }
+  return runs;
+}
+
+/**
+ * Minimal HTML -> blocks: one block per `<p>` (honouring `text-align`), with bold/italic/`<br>`
+ * inline. Text outside `<p>` tags is split into paragraphs on blank lines, so a plain-text body
+ * typed into the template editor still lays out sensibly.
+ */
+function parseBodyBlocks(html: string): TextBlock[] {
+  const blocks: TextBlock[] = [];
+  const pushLoose = (text: string) => {
+    for (const chunk of text.split(/\r?\n\s*\r?\n/)) {
+      if (chunk.replace(/<[^>]+>/g, '').trim()) {
+        blocks.push({ align: 'left', runs: parseInlineRuns(chunk.replace(/\r?\n/g, '<br/>')) });
+      }
+    }
+  };
+  const paragraphRe = /<p\b([^>]*)>([\s\S]*?)<\/p>/gi;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = paragraphRe.exec(html))) {
+    pushLoose(html.slice(last, match.index));
+    const align = /text-align\s*:\s*(center|right)/i.exec(match[1])?.[1].toLowerCase();
+    blocks.push({
+      align: (align as TextBlock['align']) ?? 'left',
+      runs: parseInlineRuns(match[2]),
+    });
+    last = paragraphRe.lastIndex;
+  }
+  pushLoose(html.slice(last));
+  return blocks;
+}
+
+/**
+ * Renders a letter as an A4 PDF with pdf-lib, per docs/API_CONTRACT_SPRINT3.md scope cut #4 (no
+ * puppeteer — headless Chromium is unreliable to provision in a sandboxed build environment).
+ * Lays out the template's `bodyHtml` with placeholders filled in, under a simple letterhead, then
+ * appends the CEO signature block (and the employee's acknowledgement once they've signed).
+ * Supports the subset of HTML the templates use: `<p>` (with text-align), `<strong>`/`<b>`,
+ * `<em>`/`<i>`, `<br>`.
  */
 @Injectable()
 export class LetterPdfRendererService {
   /**
-   * Renders (or re-renders) a letter's PDF from its current fieldValues, saves it under
-   * uploads/letters/, and returns the path relative to the uploads root (same convention as
-   * EmployeeDocument.filePath).
+   * Renders (or re-renders) a letter's PDF from its current fieldValues and signatures, saves it
+   * under uploads/letters/, and returns the path relative to the uploads root (same convention as
+   * EmployeeDocument.filePath). `signatures` needs the `signer` relation loaded; `profile` is the
+   * subject's E-record profile (CNIC, gender), if they have one.
    */
-  async render(letter: Letter, template: LetterTemplate, subject: User): Promise<string> {
-    const resolved = resolveLetterFieldValues(
+  async render(
+    letter: Letter,
+    template: LetterTemplate,
+    subject: User,
+    signatures: Signature[] = [],
+    profile: EmployeeProfile | null = null,
+  ): Promise<string> {
+    const ceoSignature = signatures.find((s) => s.signerRole === RoleName.CEO) ?? null;
+    const employeeSignature =
+      signatures.find((s) => s.signerId === letter.subjectUserId && s !== ceoSignature) ?? null;
+    const signerName = (s: Signature) =>
+      s.signer ? `${s.signer.firstName} ${s.signer.lastName}` : s.signatureText;
+
+    // The letter is dated the day the CEO signs it; until then, today (previews).
+    const values: Record<string, string> = {
+      date: formatLetterDate(ceoSignature?.signedAt ?? new Date()),
+      'company.name': COMPANY_NAME,
+      'ceo.name': ceoSignature ? signerName(ceoSignature) : '',
+    };
+    for (const key of AUTO_FIELD_KEYS) {
+      values[key] = resolveAutoFieldValue(key, subject, profile);
+    }
+    for (const field of resolveLetterFieldValues(
       template.fieldsSchema,
       letter.fieldValues ?? {},
       subject,
-    );
+      profile,
+    )) {
+      values[field.key] = field.value;
+    }
+    const blocks = parseBodyBlocks(fillLetterPlaceholders(template.bodyHtml ?? '', values));
 
     const pdfDoc = await PDFDocument.create();
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    pdfDoc.setTitle(`${template.name} — ${values['employee.fullName']}`);
+    const fonts = {
+      regular: await pdfDoc.embedFont(StandardFonts.Helvetica),
+      bold: await pdfDoc.embedFont(StandardFonts.HelveticaBold),
+      italic: await pdfDoc.embedFont(StandardFonts.HelveticaOblique),
+      boldItalic: await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique),
+      signature: await pdfDoc.embedFont(StandardFonts.TimesRomanBoldItalic),
+    };
+    const fontFor = (run: { bold: boolean; italic: boolean }) =>
+      run.bold
+        ? run.italic
+          ? fonts.boldItalic
+          : fonts.bold
+        : run.italic
+          ? fonts.italic
+          : fonts.regular;
+
+    // Standard fonts are WinAnsi-only; swap anything outside that set rather than throwing.
+    const charsets = new Map<PDFFont, Set<number>>();
+    const safeText = (font: PDFFont, text: string) => {
+      let charset = charsets.get(font);
+      if (!charset) {
+        charset = new Set(font.getCharacterSet());
+        charsets.set(font, charset);
+      }
+      return Array.from(text, (ch) => (charset!.has(ch.codePointAt(0)!) ? ch : '?')).join('');
+    };
 
     const pageWidth = 595.28; // A4 portrait, points
     const pageHeight = 841.89;
-    const margin = 56;
-    const lineHeight = 18;
-    let page = pdfDoc.addPage([pageWidth, pageHeight]);
+    const margin = 64;
+    const contentWidth = pageWidth - margin * 2;
+    const black = rgb(0, 0, 0);
+    const grey = rgb(0.45, 0.45, 0.45);
+    let page: PDFPage = pdfDoc.addPage([pageWidth, pageHeight]);
     let y = pageHeight - margin;
 
-    const drawLine = (text: string, opts: { bold?: boolean; size?: number } = {}) => {
-      if (y < margin) {
+    const ensureSpace = (height: number) => {
+      if (y - height < margin) {
         page = pdfDoc.addPage([pageWidth, pageHeight]);
         y = pageHeight - margin;
       }
+    };
+    const drawSimple = (
+      text: string,
+      opts: { font?: PDFFont; size?: number; color?: ReturnType<typeof rgb> } = {},
+    ) => {
+      const font = opts.font ?? fonts.regular;
       const size = opts.size ?? 11;
-      const maxWidth = pageWidth - margin * 2;
-      const usedFont = opts.bold ? boldFont : font;
-      // Simple word-wrap so long values don't run off the page.
-      const words = text.split(' ');
-      let line = '';
-      for (const word of words) {
-        const candidate = line ? `${line} ${word}` : word;
-        if (usedFont.widthOfTextAtSize(candidate, size) > maxWidth && line) {
-          page.drawText(line, { x: margin, y, size, font: usedFont, color: rgb(0, 0, 0) });
-          y -= lineHeight;
-          line = word;
-          if (y < margin) {
-            page = pdfDoc.addPage([pageWidth, pageHeight]);
-            y = pageHeight - margin;
-          }
-        } else {
-          line = candidate;
-        }
-      }
-      if (line) {
-        page.drawText(line, { x: margin, y, size, font: usedFont, color: rgb(0, 0, 0) });
-        y -= lineHeight;
-      }
+      ensureSpace(size * 1.5);
+      y -= size;
+      page.drawText(safeText(font, text), { x: margin, y, size, font, color: opts.color ?? black });
+      y -= size * 0.5;
     };
 
-    drawLine(`[PLACEHOLDER RENDERING] ${template.name}`, { bold: true, size: 14 });
-    y -= 6;
-    drawLine(`Letter #${letter.id} — ${template.type}`, { size: 9 });
-    drawLine(`Generated: ${new Date().toISOString()}`, { size: 9 });
-    y -= 10;
-    drawLine(
-      'This is a simple placeholder rendering of the field values below, not the final ' +
-        'letterhead document. Real template content and layout are a follow-up once the client ' +
-        'confirms letter content (see API_CONTRACT_SPRINT3.md scope cut #4).',
-      { size: 9 },
-    );
-    y -= 12;
+    // Letterhead
+    drawSimple(COMPANY_NAME, { font: fonts.bold, size: 16 });
+    y -= 4;
+    page.drawLine({
+      start: { x: margin, y },
+      end: { x: pageWidth - margin, y },
+      thickness: 0.75,
+      color: grey,
+    });
+    y -= 24;
 
-    for (const field of resolved) {
-      drawLine(`${field.label}: ${field.value}`);
+    // Body
+    const size = 11;
+    const lineHeight = 16;
+    type Word = { text: string; font: PDFFont; spaceBefore: boolean };
+    for (const block of blocks) {
+      const lines: Word[][] = [[]];
+      let pendingSpace = false;
+      for (const run of block.runs) {
+        if (run.text === '\n') {
+          lines.push([]);
+          pendingSpace = false;
+          continue;
+        }
+        const font = fontFor(run);
+        for (const piece of run.text.split(/( +)/)) {
+          if (!piece) continue;
+          if (piece.startsWith(' ')) {
+            pendingSpace = true;
+            continue;
+          }
+          const text = safeText(font, piece);
+          const line = lines[lines.length - 1];
+          const word = { text, font, spaceBefore: pendingSpace && line.length > 0 };
+          const lineWidth = line.reduce(
+            (w, wd) =>
+              w +
+              wd.font.widthOfTextAtSize(wd.text, size) +
+              (wd.spaceBefore ? wd.font.widthOfTextAtSize(' ', size) : 0),
+            0,
+          );
+          const wordWidth =
+            font.widthOfTextAtSize(text, size) +
+            (word.spaceBefore ? font.widthOfTextAtSize(' ', size) : 0);
+          if (line.length > 0 && lineWidth + wordWidth > contentWidth) {
+            lines.push([{ ...word, spaceBefore: false }]);
+          } else {
+            line.push(word);
+          }
+          pendingSpace = false;
+        }
+      }
+
+      for (const line of lines) {
+        ensureSpace(lineHeight);
+        const width = line.reduce(
+          (w, wd) =>
+            w +
+            wd.font.widthOfTextAtSize(wd.text, size) +
+            (wd.spaceBefore ? wd.font.widthOfTextAtSize(' ', size) : 0),
+          0,
+        );
+        let x =
+          block.align === 'right'
+            ? pageWidth - margin - width
+            : block.align === 'center'
+              ? margin + (contentWidth - width) / 2
+              : margin;
+        // Draw each same-font stretch as one string — pdf-lib's measured widths include kerning
+        // but drawn text doesn't, so positioning word by word makes words run together.
+        let i = 0;
+        while (i < line.length) {
+          const font = line[i].font;
+          if (line[i].spaceBefore) x += font.widthOfTextAtSize(' ', size);
+          let text = line[i].text;
+          i += 1;
+          while (i < line.length && line[i].font === font) {
+            text += (line[i].spaceBefore ? ' ' : '') + line[i].text;
+            i += 1;
+          }
+          page.drawText(text, { x, y: y - size, size, font, color: black });
+          x += font.widthOfTextAtSize(text, size);
+        }
+        y -= lineHeight;
+      }
+      y -= 8; // paragraph spacing
+    }
+
+    // CEO signature block — kept together on one page.
+    ensureSpace(110);
+    if (ceoSignature) {
+      drawSimple(ceoSignature.signatureText, {
+        font: fonts.signature,
+        size: 22,
+        color: rgb(0.08, 0.17, 0.45),
+      });
+    } else {
+      y -= 10;
+      drawSimple('[Awaiting CEO signature]', { font: fonts.italic, size: 10, color: grey });
+    }
+    page.drawLine({
+      start: { x: margin, y },
+      end: { x: margin + 200, y },
+      thickness: 0.75,
+      color: black,
+    });
+    y -= 4;
+    if (ceoSignature) drawSimple(signerName(ceoSignature), { font: fonts.bold });
+    drawSimple('Chief Executive Officer');
+    drawSimple(COMPANY_NAME);
+    if (ceoSignature) {
+      drawSimple(`Digitally signed on ${ceoSignature.signedAt.toUTCString()}`, {
+        size: 8,
+        color: grey,
+      });
+    }
+
+    // Employee acknowledgement, once they've signed.
+    if (employeeSignature) {
+      y -= 20;
+      ensureSpace(90);
+      drawSimple('Acknowledged and received by', { font: fonts.bold, size: 10 });
+      drawSimple(employeeSignature.signatureText, {
+        font: fonts.signature,
+        size: 18,
+        color: rgb(0.08, 0.17, 0.45),
+      });
+      drawSimple(signerName(employeeSignature), { size: 10 });
+      drawSimple(`Digitally signed on ${employeeSignature.signedAt.toUTCString()}`, {
+        size: 8,
+        color: grey,
+      });
     }
 
     const bytes = await pdfDoc.save();

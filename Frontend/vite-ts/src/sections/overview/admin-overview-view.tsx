@@ -1,130 +1,179 @@
-import { useMemo } from 'react';
-
 import Grid from '@mui/material/Grid';
-import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
-import Button from '@mui/material/Button';
-import CardHeader from '@mui/material/CardHeader';
-import Typography from '@mui/material/Typography';
-import CardContent from '@mui/material/CardContent';
+import { useTheme } from '@mui/material/styles';
 
 import { paths } from 'src/routes/paths';
-import { RouterLink } from 'src/routes/components';
 
-import { useGetUsers } from 'src/actions/users';
+import { useGetDashboard } from 'src/actions/dashboard';
 import { useGetLetterTemplates } from 'src/actions/letters';
 
-import { Iconify } from 'src/components/iconify';
-
-import { DashboardBarChart } from './dashboard-bar-chart';
 import { DashboardStatCard } from './dashboard-stat-card';
+import {
+  CardLink,
+  BarChartCard,
+  DonutChartCard,
+  DashboardLoading,
+  MonthlyTrendCard,
+  PendingActionsCard,
+} from './dashboard-widgets';
 
 // ----------------------------------------------------------------------
 
-const ROLE_ORDER = ['EMPLOYEE', 'MANAGER', 'HR', 'CEO', 'PAYROLL', 'ADMIN'] as const;
-
-// BNW OMS: Admin dashboard home. Counts are computed client-side from the existing `GET /users`
-// list (same "fetch up to 200, no dedicated stats endpoint" approach the Sprint 1 Users list
-// already uses) rather than adding a new backend aggregate endpoint for a handful of numbers.
+// BNW OMS: Admin dashboard home — the user base (by status, role and department), joiners over
+// time, system activity (forms submitted, letters in flight) and a queue of open items across
+// the modules.
 export function AdminOverviewView() {
-  // limit:200 matches the ceiling the Users list view already relies on for this dev-scale
-  // dataset — see docs/FRONTEND_STATUS.md's Sprint 1 notes.
-  const { users, usersLoading } = useGetUsers({ limit: 200 });
-  const { templates, templatesLoading } = useGetLetterTemplates();
+  const theme = useTheme();
+  const { dashboard, dashboardLoading } = useGetDashboard();
+  const { templates } = useGetLetterTemplates();
 
-  const roleCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    users.forEach((user) => counts.set(user.role, (counts.get(user.role) ?? 0) + 1));
-    return counts;
-  }, [users]);
-
-  const roleChartData = useMemo(
-    () => ROLE_ORDER.map((role) => ({ label: role, value: roleCounts.get(role) ?? 0 })),
-    [roleCounts]
-  );
-
-  const activeCount = users.filter((user) => user.status === 'ACTIVE').length;
-  const onboardingCount = users.filter((user) => user.status === 'ONBOARDING').length;
-  const activeTemplatesCount = templates.filter((template) => template.isActive).length;
-
-  if (usersLoading || templatesLoading) {
-    return (
-      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-        Loading…
-      </Typography>
-    );
-  }
+  if (dashboardLoading || !dashboard?.company) return <DashboardLoading />;
+  const { company } = dashboard;
+  const activeTemplates = templates.filter((t) => t.isActive).length;
 
   return (
     <Stack spacing={3}>
-      <Grid container spacing={2.5}>
-        <Grid size={{ xs: 12, sm: 4 }}>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <DashboardStatCard
             icon="solar:users-group-rounded-bold"
-            total={users.length}
+            total={company.headcount.total}
             label="Total users"
+            caption={`${company.headcount.inactive} removed`}
+            href={paths.dashboard.user.list}
             color="primary"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <DashboardStatCard
             icon="solar:shield-check-bold"
-            total={activeCount}
+            total={company.headcount.active}
             label="Active"
+            href={paths.dashboard.user.list}
             color="success"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <DashboardStatCard
-            icon="solar:clock-circle-bold"
-            total={onboardingCount}
-            label="Onboarding"
-            color="warning"
+            icon="solar:forbidden-circle-bold"
+            total={company.headcount.inactive}
+            label="Removed"
+            href={paths.dashboard.user.list}
+            color="error"
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <DashboardStatCard
+            icon="solar:file-text-bold"
+            total={activeTemplates}
+            label="Active letter templates"
+            caption={`${templates.length} configured`}
+            href={paths.dashboard.letterTemplates.root}
+            color="info"
           />
         </Grid>
       </Grid>
 
-      <DashboardBarChart
-        title="Users by role"
-        data={roleChartData}
-        action={
-          <Button component={RouterLink} href={paths.dashboard.user.list} size="small">
-            Manage users
-          </Button>
-        }
-      />
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <DonutChartCard
+            title="Users by role"
+            data={company.byRole}
+            totalLabel="Users"
+            action={<CardLink href={paths.dashboard.user.list} label="Manage" />}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 8 }}>
+          <BarChartCard
+            title="Users by department"
+            horizontal
+            distributed
+            categories={company.byDepartment.map((d) => d.label)}
+            series={[{ name: 'Users', data: company.byDepartment.map((d) => d.value) }]}
+            height={Math.max(280, company.byDepartment.length * 48 + 60)}
+          />
+        </Grid>
+      </Grid>
 
-      <Card>
-        <CardHeader
-          title="Letter templates"
-          action={
-            <Button component={RouterLink} href={paths.dashboard.letterTemplates.root} size="small">
-              Manage templates
-            </Button>
-          }
-        />
-        <CardContent sx={{ pt: 0 }}>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Stack
-              alignItems="center"
-              justifyContent="center"
-              sx={{
-                width: 44,
-                height: 44,
-                borderRadius: '50%',
-                color: 'info.dark',
-                bgcolor: 'info.lighter',
-              }}
-            >
-              <Iconify icon="solar:file-text-bold" width={22} />
-            </Stack>
-            <Typography variant="body2">
-              <strong>{templates.length}</strong> template{templates.length === 1 ? '' : 's'}{' '}
-              configured (<strong>{activeTemplatesCount}</strong> active)
-            </Typography>
-          </Stack>
-        </CardContent>
-      </Card>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 8 }}>
+          <MonthlyTrendCard
+            title="New joiners"
+            subheader="By join date, last 12 months"
+            data={company.joinersByMonth}
+            colors={[theme.palette.success.main]}
+            height={300}
+            emptyLabel="No joiners in the last 12 months"
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <DonutChartCard
+            title="Letters by status"
+            data={company.lettersByStatus}
+            colorMode="status"
+            totalLabel="Letters"
+            action={<CardLink href={paths.dashboard.letters.root} />}
+            emptyLabel="No letters yet"
+          />
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 7 }}>
+          <MonthlyTrendCard
+            title="Forms submitted"
+            subheader="Per month, last 6 months"
+            data={company.requestsByMonth}
+            type="bar"
+            colors={[theme.palette.primary.main, theme.palette.error.main, theme.palette.info.main]}
+            height={320}
+            emptyLabel="No forms submitted in the last 6 months"
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 5 }}>
+          <PendingActionsCard
+            title="Open items"
+            subheader="Across all modules"
+            items={[
+              {
+                label: 'Leave requests with HR',
+                count: company.pending.leaveHr,
+                href: paths.dashboard.leaveRequests.root,
+                icon: 'solar:calendar-date-bold',
+                color: 'primary',
+              },
+              {
+                label: 'Open complaints',
+                count: company.pending.complaintsOpen,
+                href: paths.dashboard.complaints.root,
+                icon: 'solar:chat-round-dots-bold',
+                color: 'error',
+              },
+              {
+                label: 'Attendance forms with HR',
+                count: company.pending.attendanceHr,
+                href: paths.dashboard.attendanceRegularizations.root,
+                icon: 'solar:clock-circle-bold',
+                color: 'info',
+              },
+              {
+                label: 'Onboarding forms to record',
+                count: company.pending.onboardingToRecord,
+                href: paths.dashboard.onboardingForms.root,
+                icon: 'solar:user-plus-bold',
+                color: 'success',
+              },
+              {
+                label: 'Letters with the CEO',
+                count: company.pending.lettersPendingCeo,
+                href: paths.dashboard.letters.root,
+                icon: 'solar:letter-bold',
+                color: 'warning',
+              },
+            ]}
+          />
+        </Grid>
+      </Grid>
     </Stack>
   );
 }

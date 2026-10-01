@@ -9,6 +9,8 @@ import { fDate } from 'src/utils/format-time';
 
 import { Label } from 'src/components/label';
 
+import { userStatusLabel } from 'src/types/user';
+
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -50,12 +52,11 @@ export function EmployeeRecordBasicInfo({ user }: Props) {
         variant="soft"
         color={
           (user.status === 'ACTIVE' && 'success') ||
-          (user.status === 'ONBOARDING' && 'warning') ||
           (user.status === 'INACTIVE' && 'error') ||
           'default'
         }
       >
-        {user.status}
+        {userStatusLabel(user.status)}
       </Label>
 
       <Divider sx={{ my: 3 }} />

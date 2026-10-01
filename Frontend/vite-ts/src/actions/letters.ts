@@ -6,6 +6,7 @@ import type {
   UpdateLetterDto,
   LetterTemplateDto,
   LetterFieldSchemaEntry,
+  LetterTemplateDetailDto,
   CreateLetterTemplateDto,
   UpdateLetterTemplateDto,
 } from 'src/types/letter';
@@ -42,12 +43,12 @@ export type LetterTemplatesFilters = {
   isActive?: boolean;
 };
 
-/** GET /letter-templates — HR, CEO, ADMIN. */
-export function useGetLetterTemplates(filters: LetterTemplatesFilters = {}) {
+/** GET /letter-templates — HR, CEO, ADMIN. `enabled: false` skips the fetch for other roles. */
+export function useGetLetterTemplates(filters: LetterTemplatesFilters = {}, enabled = true) {
   const params = cleanParams(filters);
 
   const { data, isLoading, error, isValidating } = useSWR<{ data: LetterTemplateDto[] }>(
-    [endpoints.letterTemplates.list, { params }],
+    enabled ? [endpoints.letterTemplates.list, { params }] : null,
     fetcher,
     swrOptions
   );
@@ -73,7 +74,11 @@ function revalidateLetterTemplatesList() {
 export function useGetLetterTemplate(id?: number | string) {
   const url = id ? endpoints.letterTemplates.details(id) : '';
 
-  const { data, isLoading, error } = useSWR<{ data: LetterTemplateDto }>(url, fetcher, swrOptions);
+  const { data, isLoading, error } = useSWR<{ data: LetterTemplateDetailDto }>(
+    url,
+    fetcher,
+    swrOptions
+  );
 
   return {
     template: data?.data,

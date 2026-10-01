@@ -27,8 +27,7 @@ export function LetterTemplateEditView() {
         <CustomBreadcrumbs
           heading="Edit letter template"
           links={[
-            { name: 'Dashboard', href: paths.dashboard.root },
-            { name: 'Letters', href: paths.dashboard.letters.root },
+            { name: 'Dashboard', href: paths.dashboard.root }, { name: 'Requests & Forms', href: paths.dashboard.requestsForms },
             { name: 'Templates', href: paths.dashboard.letterTemplates.root },
             { name: template?.name || '...' },
           ]}
@@ -37,7 +36,9 @@ export function LetterTemplateEditView() {
 
         {templateLoading && <LoadingScreen />}
 
-        {!templateLoading && template && <LetterTemplateNewEditForm currentTemplate={template} />}
+        {!templateLoading && template && (
+          <LetterTemplateNewEditForm currentTemplate={template} currentBodyHtml={template.bodyHtml} />
+        )}
       </DashboardContent>
     </RoleBasedGuard>
   );
