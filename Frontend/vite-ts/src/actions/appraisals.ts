@@ -202,9 +202,9 @@ export function useGetAppraisal(id?: number | string) {
 }
 
 /**
- * POST /appraisal-requests — self (anyone with a manager set). `{ selfEvaluation }`. 409 if
- * already requested one in the last 3 months; 400 if the caller has no manager set — the axios
- * response interceptor collapses either into a plain `Error(message)`, surfaced by the caller.
+ * POST /appraisal-requests — self (anyone but the CEO; with no manager set it goes straight to
+ * the CEO). `{ selfEvaluation }`. 409 if already requested one in the last 3 months — the axios
+ * response interceptor collapses it into a plain `Error(message)`, surfaced by the caller.
  */
 export async function createAppraisalRequest(
   payload: CreateAppraisalRequestDto

@@ -22,7 +22,9 @@ export function DashboardContent({
   children,
   className,
   disablePadding,
-  maxWidth = 'lg',
+  // BNW OMS: 'xl' (1536px) rather than 'lg' (1200px) so pages use the room freed up when the
+  // sidebar is collapsed instead of leaving wide empty margins on desktop screens.
+  maxWidth = 'xl',
   layoutQuery = 'lg',
   ...other
 }: DashboardContentProps) {

@@ -80,14 +80,14 @@ export function DashboardStatCard({
         <Typography variant="h3" sx={{ lineHeight: 1.2 }}>
           {total}
         </Typography>
-        <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
+        {/* One line each, and the caption line is always reserved — so every tile in a row has
+            the same height and its number sits at the same level, caption or not. */}
+        <Typography variant="subtitle2" noWrap title={label} sx={{ color: 'text.secondary' }}>
           {label}
         </Typography>
-        {caption && (
-          <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-            {caption}
-          </Typography>
-        )}
+        <Typography variant="caption" noWrap sx={{ color: 'text.disabled' }}>
+          {caption || ' '}
+        </Typography>
       </Stack>
 
       {/* Big faded icon in the corner for a bit of visual weight. */}

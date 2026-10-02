@@ -60,7 +60,7 @@ export function BnwOverviewView() {
   };
 
   return (
-    <DashboardContent maxWidth="lg">
+    <DashboardContent>
       <Box
         sx={(theme) => ({
           p: { xs: 3, md: 4 },

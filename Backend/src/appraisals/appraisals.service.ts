@@ -141,16 +141,10 @@ export class AppraisalsService {
       throw new BadRequestException('The CEO does not submit appraisal requests');
     }
 
-    // A MANAGER's own appraisal skips the manager-review stage entirely and goes straight to the
-    // CEO — there's no meaningful "have their manager review it" step when the submitter IS a
-    // manager (and per seed data / the org chart, a manager frequently has no managerId of their
-    // own at all). Everyone else still needs a manager assigned to review them first.
-    const isManager = employee.role === RoleName.MANAGER;
-    if (!isManager && !employee.managerId) {
-      throw new BadRequestException(
-        "You have no manager set — an appraisal request can't be submitted without one",
-      );
-    }
+    // The manager-review stage is skipped — straight to the CEO — when the submitter IS a manager
+    // (no meaningful "have their manager review it" step) or has no manager on record at all.
+    // Everyone else is reviewed by their manager first.
+    const skipManagerReview = employee.role === RoleName.MANAGER || !employee.managerId;
 
     const eligibility = await this.computeEligibility(caller.sub);
     if (!eligibility.canRequestNext) {
@@ -163,7 +157,7 @@ export class AppraisalsService {
     const request = this.requestsRepo.create({
       employeeId: caller.sub,
       selfEvaluation: dto.selfEvaluation,
-      status: isManager ? AppraisalStatus.PENDING_CEO : AppraisalStatus.PENDING_MANAGER,
+      status: skipManagerReview ? AppraisalStatus.PENDING_CEO : AppraisalStatus.PENDING_MANAGER,
       managerId: employee.managerId ?? null,
     });
     const saved = await this.requestsRepo.save(request);
