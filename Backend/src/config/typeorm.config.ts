@@ -22,6 +22,16 @@ import { Candidate } from '../entities/candidate.entity';
 import { JoiningPackItem } from '../entities/joining-pack-item.entity';
 import { JoiningPackAck } from '../entities/joining-pack-ack.entity';
 import { DailyActivityLog } from '../entities/daily-activity-log.entity';
+import { Complaint } from '../entities/complaint.entity';
+import { AttendanceRegularization } from '../entities/attendance-regularization.entity';
+import { OnboardingForm } from '../entities/onboarding-form.entity';
+import { LeaveType } from '../entities/leave-type.entity';
+import { LeaveRequest } from '../entities/leave-request.entity';
+import { Announcement } from '../entities/announcement.entity';
+import { Interview } from '../entities/interview.entity';
+import { WorkOrder } from '../entities/work-order.entity';
+import { AppSetting } from '../entities/app-setting.entity';
+import { SalarySlip } from '../entities/salary-slip.entity';
 
 loadEnv();
 
@@ -59,6 +69,16 @@ export const typeOrmDataSourceOptions: DataSourceOptions = {
     JoiningPackItem,
     JoiningPackAck,
     DailyActivityLog,
+    Complaint,
+    AttendanceRegularization,
+    OnboardingForm,
+    LeaveType,
+    LeaveRequest,
+    Announcement,
+    Interview,
+    WorkOrder,
+    AppSetting,
+    SalarySlip,
   ],
   migrations: [__dirname + '/../migrations/*.{ts,js}'],
   synchronize: false,

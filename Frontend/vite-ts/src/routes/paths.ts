@@ -157,6 +157,47 @@ export const paths = {
     joiningPack: `${ROOTS.DASHBOARD}/joining-pack`,
     // Daily activity log (guide §3.1 U3), see docs/API_CONTRACT_ACTIVITY_LOG.md.
     activity: `${ROOTS.DASHBOARD}/activity`,
+    // Requests & Forms hub — every HR form plus the letter templates, on one page.
+    requestsForms: `${ROOTS.DASHBOARD}/requests-forms`,
+    // Complaint form — anyone submits, HR responds.
+    complaints: {
+      root: `${ROOTS.DASHBOARD}/complaints`,
+      new: `${ROOTS.DASHBOARD}/complaints/new`,
+      details: (id: number | string) => `${ROOTS.DASHBOARD}/complaints/${id}`,
+    },
+    // Attendance regularization form — employee submits, HOD recommends, HR records.
+    attendanceRegularizations: {
+      root: `${ROOTS.DASHBOARD}/attendance-regularizations`,
+      new: `${ROOTS.DASHBOARD}/attendance-regularizations/new`,
+      details: (id: number | string) => `${ROOTS.DASHBOARD}/attendance-regularizations/${id}`,
+    },
+    // Leave / holiday — employee applies, manager approves, HR gives final approval.
+    leaveRequests: {
+      root: `${ROOTS.DASHBOARD}/leave-requests`,
+      new: `${ROOTS.DASHBOARD}/leave-requests/new`,
+      details: (id: number | string) => `${ROOTS.DASHBOARD}/leave-requests/${id}`,
+    },
+    // Work orders — reimbursement claims + equipment requests.
+    workOrders: {
+      root: `${ROOTS.DASHBOARD}/work-orders`,
+      new: `${ROOTS.DASHBOARD}/work-orders/new`,
+      details: (id: number | string) => `${ROOTS.DASHBOARD}/work-orders/${id}`,
+    },
+    // Salary slips — history / my slips, and the HR / ADMIN generate form.
+    salarySlips: {
+      root: `${ROOTS.DASHBOARD}/salary-slips`,
+      new: `${ROOTS.DASHBOARD}/salary-slips/new`,
+    },
+    // Announcement board — CEO / ADMIN / HR post, everyone reads.
+    announcements: `${ROOTS.DASHBOARD}/announcements`,
+    // In-app notifications (also the header bell).
+    notifications: `${ROOTS.DASHBOARD}/notifications`,
+    // Employee onboarding form — each user fills their own (`mine`); HR reviews and records it.
+    onboardingForms: {
+      root: `${ROOTS.DASHBOARD}/onboarding-forms`,
+      mine: `${ROOTS.DASHBOARD}/onboarding-forms/mine`,
+      details: (id: number | string) => `${ROOTS.DASHBOARD}/onboarding-forms/${id}`,
+    },
     product: {
       root: `${ROOTS.DASHBOARD}/product`,
       new: `${ROOTS.DASHBOARD}/product/new`,

@@ -16,9 +16,10 @@ export interface LetterTemplateDto {
 }
 
 /**
- * bodyHtml is intentionally omitted from the DTO — it's template source, not needed by the
+ * bodyHtml is omitted from the list DTO — it's template source, not needed by the
  * letter-creation UI (fieldsSchema only) or the letter detail UI (rendered PDF only). Per
- * docs/API_CONTRACT_SPRINT3.md DTOs section.
+ * docs/API_CONTRACT_SPRINT3.md DTOs section. GET /letter-templates/:id adds it back for the
+ * admin edit form.
  */
 export function toLetterTemplateDto(template: LetterTemplate): LetterTemplateDto {
   return {

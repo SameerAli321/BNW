@@ -21,8 +21,7 @@ export function LetterTemplateCreateView() {
         <CustomBreadcrumbs
           heading="New letter template"
           links={[
-            { name: 'Dashboard', href: paths.dashboard.root },
-            { name: 'Letters', href: paths.dashboard.letters.root },
+            { name: 'Dashboard', href: paths.dashboard.root }, { name: 'Requests & Forms', href: paths.dashboard.requestsForms },
             { name: 'Templates', href: paths.dashboard.letterTemplates.root },
             { name: 'New' },
           ]}

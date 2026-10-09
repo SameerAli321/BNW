@@ -2,8 +2,8 @@ import type { IUserItem } from 'src/types/user';
 
 import dayjs from 'dayjs';
 import { z as zod } from 'zod';
-import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
+import { useMemo, useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import Box from '@mui/material/Box';
@@ -11,8 +11,10 @@ import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
 import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
+import InputAdornment from '@mui/material/InputAdornment';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
@@ -21,12 +23,32 @@ import { createUser, updateUser, useGetUsers, useGetDepartments } from 'src/acti
 
 import { toast } from 'src/components/snackbar';
 import { Form, Field } from 'src/components/hook-form';
+import { ConfirmDialog } from 'src/components/custom-dialog';
 
-import { USER_ROLE_OPTIONS, USER_ACCOUNT_STATUS_OPTIONS } from 'src/types/user';
+import {
+  userRoleLabel,
+  USER_FORM_DEPARTMENTS,
+  USER_FORM_ROLE_OPTIONS,
+  USER_ACCOUNT_STATUS_OPTIONS,
+} from 'src/types/user';
 
 // ----------------------------------------------------------------------
 
 export type NewUserSchemaType = zod.infer<ReturnType<typeof buildUserSchema>>;
+
+const amount = zod
+  .string()
+  .optional()
+  .refine((value) => !value || /^\d+(\.\d{1,2})?$/.test(value.trim()), {
+    message: 'Enter an amount in rupees (up to 2 decimals)',
+  });
+
+// A cleared picker stores 'Invalid Date' — treat it as empty.
+const toDate = (value?: string) =>
+  value && dayjs(value).isValid() ? dayjs(value).format('YYYY-MM-DD') : null;
+const toAmount = (value?: string) => (value && value.trim() !== '' ? Number(value) : null);
+const amountText = (value?: number | null) =>
+  value === null || value === undefined ? '' : String(value);
 
 /**
  * `isEdit` toggles whether `password` is required: mandatory when creating a new user (HR/ADMIN
@@ -34,28 +56,70 @@ export type NewUserSchemaType = zod.infer<ReturnType<typeof buildUserSchema>>;
  * current password unchanged, via PATCH /users/:id).
  */
 function buildUserSchema(isEdit: boolean) {
-  return zod.object({
-    firstName: zod.string().min(1, { message: 'First name is required!' }),
-    lastName: zod.string().min(1, { message: 'Last name is required!' }),
-    email: zod
-      .string()
-      .min(1, { message: 'Email is required!' })
-      .email({ message: 'Email must be a valid email address!' }),
-    role: zod.string().min(1, { message: 'Role is required!' }),
-    managerId: zod.union([zod.number(), zod.literal('')]).optional(),
-    departmentId: zod.union([zod.number(), zod.literal('')]).optional(),
-    designation: zod.string().optional(),
-    joinDate: zod.string().optional(),
-    status: zod.string().optional(),
-    password: isEdit
-      ? zod
-          .string()
-          .optional()
-          .refine((value) => !value || value.length >= 8, {
-            message: 'Password must be at least 8 characters!',
-          })
-      : zod.string().min(8, { message: 'Password is required and must be at least 8 characters!' }),
-  });
+  return zod
+    .object({
+      firstName: zod.string().min(1, { message: 'First name is required!' }),
+      lastName: zod.string().min(1, { message: 'Last name is required!' }),
+      employeeCode: zod.string().max(30, { message: 'Up to 30 characters' }).optional(),
+      designation: zod.string().optional(),
+      departmentId: zod.union([zod.number(), zod.literal('')]).optional(),
+      managerId: zod.union([zod.number(), zod.literal('')]).optional(),
+      joinDate: zod.string().optional(),
+      contactNumber: zod
+        .string()
+        .optional()
+        .refine((value) => !value || /^\+?[0-9][0-9\s-]{6,19}$/.test(value.trim()), {
+          message: 'Enter a phone number, e.g. 0300-1234567',
+        }),
+      currentSalary: amount,
+      previousSalary: amount,
+      deductionPolicy: zod.string().max(1000).optional(),
+      lastSalaryChangeDate: zod.string().optional(),
+      email: zod
+        .string()
+        .min(1, { message: 'Email is required!' })
+        .email({ message: 'Email must be a valid email address!' }),
+      cnic: zod
+        .string()
+        .optional()
+        .refine((value) => !value || /^\d{13}$/.test(value.replace(/[\s-]/g, '')), {
+          message: 'CNIC must be 13 digits, e.g. 35202-1234567-1',
+        }),
+      status: zod.string().optional(),
+      leavingDate: zod.string().optional(),
+      role: zod.string().min(1, { message: 'Role is required!' }),
+      password: isEdit
+        ? zod
+            .string()
+            .optional()
+            .refine((value) => !value || value.length >= 8, {
+              message: 'Password must be at least 8 characters!',
+            })
+        : zod
+            .string()
+            .min(8, { message: 'Password is required and must be at least 8 characters!' }),
+    })
+    .refine(
+      (data) =>
+        !data.joinDate ||
+        !data.leavingDate ||
+        !dayjs(data.leavingDate).isBefore(dayjs(data.joinDate), 'day'),
+      { message: 'Leaving date cannot be before the date of joining', path: ['leavingDate'] }
+    )
+    .refine(
+      (data) =>
+        !data.lastSalaryChangeDate || !dayjs(data.lastSalaryChangeDate).isAfter(dayjs(), 'day'),
+      { message: 'Cannot be in the future', path: ['lastSalaryChangeDate'] }
+    );
+}
+
+/** '3520212345671' → '35202-1234567-1' (leaves anything else as typed for the validator). */
+function formatCnic(value?: string): string | null {
+  const digits = (value ?? '').replace(/[\s-]/g, '');
+  if (!digits) return null;
+  return /^\d{13}$/.test(digits)
+    ? `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`
+    : (value ?? '').trim();
 }
 
 // ----------------------------------------------------------------------
@@ -77,33 +141,81 @@ export function UserNewEditForm({ currentUser }: Props) {
     [users, currentUser?.id]
   );
 
+  // The client's four departments, in their order — plus the user's current one when editing
+  // someone already in an older department, so it isn't silently lost.
+  const departmentOptions = useMemo(
+    () =>
+      departments
+        .filter((d) => USER_FORM_DEPARTMENTS.includes(d.name) || d.id === currentUser?.departmentId)
+        .sort((a, b) => {
+          const rank = (name: string) =>
+            USER_FORM_DEPARTMENTS.includes(name) ? USER_FORM_DEPARTMENTS.indexOf(name) : 99;
+          return rank(a.name) - rank(b.name);
+        }),
+    [departments, currentUser?.departmentId]
+  );
+
+  // Same for roles: the agreed four, plus an older role (HR / Payroll) a user may already have.
+  const roleOptions = useMemo(
+    () =>
+      currentUser && !USER_FORM_ROLE_OPTIONS.some((o) => o.value === currentUser.role)
+        ? [
+            ...USER_FORM_ROLE_OPTIONS,
+            { value: currentUser.role, label: userRoleLabel(currentUser.role) },
+          ]
+        : USER_FORM_ROLE_OPTIONS,
+    [currentUser]
+  );
+
   const defaultValues: NewUserSchemaType = {
     firstName: '',
     lastName: '',
-    email: '',
-    role: '',
-    managerId: '',
-    departmentId: '',
+    employeeCode: '',
     designation: '',
+    departmentId: '',
+    managerId: '',
     joinDate: '',
-    status: '',
+    contactNumber: '',
+    currentSalary: '',
+    previousSalary: '',
+    deductionPolicy: '',
+    lastSalaryChangeDate: '',
+    email: '',
+    cnic: '',
+    status: 'ACTIVE',
+    leavingDate: '',
+    role: '',
     password: '',
   };
 
-  const currentValues: NewUserSchemaType | undefined = currentUser
-    ? {
-        firstName: currentUser.firstName,
-        lastName: currentUser.lastName,
-        email: currentUser.email,
-        role: currentUser.role,
-        managerId: currentUser.managerId ?? '',
-        departmentId: currentUser.departmentId ?? '',
-        designation: currentUser.designation ?? '',
-        joinDate: currentUser.joinDate ?? '',
-        status: currentUser.status,
-        password: '',
-      }
-    : undefined;
+  const currentValues: NewUserSchemaType | undefined = useMemo(
+    () =>
+      currentUser
+        ? {
+            firstName: currentUser.firstName,
+            lastName: currentUser.lastName,
+            employeeCode: currentUser.employeeCode ?? '',
+            designation: currentUser.designation ?? '',
+            departmentId: currentUser.departmentId ?? '',
+            managerId: currentUser.managerId ?? '',
+            joinDate: currentUser.joinDate ?? '',
+            contactNumber: currentUser.contactNumber ?? '',
+            currentSalary: amountText(currentUser.currentSalary),
+            previousSalary: amountText(currentUser.previousSalary),
+            deductionPolicy: currentUser.deductionPolicy ?? '',
+            lastSalaryChangeDate: currentUser.lastSalaryChangeDate ?? '',
+            email: currentUser.email,
+            cnic: currentUser.cnic ?? '',
+            status: currentUser.status,
+            leavingDate: currentUser.leavingDate ?? '',
+            role: currentUser.role,
+            password: '',
+          }
+        : undefined,
+    [currentUser]
+  );
+
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const methods = useForm<NewUserSchemaType>({
     mode: 'onSubmit',
@@ -113,34 +225,85 @@ export function UserNewEditForm({ currentUser }: Props) {
   });
 
   const {
+    watch,
+    setValue,
     handleSubmit,
-    formState: { isSubmitting },
+    reset,
+    formState: { isSubmitting, isDirty, dirtyFields, errors },
   } = methods;
+
+  // Salary history: when HR changes the current salary of an existing employee, the old figure
+  // becomes "Previous salary" and today becomes "Last salary change date" (still editable).
+  const currentSalary = watch('currentSalary');
+  const status = watch('status');
+  const leavingDate = watch('leavingDate');
+  useEffect(() => {
+    if (!currentValues || dirtyFields.previousSalary || dirtyFields.lastSalaryChangeDate) return;
+    const original = currentValues.currentSalary ?? '';
+    const changed =
+      (currentSalary ?? '').trim() !== '' && Number(currentSalary) !== Number(original);
+    if (changed && original !== '') {
+      setValue('previousSalary', original);
+      setValue('lastSalaryChangeDate', dayjs().format('YYYY-MM-DD'));
+    } else if (changed) {
+      setValue('lastSalaryChangeDate', dayjs().format('YYYY-MM-DD'));
+    } else {
+      setValue('previousSalary', currentValues.previousSalary ?? '');
+      setValue('lastSalaryChangeDate', currentValues.lastSalaryChangeDate ?? '');
+    }
+  }, [
+    currentSalary,
+    currentValues,
+    dirtyFields.previousSalary,
+    dirtyFields.lastSalaryChangeDate,
+    setValue,
+  ]);
 
   const onSubmit = handleSubmit(async (data) => {
     try {
       const payload = {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        email: data.email.trim(),
         role: data.role as IUserItem['role'],
+        employeeCode: data.employeeCode?.trim() || null,
         managerId: data.managerId === '' ? null : data.managerId,
         departmentId: data.departmentId === '' ? null : data.departmentId,
-        designation: data.designation || null,
-        joinDate: data.joinDate ? dayjs(data.joinDate).format('YYYY-MM-DD') : null,
+        designation: data.designation?.trim() || null,
+        joinDate: toDate(data.joinDate),
+        leavingDate: toDate(data.leavingDate),
+        contactNumber: data.contactNumber?.trim() || null,
+        cnic: formatCnic(data.cnic),
+        currentSalary: toAmount(data.currentSalary),
+        previousSalary: toAmount(data.previousSalary),
+        deductionPolicy: data.deductionPolicy?.trim() || null,
+        lastSalaryChangeDate: toDate(data.lastSalaryChangeDate),
+        ...(data.status ? { status: data.status as IUserItem['status'] } : {}),
       };
 
       if (currentUser) {
         await updateUser(currentUser.id, {
           ...payload,
-          ...(data.status ? { status: data.status as IUserItem['status'] } : {}),
           ...(data.password ? { password: data.password } : {}),
         });
       } else {
-        await createUser({ ...payload, password: data.password ?? '' });
+        const created = await createUser({ ...payload, password: data.password ?? '' });
+        const mail = created.welcomeEmail;
+        if (mail?.status === 'SENT') {
+          toast.success(`User created — sign-in details emailed to ${mail.sentTo}`);
+        } else {
+          toast.warning(
+            mail?.status === 'FAILED'
+              ? `User created, but the welcome email could not be sent: ${mail.error ?? 'unknown error'}. Share the sign-in details with them directly.`
+              : 'User created, but email is not set up on the server — share the sign-in details with them directly.',
+            { duration: 10000 }
+          );
+        }
+        router.push(paths.dashboard.user.list);
+        return;
       }
 
-      toast.success(currentUser ? 'Update success!' : 'Create success!');
+      toast.success('Update success!');
       router.push(paths.dashboard.user.list);
     } catch (error) {
       console.error(error);
@@ -148,40 +311,55 @@ export function UserNewEditForm({ currentUser }: Props) {
     }
   });
 
+  const rupees = {
+    input: { startAdornment: <InputAdornment position="start">Rs</InputAdornment> },
+    htmlInput: { inputMode: 'decimal' as const },
+  };
+  const twoColumns = {
+    rowGap: 3,
+    columnGap: 2,
+    display: 'grid',
+    gridTemplateColumns: { xs: 'repeat(1, 1fr)', sm: 'repeat(2, 1fr)' },
+  };
+
   return (
     <Form methods={methods} onSubmit={onSubmit}>
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 12 }}>
           <Card sx={{ p: 3 }}>
-            {currentUser?.mustChangePassword && (
-              <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              sx={{ mb: 3 }}
+            >
+              <Typography variant="h6">Employee Information</Typography>
+              {currentUser?.mustChangePassword && (
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                   Must change password on next login
                 </Typography>
-              </Stack>
-            )}
+              )}
+            </Stack>
 
-            <Box
-              sx={{
-                rowGap: 3,
-                columnGap: 2,
-                display: 'grid',
-                gridTemplateColumns: { xs: 'repeat(1, 1fr)', sm: 'repeat(2, 1fr)' },
-              }}
-            >
-              <Field.Text name="firstName" label="First name" />
-              <Field.Text name="lastName" label="Last name" />
-              <Field.Text name="email" label="Email address" />
+            {/* Same order as the client's "Employee Information" headings. */}
+            <Box sx={twoColumns}>
+              <Field.Text name="firstName" label="Employee name — first name" />
+              <Field.Text name="lastName" label="Employee name — last name" />
 
-              <Field.Select name="role" label="Role">
-                {USER_ROLE_OPTIONS.map((role) => (
-                  <MenuItem key={role} value={role}>
-                    {role}
+              <Field.Text name="employeeCode" label="Employee code" placeholder="e.g. BNW-0042" />
+              <Field.Text name="designation" label="Job title" />
+
+              <Field.Select name="departmentId" label="Department">
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {departmentOptions.map((department) => (
+                  <MenuItem key={department.id} value={department.id}>
+                    {department.name}
                   </MenuItem>
                 ))}
               </Field.Select>
-
-              <Field.Select name="managerId" label="Manager">
+              <Field.Select name="managerId" label="Reporting manager">
                 <MenuItem value="">
                   <em>None</em>
                 </MenuItem>
@@ -192,35 +370,82 @@ export function UserNewEditForm({ currentUser }: Props) {
                 ))}
               </Field.Select>
 
-              <Field.Select name="departmentId" label="Department">
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
-                {departments.map((department) => (
-                  <MenuItem key={department.id} value={department.id}>
-                    {department.name}
+              <Field.DatePicker name="joinDate" label="Date of joining" />
+              <Field.Text
+                name="contactNumber"
+                label="Contact number"
+                placeholder="0300-1234567"
+                slotProps={{ htmlInput: { inputMode: 'tel' } }}
+              />
+
+              <Field.Text name="currentSalary" label="Current salary" slotProps={rupees} />
+              <Field.Text
+                name="previousSalary"
+                label="Previous salary"
+                slotProps={rupees}
+                helperText={
+                  isEdit ? 'Filled in automatically when the current salary changes' : undefined
+                }
+              />
+
+              <Field.Text
+                name="deductionPolicy"
+                label="Deduction policy"
+                placeholder="e.g. Income tax as per slab + EOBI; unpaid leave deducted per day"
+                multiline
+                minRows={2}
+              />
+              <Field.DatePicker
+                name="lastSalaryChangeDate"
+                label="Last salary change date"
+                disableFuture
+                slotProps={{ field: { clearable: true } }}
+              />
+
+              <Field.Text name="email" label="Email" />
+              <Field.Text
+                name="cnic"
+                label="CNIC"
+                placeholder="35202-1234567-1"
+                slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 15 } }}
+              />
+
+              <Field.Select name="status" label="Status">
+                {USER_ACCOUNT_STATUS_OPTIONS.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
                   </MenuItem>
                 ))}
               </Field.Select>
-
-              <Field.Text name="designation" label="Designation" />
-              <Field.DatePicker name="joinDate" label="Join date" />
-
-              {currentUser && (
-                <Field.Select name="status" label="Status">
-                  {USER_ACCOUNT_STATUS_OPTIONS.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Field.Select>
-              )}
+              <Field.DatePicker
+                name="leavingDate"
+                label="Leaving date"
+                slotProps={{
+                  field: { clearable: true },
+                  textField:
+                    toDate(leavingDate) && status === 'ACTIVE' && !errors.leavingDate
+                      ? {
+                          helperText:
+                            'Set Status to Inactive once they have left — inactive users cannot sign in.',
+                        }
+                      : {},
+                }}
+              />
             </Box>
 
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                {currentUser ? 'Change password' : 'Password'}
-              </Typography>
+            <Divider sx={{ my: 4, borderStyle: 'dashed' }} />
+
+            <Typography variant="h6" sx={{ mb: 3 }}>
+              Account access
+            </Typography>
+            <Box sx={twoColumns}>
+              <Field.Select name="role" label="Role">
+                {roleOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Field.Select>
               <Field.Text
                 name="password"
                 label={currentUser ? 'New password' : 'Password'}
@@ -231,27 +456,31 @@ export function UserNewEditForm({ currentUser }: Props) {
                     ? 'Sets this exact password for the user and requires them to change it on next login. Minimum 8 characters.'
                     : 'Sets this new user’s password. They must change it on first login. Minimum 8 characters.'
                 }
-                sx={{ maxWidth: { sm: 400 } }}
               />
             </Box>
 
-            {currentUser && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  Change password
+            <Stack
+              direction="row"
+              spacing={1.5}
+              justifyContent="flex-end"
+              alignItems="center"
+              sx={{ mt: 3 }}
+            >
+              {currentUser && isDirty && (
+                <Typography variant="body2" sx={{ color: 'warning.main', mr: 'auto' }}>
+                  You have unsaved changes
                 </Typography>
-                <Field.Text
-                  name="password"
-                  label="New password"
-                  placeholder="Leave blank to keep the current password"
-                  type="text"
-                  helperText="Sets this exact password for the user and requires them to change it on next login. Minimum 8 characters."
-                  sx={{ maxWidth: { sm: 400 } }}
-                />
-              </Box>
-            )}
-
-            <Stack sx={{ mt: 3, alignItems: 'flex-end' }}>
+              )}
+              {currentUser && (
+                <Button
+                  variant="outlined"
+                  color="inherit"
+                  disabled={!isDirty || isSubmitting}
+                  onClick={() => setConfirmDiscard(true)}
+                >
+                  Cancel changes
+                </Button>
+              )}
               <Button type="submit" variant="contained" loading={isSubmitting}>
                 {!currentUser ? 'Create user' : 'Save changes'}
               </Button>
@@ -259,6 +488,26 @@ export function UserNewEditForm({ currentUser }: Props) {
           </Card>
         </Grid>
       </Grid>
+      <ConfirmDialog
+        open={confirmDiscard}
+        onClose={() => setConfirmDiscard(false)}
+        title="Discard your changes?"
+        content="Everything you've changed on this form will be undone and the last saved details shown again. Nothing is saved."
+        action={
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => {
+              setConfirmDiscard(false);
+              // Back to exactly what's saved for this team member (nothing is sent to the server).
+              reset(currentValues);
+              toast.info('Changes discarded — showing the last saved details');
+            }}
+          >
+            Discard changes
+          </Button>
+        }
+      />
     </Form>
   );
 }

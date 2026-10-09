@@ -1,4 +1,13 @@
-import { Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { QueryNotificationsDto } from './dto/query-notifications.dto';
 import { CurrentUser, JwtUserPayload } from '../common/decorators/current-user.decorator';
@@ -11,6 +20,13 @@ export class NotificationsController {
   @Get()
   async findAll(@Query() query: QueryNotificationsDto, @CurrentUser() caller: JwtUserPayload) {
     return this.notificationsService.findAllForUser(caller.sub, query);
+  }
+
+  // Declared before ':id/read' so 'read-all' isn't parsed as an id.
+  @Post('read-all')
+  @HttpCode(HttpStatus.OK)
+  async markAllRead(@CurrentUser() caller: JwtUserPayload) {
+    return this.notificationsService.markAllRead(caller.sub);
   }
 
   // Only for the caller's own notification (403 otherwise) — enforced in the service.

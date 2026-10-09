@@ -1,5 +1,5 @@
+// New users start ACTIVE; INACTIVE is shown in the UI as "Removed" and blocks sign-in.
 export enum UserStatus {
-  ONBOARDING = 'ONBOARDING',
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
 }

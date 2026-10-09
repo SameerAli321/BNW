@@ -23,6 +23,7 @@ import { RouterLink } from 'src/routes/components';
 
 import { fDate } from 'src/utils/format-time';
 
+import { fPkr } from 'src/actions/work-orders';
 import { resetUserPassword } from 'src/actions/users';
 
 import { Label } from 'src/components/label';
@@ -30,6 +31,8 @@ import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 import { ConfirmDialog } from 'src/components/custom-dialog';
 import { CustomPopover } from 'src/components/custom-popover';
+
+import { userStatusLabel } from 'src/types/user';
 
 // ----------------------------------------------------------------------
 
@@ -148,8 +151,8 @@ export function UserTableRow({
         {tempPassword ? (
           <Stack spacing={1.5}>
             <Box component="span">
-              A new temporary password was generated for <b>{fullName}</b>. Share it with them —
-              it will not be shown again.
+              A new temporary password was generated for <b>{fullName}</b>. Share it with them — it
+              will not be shown again.
             </Box>
             <Stack
               direction="row"
@@ -241,7 +244,7 @@ export function UserTableRow({
                 {fullName}
               </Link>
               <Box component="span" sx={{ color: 'text.disabled' }}>
-                {row.email}
+                {[row.employeeCode, row.email].filter(Boolean).join(' · ')}
               </Box>
             </Stack>
           </Box>
@@ -252,6 +255,14 @@ export function UserTableRow({
         <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.departmentName || '—'}</TableCell>
 
         <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.managerName || '—'}</TableCell>
+
+        <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.contactNumber || '—'}</TableCell>
+
+        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+          {row.currentSalary !== null && row.currentSalary !== undefined
+            ? fPkr(row.currentSalary)
+            : '—'}
+        </TableCell>
 
         <TableCell sx={{ whiteSpace: 'nowrap' }}>
           <Label variant="soft" color="default">
@@ -268,20 +279,24 @@ export function UserTableRow({
             variant="soft"
             color={
               (row.status === 'ACTIVE' && 'success') ||
-              (row.status === 'ONBOARDING' && 'warning') ||
               (row.status === 'INACTIVE' && 'error') ||
               'default'
             }
           >
-            {row.status}
+            {userStatusLabel(row.status)}
           </Label>
+          {row.leavingDate && (
+            <Box
+              component="span"
+              sx={{ display: 'block', mt: 0.5, typography: 'caption', color: 'text.secondary' }}
+            >
+              Left {fDate(row.leavingDate)}
+            </Box>
+          )}
         </TableCell>
 
         <TableCell>
-          <IconButton
-            color={menuActions.open ? 'inherit' : 'default'}
-            onClick={menuActions.onOpen}
-          >
+          <IconButton color={menuActions.open ? 'inherit' : 'default'} onClick={menuActions.onOpen}>
             <Iconify icon="eva:more-vertical-fill" />
           </IconButton>
         </TableCell>

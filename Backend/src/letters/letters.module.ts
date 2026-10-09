@@ -5,6 +5,7 @@ import { Letter } from '../entities/letter.entity';
 import { LetterEvent } from '../entities/letter-event.entity';
 import { Signature } from '../entities/signature.entity';
 import { DocumentType } from '../entities/document-type.entity';
+import { EmployeeProfile } from '../entities/employee-profile.entity';
 import { UsersModule } from '../users/users.module';
 import { EmployeesModule } from '../employees/employees.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
@@ -15,7 +16,14 @@ import { LetterPdfRendererService } from './letter-pdf-renderer.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([LetterTemplate, Letter, LetterEvent, Signature, DocumentType]),
+    TypeOrmModule.forFeature([
+      LetterTemplate,
+      Letter,
+      LetterEvent,
+      Signature,
+      DocumentType,
+      EmployeeProfile,
+    ]),
     UsersModule,
     EmployeesModule,
     AuditLogModule,

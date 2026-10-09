@@ -10,7 +10,7 @@ import { EmployeeDocument } from '../entities/employee-document.entity';
 import { DocumentRequest } from '../entities/document-request.entity';
 import { DocumentSource } from '../common/enums/document-source.enum';
 import { DocumentRequestStatus } from '../common/enums/document-request-status.enum';
-import { toUserDto, UserDto } from '../common/mappers/user.mapper';
+import { UserDto } from '../common/mappers/user.mapper';
 import {
   DocumentRequestDto,
   DocumentTypeDto,
@@ -23,6 +23,7 @@ import { UsersService } from '../users/users.service';
 import { UploadDocumentDto } from './dto/upload-document.dto';
 import { CreateDocumentRequestDto } from './dto/create-document-request.dto';
 import { UPLOADS_ROOT_DIR } from './employee-documents.storage';
+import { NotifyService } from '../notifications/notify.service';
 
 export interface EmployeeRecord {
   user: UserDto;
@@ -40,6 +41,7 @@ export class EmployeesService {
     @InjectRepository(DocumentRequest)
     private readonly documentRequestsRepo: Repository<DocumentRequest>,
     private readonly usersService: UsersService,
+    private readonly notifier: NotifyService,
   ) {}
 
   private async findEmployeeOrThrow(id: number): Promise<User> {
@@ -58,7 +60,7 @@ export class EmployeesService {
     return documentType;
   }
 
-  async getRecord(employeeId: number): Promise<EmployeeRecord> {
+  async getRecord(employeeId: number, viewerRole?: string): Promise<EmployeeRecord> {
     const employee = await this.usersService.findOneEntity(employeeId);
 
     const documents = await this.employeeDocumentsRepo.find({
@@ -74,7 +76,7 @@ export class EmployeesService {
     });
 
     return {
-      user: toUserDto(employee),
+      user: await this.usersService.toDetailedDto(employee, viewerRole),
       documents: documents.map(toEmployeeDocumentDto),
       documentRequests: documentRequests.map(toDocumentRequestDto),
     };
@@ -114,6 +116,33 @@ export class EmployeesService {
       where: { id: saved.id },
       relations: ['documentType', 'uploadedByUser'],
     });
+
+    // The employee uploaded a document HR asked for — mark the request received and tell them.
+    if (uploadedBy === employeeId) {
+      const open = await this.documentRequestsRepo.find({
+        where: {
+          userId: employeeId,
+          documentTypeId: dto.documentTypeId,
+          status: DocumentRequestStatus.REQUESTED,
+        },
+      });
+      if (open.length) {
+        await this.documentRequestsRepo.update(
+          open.map((request) => request.id),
+          { status: DocumentRequestStatus.RECEIVED },
+        );
+        const employee = await this.usersRepo.findOne({ where: { id: employeeId } });
+        await this.notifier.send(
+          open.map((request) => request.requestedBy),
+          {
+            type: 'DOCUMENT_RECEIVED',
+            title:
+              `${employee?.firstName ?? ''} ${employee?.lastName ?? ''} uploaded the requested ${full?.documentType?.name ?? 'document'}`.trim(),
+            link: `/dashboard/employees/${employeeId}/record`,
+          },
+        );
+      }
+    }
     return toEmployeeDocumentDto(full!);
   }
 
@@ -188,6 +217,14 @@ export class EmployeesService {
       where: { id: saved.id },
       relations: ['documentType'],
     });
+    if (employeeId !== requestedBy) {
+      await this.notifier.send([employeeId], {
+        type: 'DOCUMENT_REQUESTED',
+        title: `HR has asked you to upload: ${full?.documentType?.name ?? 'a document'}`,
+        body: dto.dueDate ? `Please upload it by ${dto.dueDate}.` : null,
+        link: `/dashboard/employees/${employeeId}/record`,
+      });
+    }
     return toDocumentRequestDto(full!);
   }
 

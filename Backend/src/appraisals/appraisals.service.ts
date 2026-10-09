@@ -6,9 +6,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { AppraisalRequest } from '../entities/appraisal-request.entity';
 import { AppraisalEvent } from '../entities/appraisal-event.entity';
+import { User } from '../entities/user.entity';
+import { Notification } from '../entities/notification.entity';
+import { UserStatus } from '../common/enums/user-status.enum';
+import { MailService } from '../mail/mail.service';
+import { renderActionEmail } from '../mail/action-email';
 import { AppraisalStatus } from '../common/enums/appraisal-status.enum';
 import { AppraisalManagerDecision } from '../common/enums/appraisal-manager-decision.enum';
 import { AppraisalCeoDecision } from '../common/enums/appraisal-ceo-decision.enum';
@@ -27,8 +32,12 @@ import { ManagerDecisionDto } from './dto/manager-decision.dto';
 import { CeoDecisionDto } from './dto/ceo-decision.dto';
 import { QueryAppraisalRequestsDto } from './dto/query-appraisal-requests.dto';
 import { QueryTeamAppraisalsDto } from './dto/query-team-appraisals.dto';
+import { RequestWatchersService } from '../notifications/request-watchers.service';
 
 const ELIGIBILITY_MONTHS = 3;
+
+const employeeName = (request: AppraisalRequest) =>
+  request.employee ? `${request.employee.firstName} ${request.employee.lastName}` : 'An employee';
 
 function addMonths(date: Date, months: number): Date {
   const result = new Date(date.getTime());
@@ -45,7 +54,58 @@ export class AppraisalsService {
     private readonly eventsRepo: Repository<AppraisalEvent>,
     private readonly usersService: UsersService,
     private readonly auditLogService: AuditLogService,
+    private readonly requestWatchers: RequestWatchersService,
+    @InjectRepository(User) private readonly usersRepo: Repository<User>,
+    @InjectRepository(Notification) private readonly notificationsRepo: Repository<Notification>,
+    private readonly mail: MailService,
   ) {}
+
+  // ---------------------------------------------------------------------------------------------
+  // Notifications — bell + email to whoever has to act next, and the outcome to the employee
+  // ---------------------------------------------------------------------------------------------
+
+  private async notify(
+    userIds: (number | null | undefined)[],
+    title: string,
+    request: AppraisalRequest,
+    heading: string,
+  ): Promise<void> {
+    const ids = [...new Set(userIds.filter((id): id is number => typeof id === 'number'))];
+    if (!ids.length) return;
+    const link = `/dashboard/appraisals/${request.id}`;
+    await this.notificationsRepo.save(
+      ids.map((userId) =>
+        this.notificationsRepo.create({
+          userId,
+          type: 'APPRAISAL',
+          title: title.slice(0, 255),
+          body: null,
+          link,
+        }),
+      ),
+    );
+    const recipients = await this.usersRepo.find({ where: { id: In(ids) } });
+    const email = renderActionEmail({
+      subject: title,
+      heading,
+      intro: title,
+      rows: [
+        { label: 'Request', value: `Appraisal request #${request.id}` },
+        { label: 'Employee', value: employeeName(request) },
+      ],
+      link: this.mail.appUrl(link),
+      buttonLabel: 'Open in BNW HR system',
+    });
+    // Don't make the person acting wait on SMTP — MailService.send never throws.
+    for (const user of recipients) void this.mail.send({ to: user.email, ...email });
+  }
+
+  private async activeCeoIds(excludeId?: number): Promise<number[]> {
+    const ceos = await this.usersRepo.find({
+      where: { role: RoleName.CEO, status: UserStatus.ACTIVE },
+    });
+    return ceos.map((user) => user.id).filter((id) => id !== excludeId);
+  }
 
   // ---------------------------------------------------------------------------------------------
   // Ownership check — new case, modeled on LettersService.assertCanView /
@@ -141,16 +201,10 @@ export class AppraisalsService {
       throw new BadRequestException('The CEO does not submit appraisal requests');
     }
 
-    // A MANAGER's own appraisal skips the manager-review stage entirely and goes straight to the
-    // CEO — there's no meaningful "have their manager review it" step when the submitter IS a
-    // manager (and per seed data / the org chart, a manager frequently has no managerId of their
-    // own at all). Everyone else still needs a manager assigned to review them first.
-    const isManager = employee.role === RoleName.MANAGER;
-    if (!isManager && !employee.managerId) {
-      throw new BadRequestException(
-        "You have no manager set — an appraisal request can't be submitted without one",
-      );
-    }
+    // The manager-review stage is skipped — straight to the CEO — when the submitter IS a manager
+    // (no meaningful "have their manager review it" step) or has no manager on record at all.
+    // Everyone else is reviewed by their manager first.
+    const skipManagerReview = employee.role === RoleName.MANAGER || !employee.managerId;
 
     const eligibility = await this.computeEligibility(caller.sub);
     if (!eligibility.canRequestNext) {
@@ -163,11 +217,36 @@ export class AppraisalsService {
     const request = this.requestsRepo.create({
       employeeId: caller.sub,
       selfEvaluation: dto.selfEvaluation,
-      status: isManager ? AppraisalStatus.PENDING_CEO : AppraisalStatus.PENDING_MANAGER,
+      status: skipManagerReview ? AppraisalStatus.PENDING_CEO : AppraisalStatus.PENDING_MANAGER,
       managerId: employee.managerId ?? null,
     });
     const saved = await this.requestsRepo.save(request);
     await this.logEvent(saved.id, caller.sub, AppraisalEventAction.SUBMITTED);
+    const submitted = await this.loadWithRelations(saved.id);
+    if (submitted.status === AppraisalStatus.PENDING_MANAGER) {
+      await this.notify(
+        [submitted.managerId],
+        `${employeeName(submitted)} requested an appraisal — needs your review`,
+        submitted,
+        'Appraisal needs your review',
+      );
+    } else {
+      await this.notify(
+        await this.activeCeoIds(caller.sub),
+        `${employeeName(submitted)} requested an appraisal — needs your decision`,
+        submitted,
+        'Appraisal needs your decision',
+      );
+    }
+    this.requestWatchers.notifyNewRequest({
+      requesterId: caller.sub,
+      requesterName: `${employee.firstName} ${employee.lastName}`,
+      kind: 'Appraisal request',
+      summary: skipManagerReview
+        ? 'Goes straight to the CEO for review'
+        : 'Waiting for manager review',
+      link: `/dashboard/appraisals/${saved.id}`,
+    });
 
     return toAppraisalRequestDto(await this.loadWithRelations(saved.id));
   }
@@ -299,7 +378,29 @@ export class AppraisalsService {
       await this.logEvent(id, caller.sub, AppraisalEventAction.MANAGER_REJECTED, dto.message);
     }
 
-    return toAppraisalRequestDto(await this.loadWithRelations(id));
+    const decided = await this.loadWithRelations(id);
+    if (decided.status === AppraisalStatus.PENDING_CEO) {
+      await this.notify(
+        await this.activeCeoIds(decided.employeeId),
+        `${employeeName(decided)}'s appraisal was approved by their manager — needs your decision`,
+        decided,
+        'Appraisal needs your decision',
+      );
+      await this.notify(
+        [decided.employeeId],
+        'Your appraisal request was approved by your manager and sent to the CEO',
+        decided,
+        'Approved by your manager',
+      );
+    } else {
+      await this.notify(
+        [decided.employeeId],
+        'Your appraisal request was not approved by your manager',
+        decided,
+        'Appraisal request not approved',
+      );
+    }
+    return toAppraisalRequestDto(decided);
   }
 
   async ceoDecision(
@@ -352,6 +453,48 @@ export class AppraisalsService {
       await this.logEvent(id, caller.sub, AppraisalEventAction.CEO_SENT_BACK, dto.message);
     }
 
-    return toAppraisalRequestDto(await this.loadWithRelations(id));
+    const result = await this.loadWithRelations(id);
+    const name = employeeName(result);
+    if (result.status === AppraisalStatus.CEO_ACCEPTED) {
+      await this.notify(
+        [result.employeeId],
+        'Your appraisal was accepted by the CEO',
+        result,
+        'Appraisal accepted',
+      );
+      await this.notify(
+        [result.managerId],
+        `${name}'s appraisal was accepted by the CEO`,
+        result,
+        'Appraisal accepted',
+      );
+    } else if (result.status === AppraisalStatus.CEO_REJECTED) {
+      await this.notify(
+        [result.employeeId],
+        'Your appraisal was not accepted by the CEO',
+        result,
+        'Appraisal not accepted',
+      );
+      await this.notify(
+        [result.managerId],
+        `${name}'s appraisal was not accepted by the CEO`,
+        result,
+        'Appraisal not accepted',
+      );
+    } else {
+      await this.notify(
+        [result.managerId],
+        `The CEO sent ${name}'s appraisal back to you — needs your review again`,
+        result,
+        'Appraisal sent back to you',
+      );
+      await this.notify(
+        [result.employeeId],
+        'The CEO sent your appraisal back to your manager for another review',
+        result,
+        'Appraisal sent back to your manager',
+      );
+    }
+    return toAppraisalRequestDto(result);
   }
 }

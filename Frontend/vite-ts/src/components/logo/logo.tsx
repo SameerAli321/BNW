@@ -15,6 +15,8 @@ import { logoClasses } from './classes';
 
 export type LogoProps = LinkProps & {
   isSingle?: boolean;
+  /** Icon-only round mark (logo-mark.png) — for the collapsed sidebar. */
+  isMark?: boolean;
   disabled?: boolean;
 };
 
@@ -28,11 +30,23 @@ export type LogoProps = LinkProps & {
 // simple column split), so it read as a broken/cut-off logo. Simplest correct fix: always render
 // the one clean asset. If a real transparent icon-only mark is provided later, swap it back in for
 // the `isSingle` case specifically.
-export function Logo({ sx, disabled, className, href = '/', isSingle = true, ...other }: LogoProps) {
+//
+// `isMark` renders `logo-mark.png` instead — the round mark on its own (square, transparent, cut
+// from the owner-supplied artwork; also the favicon) — for places too narrow for the wordmark,
+// like the collapsed "mini" sidebar.
+export function Logo({
+  sx,
+  disabled,
+  className,
+  href = '/',
+  isSingle = true,
+  isMark = false,
+  ...other
+}: LogoProps) {
   const logoImg = (
     <img
       alt="BNW Chartered Accountants"
-      src={`${CONFIG.assetsDir}/logo/logo-full.png`}
+      src={`${CONFIG.assetsDir}/logo/${isMark ? 'logo-mark' : 'logo-full'}.png`}
       width="100%"
       height="100%"
       style={{ objectFit: 'contain' }}
@@ -50,8 +64,8 @@ export function Logo({ sx, disabled, className, href = '/', isSingle = true, ...
         {
           // ~3.2:1, matching logo-full.png's real aspect ratio — same box for both slots since
           // both now render the same image.
-          width: isSingle ? 130 : 160,
-          height: isSingle ? 41 : 50,
+          width: isMark ? 40 : isSingle ? 130 : 160,
+          height: isMark ? 40 : isSingle ? 41 : 50,
           ...(disabled && { pointerEvents: 'none' }),
         },
         ...(Array.isArray(sx) ? sx : [sx]),

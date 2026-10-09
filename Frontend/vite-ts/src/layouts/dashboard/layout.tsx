@@ -10,8 +10,6 @@ import Alert from '@mui/material/Alert';
 import { useTheme } from '@mui/material/styles';
 import { iconButtonClasses } from '@mui/material/IconButton';
 
-import { allLangs } from 'src/locales';
-
 import { Logo } from 'src/components/logo';
 import { useSettingsContext } from 'src/components/settings';
 
@@ -26,9 +24,9 @@ import { Searchbar } from '../components/searchbar';
 import { MenuButton } from '../components/menu-button';
 import { AccountDrawer } from '../components/account-drawer';
 import { SettingsButton } from '../components/settings-button';
-import { LanguagePopover } from '../components/language-popover';
 import { navData as dashboardNavData } from '../nav-config-dashboard';
 import { dashboardLayoutVars, dashboardNavColorVars } from './css-vars';
+import { NotificationsPopover } from '../components/notifications-popover';
 import { MainSection, layoutClasses, HeaderSection, LayoutSection } from '../core';
 
 // ----------------------------------------------------------------------
@@ -139,10 +137,10 @@ export function DashboardLayout({
           {/** @slot Searchbar */}
           <Searchbar data={navData} />
 
-          {/** @slot Language popover */}
-          <LanguagePopover data={allLangs} />
+          {/** @slot Notifications bell */}
+          <NotificationsPopover />
 
-          {/** @slot Settings button */}
+          {/** @slot Settings button — opens the theme drawer (colours, mode, sidebar), saved per user */}
           <SettingsButton />
 
           {/** @slot Account drawer */}
@@ -175,7 +173,12 @@ export function DashboardLayout({
         // CHARTERED ACCOUNTANTS" as part of the artwork, so no separate Typography name here —
         // that was showing the company name twice. Logo itself has hover/press feedback built in
         // (see src/components/logo/logo.tsx).
-        topArea: (
+        // Collapsed ("mini") sidebar is too narrow for the wordmark — show the round mark only.
+        topArea: isNavMini ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', pt: 2.5, pb: 1.5 }}>
+            <Logo isMark />
+          </Box>
+        ) : (
           <Box sx={{ px: 3, pt: 3, pb: 2, textAlign: 'center' }}>
             <Logo isSingle={false} sx={{ width: 190, height: 60, mx: 'auto' }} />
           </Box>

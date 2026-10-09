@@ -15,13 +15,45 @@ export const USER_ROLE_OPTIONS: UserRole[] = [
   'ADMIN',
 ];
 
-export type UserAccountStatus = 'ONBOARDING' | 'ACTIVE' | 'INACTIVE';
+/**
+ * The Role dropdown when creating / editing a user — the four roles agreed with the client, each
+ * stored as an existing system role. HR/Admin is ADMIN: it can do everything HR and Payroll do.
+ */
+export const USER_FORM_ROLE_OPTIONS: { value: UserRole; label: string }[] = [
+  { value: 'CEO', label: 'CEO' },
+  { value: 'MANAGER', label: 'Team Lead' },
+  { value: 'EMPLOYEE', label: 'Team Member' },
+  { value: 'ADMIN', label: 'HR/Admin' },
+];
+
+const OLDER_ROLE_LABELS: Partial<Record<UserRole, string>> = {
+  HR: 'HR (older role)',
+  PAYROLL: 'Payroll (older role)',
+};
+
+/** 'MANAGER' → 'Team Lead' etc. */
+export function userRoleLabel(role: string): string {
+  return (
+    USER_FORM_ROLE_OPTIONS.find((option) => option.value === role)?.label ??
+    OLDER_ROLE_LABELS[role as UserRole] ??
+    role
+  );
+}
+
+/** The Department dropdown when creating / editing a user (client's list, in this order). */
+export const USER_FORM_DEPARTMENTS = ['Personalised', 'Generalised', 'HR', 'Operations'];
+
+// New users start ACTIVE. INACTIVE = no longer with the company — they can no longer sign in.
+export type UserAccountStatus = 'ACTIVE' | 'INACTIVE';
 
 export const USER_ACCOUNT_STATUS_OPTIONS: { value: UserAccountStatus; label: string }[] = [
-  { value: 'ONBOARDING', label: 'Onboarding' },
   { value: 'ACTIVE', label: 'Active' },
   { value: 'INACTIVE', label: 'Inactive' },
 ];
+
+export function userStatusLabel(status: string): string {
+  return USER_ACCOUNT_STATUS_OPTIONS.find((option) => option.value === status)?.label ?? status;
+}
 
 /** `UserDto` — contract §"Auth", used in login/me responses and the Users list/detail. */
 export interface UserDto {
@@ -38,9 +70,22 @@ export interface UserDto {
   designation: string | null;
   status: UserAccountStatus;
   joinDate: string | null; // ISO date
+  leavingDate: string | null; // ISO date
+  /** Profile picture, relative to the API base — use `avatarSrc()` from actions/users. */
+  avatarUrl: string | null;
   mustChangePassword: boolean;
+  /** Opted in to a notification (in-app + email) for every new request — HR / ADMIN / CEO. */
+  notifyAllRequests?: boolean;
   createdAt: string;
   updatedAt: string;
+  // From the employee profile (present on the Users list / detail / E-record).
+  contactNumber?: string | null;
+  cnic?: string | null;
+  // Salary — only sent by the backend to HR / ADMIN.
+  currentSalary?: number | null;
+  previousSalary?: number | null;
+  deductionPolicy?: string | null;
+  lastSalaryChangeDate?: string | null;
 }
 
 /**
@@ -57,6 +102,14 @@ export type CreateUserDto = {
   designation?: string | null;
   joinDate?: string | null;
   employeeCode?: string | null;
+  status?: UserAccountStatus;
+  leavingDate?: string | null;
+  contactNumber?: string | null;
+  cnic?: string | null;
+  currentSalary?: number | null;
+  previousSalary?: number | null;
+  deductionPolicy?: string | null;
+  lastSalaryChangeDate?: string | null;
   password: string;
 };
 

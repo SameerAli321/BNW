@@ -39,7 +39,7 @@ const TABLE_HEAD: TableHeadCellProps[] = [
   { id: 'status', label: 'Status', width: 150 },
   { id: 'preparedBy', label: 'Prepared by', width: 160 },
   { id: 'createdAt', label: 'Created', width: 110 },
-  { id: '', width: 260 },
+  { id: '', width: 230 },
 ];
 
 /**
@@ -92,7 +92,7 @@ export function LetterListView() {
 
         <Box sx={{ position: 'relative' }}>
           <Scrollbar>
-            <Table size={table.dense ? 'small' : 'medium'} sx={{ minWidth: 960 }}>
+            <Table size={table.dense ? 'small' : 'medium'} sx={{ minWidth: 900 }}>
               <TableHeadCustom
                 order={table.order}
                 orderBy={table.orderBy}

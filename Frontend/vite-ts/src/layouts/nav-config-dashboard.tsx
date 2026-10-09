@@ -21,6 +21,7 @@ const ICONS = {
   lock: icon('ic-lock'),
   job: icon('ic-job'),
   external: icon('ic-external'),
+  invoice: icon('ic-invoice'),
 };
 
 // ----------------------------------------------------------------------
@@ -78,10 +79,20 @@ export const navData: NavSectionProps['data'] = [
         icon: ICONS.mail,
       },
       {
-        title: 'Letter Templates',
-        path: paths.dashboard.letterTemplates.root,
+        // One hub for every HR form (Complaint, Attendance Regularization, Onboarding) and letter
+        // template (Appraisal, Intern employment). No `allowedRoles`: everyone uses the forms;
+        // the letter cards inside only render for HR / CEO / ADMIN. The old "Letter Templates"
+        // table is reached from here ("Manage letter templates").
+        title: 'Requests & Forms',
+        path: paths.dashboard.requestsForms,
         icon: ICONS.file,
-        allowedRoles: ['HR', 'CEO', 'ADMIN'],
+      },
+      {
+        // Announcement board. No `allowedRoles`: everyone reads it (it's also on every dashboard);
+        // the Post / Edit / Delete controls inside only render for CEO / ADMIN / HR.
+        title: 'Announcements',
+        path: paths.dashboard.announcements,
+        icon: ICONS.mail,
       },
       {
         // Sprint 4 — Appraisals (see docs/API_CONTRACT_SPRINT4.md). No `allowedRoles`: every
@@ -100,6 +111,14 @@ export const navData: NavSectionProps['data'] = [
         title: 'Daily Activity',
         path: paths.dashboard.activity,
         icon: ICONS.file,
+      },
+      {
+        // Salary slips. No `allowedRoles`: everyone sees their own slips here; HR / ADMIN also
+        // get the history of every slip plus Generate / Send controls (gated in the page and by
+        // the backend's @Roles).
+        title: 'Salary Slips',
+        path: paths.dashboard.salarySlips.root,
+        icon: ICONS.invoice,
       },
       {
         // Gap-fix — Audit Log (see docs/API_CONTRACT_GAPS_FIX.md Gap 2). CEO/ADMIN only, same

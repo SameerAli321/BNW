@@ -8,8 +8,15 @@ import {
   MinLength,
 } from 'class-validator';
 import { RoleName } from '../../common/enums/role.enum';
+import { UserStatus } from '../../common/enums/user-status.enum';
+import { EmployeeInfoFields } from './employee-info.validators';
 
-export class CreateUserDto {
+export class CreateUserDto extends EmployeeInfoFields {
+  /** Defaults to ACTIVE. */
+  @IsOptional()
+  @IsEnum(UserStatus)
+  status?: UserStatus;
+
   @IsString()
   @MinLength(1)
   firstName: string;

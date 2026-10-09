@@ -15,6 +15,7 @@ import { Letter } from '../entities/letter.entity';
 import { LetterEvent } from '../entities/letter-event.entity';
 import { Signature } from '../entities/signature.entity';
 import { DocumentType } from '../entities/document-type.entity';
+import { EmployeeProfile } from '../entities/employee-profile.entity';
 import { LetterStatus } from '../common/enums/letter-status.enum';
 import { LetterEventAction } from '../common/enums/letter-event-action.enum';
 import { LetterTemplateType } from '../common/enums/letter-template-type.enum';
@@ -40,6 +41,7 @@ import { UpdateLetterDto } from './dto/update-letter.dto';
 import { QueryLettersDto } from './dto/query-letters.dto';
 import { LetterPdfRendererService, resolveLetterFieldValues } from './letter-pdf-renderer.service';
 import { UPLOADS_ROOT_DIR } from '../employees/employee-documents.storage';
+import { NotifyService } from '../notifications/notify.service';
 
 // Maps a letter template type to the E-record document type it should be filed under once the
 // employee signs. Falls back to 'Other' for template types with no dedicated document type yet.
@@ -47,6 +49,11 @@ const DOCUMENT_TYPE_NAME_BY_LETTER_TYPE: Partial<Record<LetterTemplateType, stri
   [LetterTemplateType.OFFER]: 'Signed Offer Letter',
   [LetterTemplateType.CONTRACT]: 'Signed Contract',
 };
+
+const letterSubject = (letter: Letter) =>
+  letter.subjectUser
+    ? `${letter.subjectUser.firstName} ${letter.subjectUser.lastName}`
+    : 'the employee';
 
 @Injectable()
 export class LettersService {
@@ -56,10 +63,13 @@ export class LettersService {
     @InjectRepository(LetterEvent) private readonly eventsRepo: Repository<LetterEvent>,
     @InjectRepository(Signature) private readonly signaturesRepo: Repository<Signature>,
     @InjectRepository(DocumentType) private readonly documentTypesRepo: Repository<DocumentType>,
+    @InjectRepository(EmployeeProfile)
+    private readonly profilesRepo: Repository<EmployeeProfile>,
     private readonly usersService: UsersService,
     private readonly employeesService: EmployeesService,
     private readonly pdfRenderer: LetterPdfRendererService,
     private readonly auditLogService: AuditLogService,
+    private readonly notifier: NotifyService,
   ) {}
 
   // ---------------------------------------------------------------------------------------------
@@ -87,8 +97,10 @@ export class LettersService {
     return template;
   }
 
-  async getTemplate(id: number): Promise<LetterTemplateDto> {
-    return toLetterTemplateDto(await this.findTemplateEntityOrThrow(id));
+  /** Detail includes bodyHtml (unlike the list) so the admin edit form can show the real body. */
+  async getTemplate(id: number): Promise<LetterTemplateDto & { bodyHtml: string }> {
+    const template = await this.findTemplateEntityOrThrow(id);
+    return { ...toLetterTemplateDto(template), bodyHtml: template.bodyHtml };
   }
 
   async getTemplateFields(id: number) {
@@ -153,10 +165,25 @@ export class LettersService {
     throw new ForbiddenException('You do not have access to this letter');
   }
 
+  /** Bell + email about a letter (see NotifyService). */
+  private async notifyLetter(
+    userIds: (number | null | undefined)[],
+    title: string,
+    letter: Letter,
+    body?: string | null,
+  ): Promise<void> {
+    await this.notifier.send(userIds, {
+      type: 'LETTER',
+      title,
+      body: body ?? null,
+      link: `/dashboard/letters/${letter.id}`,
+    });
+  }
+
   private async loadLetterWithRelations(id: number): Promise<Letter> {
     const letter = await this.lettersRepo.findOne({
       where: { id },
-      relations: ['template', 'subjectUser', 'preparedByUser'],
+      relations: ['template', 'subjectUser', 'subjectUser.department', 'preparedByUser'],
     });
     if (!letter) {
       throw new NotFoundException('Letter not found');
@@ -287,12 +314,29 @@ export class LettersService {
     return toLetterDto(await this.loadLetterWithRelations(id));
   }
 
+  /** Renders the letter's PDF with whatever signatures it has so far and stores the new path. */
+  private async renderAndStorePdf(letter: Letter): Promise<string> {
+    const signatures = await this.signaturesRepo.find({
+      where: { letterId: letter.id },
+      relations: ['signer'],
+      order: { signedAt: 'ASC' },
+    });
+    const pdfPath = await this.pdfRenderer.render(
+      letter,
+      letter.template,
+      letter.subjectUser,
+      signatures,
+      await this.findSubjectProfile(letter),
+    );
+    letter.pdfPath = pdfPath;
+    await this.lettersRepo.save(letter);
+    return pdfPath;
+  }
+
   /** POST /letters/:id/preview — re-renders the PDF without changing status. */
   async preview(id: number): Promise<{ pdfUrl: string }> {
     const letter = await this.loadLetterWithRelations(id);
-    const pdfPath = await this.pdfRenderer.render(letter, letter.template, letter.subjectUser);
-    letter.pdfPath = pdfPath;
-    await this.lettersRepo.save(letter);
+    await this.renderAndStorePdf(letter);
     return { pdfUrl: `/letters/${id}/pdf` };
   }
 
@@ -306,7 +350,13 @@ export class LettersService {
     letter.status = LetterStatus.PENDING_CEO;
     await this.lettersRepo.save(letter);
     await this.logEvent(id, caller.sub, LetterEventAction.SUBMITTED);
-    return toLetterDto(await this.loadLetterWithRelations(id));
+    const submitted = await this.loadLetterWithRelations(id);
+    await this.notifyLetter(
+      await this.notifier.activeUserIds([RoleName.CEO], caller.sub),
+      `${submitted.template.name} for ${letterSubject(submitted)} — needs your signature`,
+      submitted,
+    );
+    return toLetterDto(submitted);
   }
 
   async requestChanges(id: number, comment: string, caller: JwtUserPayload): Promise<LetterDto> {
@@ -319,14 +369,26 @@ export class LettersService {
     letter.status = LetterStatus.CHANGES_REQUESTED;
     await this.lettersRepo.save(letter);
     await this.logEvent(id, caller.sub, LetterEventAction.CHANGES_REQUESTED, comment);
-    return toLetterDto(await this.loadLetterWithRelations(id));
+    const returned = await this.loadLetterWithRelations(id);
+    await this.notifyLetter(
+      [returned.preparedBy],
+      `The CEO asked for changes to ${returned.template.name} for ${letterSubject(returned)}`,
+      returned,
+      comment,
+    );
+    return toLetterDto(returned);
   }
 
-  private computeDocumentHash(letter: Letter, template: LetterTemplate): string {
+  private findSubjectProfile(letter: Letter): Promise<EmployeeProfile | null> {
+    return this.profilesRepo.findOne({ where: { userId: letter.subjectUserId } });
+  }
+
+  private async computeDocumentHash(letter: Letter, template: LetterTemplate): Promise<string> {
     const resolved = resolveLetterFieldValues(
       template.fieldsSchema,
       letter.fieldValues ?? {},
       letter.subjectUser,
+      await this.findSubjectProfile(letter),
     );
     const payload = JSON.stringify({
       values: resolved.map((f) => ({ key: f.key, value: f.value })),
@@ -359,7 +421,7 @@ export class LettersService {
         signatureText,
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
-        documentHash: this.computeDocumentHash(letter, letter.template),
+        documentHash: await this.computeDocumentHash(letter, letter.template),
       }),
     );
     this.auditLogService.log({
@@ -372,6 +434,14 @@ export class LettersService {
     });
     await this.logEvent(id, caller.sub, LetterEventAction.CEO_SIGNED);
 
+    // Re-render so the PDF HR sends to the employee is dated and carries the CEO's signature.
+    await this.renderAndStorePdf(letter);
+
+    await this.notifyLetter(
+      [letter.preparedBy],
+      `The CEO signed ${letter.template.name} for ${letterSubject(letter)} — ready to send to the employee`,
+      letter,
+    );
     return toLetterDto(await this.loadLetterWithRelations(id));
   }
 
@@ -393,14 +463,11 @@ export class LettersService {
     // addendum "Send to employee message".
     await this.logEvent(id, caller.sub, LetterEventAction.SENT_TO_EMPLOYEE, message);
 
-    // STUB: replace with a real mail service call (SMTP) once B8 is resolved with the client. The
-    // real email would attach the rendered PDF (letter.pdfPath) and include `message` in the body;
-    // for now the employee gets it in-app (letter detail page + timeline note) once they log in.
-    // eslint-disable-next-line no-console
-    console.log(
-      `[stub email] "A letter is waiting for your signature" -> ${letter.subjectUser.email} ` +
-        `| letter #${letter.id} (${letter.template.name})` +
-        (message ? ` | message: ${message}` : ''),
+    await this.notifyLetter(
+      [letter.subjectUserId],
+      `You have a letter to sign: ${letter.template.name}`,
+      letter,
+      message,
     );
 
     return toLetterDto(await this.loadLetterWithRelations(id));
@@ -451,7 +518,7 @@ export class LettersService {
         signatureText,
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
-        documentHash: this.computeDocumentHash(letter, letter.template),
+        documentHash: await this.computeDocumentHash(letter, letter.template),
       }),
     );
     this.auditLogService.log({
@@ -464,27 +531,27 @@ export class LettersService {
     });
     await this.logEvent(id, caller.sub, LetterEventAction.EMPLOYEE_SIGNED);
 
-    // STUB: replace with a real mail service call (SMTP) once B8 is resolved with the client.
-    // eslint-disable-next-line no-console
-    console.log(
-      `[stub email] "Letter #${letter.id} was signed by the employee" -> HR | subject: ` +
-        `${letter.subjectUser.email}`,
+    await this.notifyLetter(
+      [
+        letter.preparedBy,
+        ...(await this.notifier.activeUserIds([RoleName.HR, RoleName.ADMIN], caller.sub)),
+      ],
+      `${letterSubject(letter)} signed ${letter.template.name}`,
+      letter,
+      'The signed copy has been filed in their E-record.',
     );
 
     // File the rendered PDF into the subject's E-record (guide's U5 "auto-retained in E-record"),
     // reusing Sprint 2's EmployeeDocument entity/service rather than duplicating file-storage
-    // logic. Re-render first if a preview was never taken (pdfPath still null).
-    if (!letter.pdfPath) {
-      letter.pdfPath = await this.pdfRenderer.render(letter, letter.template, letter.subjectUser);
-      await this.lettersRepo.save(letter);
-    }
+    // logic. Re-rendered first so the filed copy includes the employee's acknowledgement.
+    const pdfPath = await this.renderAndStorePdf(letter);
     const documentTypeId = await this.resolveLetterDocumentTypeId(letter.type);
-    const absolutePath = join(UPLOADS_ROOT_DIR, letter.pdfPath);
+    const absolutePath = join(UPLOADS_ROOT_DIR, pdfPath);
     const fileStat = await stat(absolutePath);
     await this.employeesService.fileGeneratedDocument({
       employeeId: letter.subjectUserId,
       documentTypeId,
-      filePath: letter.pdfPath,
+      filePath: pdfPath,
       originalName: `${letter.template.name} (letter #${letter.id}).pdf`,
       mime: 'application/pdf',
       size: fileStat.size,

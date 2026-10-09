@@ -9,8 +9,9 @@ import {
 } from 'class-validator';
 import { RoleName } from '../../common/enums/role.enum';
 import { UserStatus } from '../../common/enums/user-status.enum';
+import { EmployeeInfoFields } from './employee-info.validators';
 
-export class UpdateUserDto {
+export class UpdateUserDto extends EmployeeInfoFields {
   @IsOptional()
   @IsString()
   @MinLength(1)

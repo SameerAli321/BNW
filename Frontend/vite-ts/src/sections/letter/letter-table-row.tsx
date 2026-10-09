@@ -30,6 +30,11 @@ import { LetterSignDialog } from './letter-sign-dialog';
 import { LetterStatusLabel } from './letter-status-label';
 import { LetterRequestChangesDialog } from './letter-request-changes-dialog';
 
+function formatLetterType(type: string): string {
+  const words = type.toLowerCase().split('_').join(' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 // ----------------------------------------------------------------------
 // Row-level actions gated by BOTH the caller's role AND the letter's current status, matching
 // docs/API_CONTRACT_SPRINT3.md's endpoint table exactly (not just role) — see the detail page for
@@ -102,9 +107,10 @@ export function LetterTableRow({ row, detailsHref, currentRole, currentUserId }:
         </Link>
       </TableCell>
 
-      <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.templateName}</TableCell>
+      <TableCell sx={{ minWidth: 180 }}>{row.templateName}</TableCell>
 
-      <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.type}</TableCell>
+      {/* EMPLOYMENT_CONFIRMATION -> Employment confirmation, so the column can wrap instead of widening the table. */}
+      <TableCell>{formatLetterType(row.type)}</TableCell>
 
       <TableCell>
         <LetterStatusLabel status={row.status} />

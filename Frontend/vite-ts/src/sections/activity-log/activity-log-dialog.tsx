@@ -28,8 +28,9 @@ export type ActivityLogSchemaType = zod.infer<typeof ActivityLogSchema>;
 export const ActivityLogSchema = zod.object({
   activityDate: zod.string().min(1, { message: 'Date is required.' }),
   category: zod.string().min(1, { message: 'Category is required.' }),
-  // Kept as a string in the form (it's a text input) and converted on submit.
-  hours: zod.string().refine(
+  // The number field hands back a string while typing but a number (or '') after blur, so
+  // accept either and validate the numeric value.
+  hours: zod.union([zod.string(), zod.number()]).refine(
     (value) => {
       const hours = Number(value);
       return !Number.isNaN(hours) && hours >= 0.25 && hours <= 24;

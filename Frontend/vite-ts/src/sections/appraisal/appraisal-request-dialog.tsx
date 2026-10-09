@@ -63,7 +63,8 @@ export function AppraisalRequestDialog({ open, onClose, onConfirm }: Props) {
 
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            This goes to your manager first, then the CEO once your manager accepts it.
+            This goes to your manager first, then the CEO once your manager accepts it. If you
+            have no manager on record, it goes straight to the CEO.
           </Typography>
 
           <Field.Text

@@ -22,7 +22,7 @@ import { useGetUsers, useGetDepartments } from 'src/actions/users';
 import { toast } from 'src/components/snackbar';
 import { Form, Field } from 'src/components/hook-form';
 
-import { USER_ROLE_OPTIONS } from 'src/types/user';
+import { USER_FORM_DEPARTMENTS, USER_FORM_ROLE_OPTIONS } from 'src/types/user';
 
 // ----------------------------------------------------------------------
 // `POST /candidates/:id/convert` — HR, ADMIN. Body is `ConvertCandidateDto`: same shape as
@@ -42,7 +42,9 @@ export const ConvertCandidateSchema = zod.object({
   designation: zod.string().optional(),
   joinDate: zod.string().optional(),
   employeeCode: zod.string().optional(),
-  password: zod.string().min(8, { message: 'Password is required and must be at least 8 characters!' }),
+  password: zod
+    .string()
+    .min(8, { message: 'Password is required and must be at least 8 characters!' }),
 });
 
 type Props = {
@@ -95,7 +97,7 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
 
   const onSubmit = handleSubmit(async (data) => {
     try {
-      const { user } = await convertCandidate(candidate.id, {
+      const { user, welcomeEmail } = await convertCandidate(candidate.id, {
         role: data.role as UserRole,
         password: data.password,
         managerId: data.managerId === '' ? null : data.managerId,
@@ -107,7 +109,17 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
         ...(data.lastName ? { lastName: data.lastName } : {}),
         ...(data.email ? { email: data.email } : {}),
       });
-      toast.success(`Converted to employee — ${user.firstName} ${user.lastName} can now log in!`);
+      const name = `${user.firstName} ${user.lastName}`;
+      if (welcomeEmail?.status === 'SENT') {
+        toast.success(
+          `Converted to employee — ${name}'s sign-in details were emailed to ${welcomeEmail.sentTo}`
+        );
+      } else {
+        toast.warning(
+          `Converted to employee — but the welcome email could not be sent${welcomeEmail?.error ? `: ${welcomeEmail.error}` : ''}. Share ${name}'s sign-in details with them directly.`,
+          { duration: 10000 }
+        );
+      }
       handleClose();
     } catch (error) {
       console.error(error);
@@ -144,9 +156,9 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
             />
 
             <Field.Select name="role" label="Role">
-              {USER_ROLE_OPTIONS.map((role) => (
-                <MenuItem key={role} value={role}>
-                  {role}
+              {USER_FORM_ROLE_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
                 </MenuItem>
               ))}
             </Field.Select>
@@ -166,11 +178,17 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
               <MenuItem value="">
                 <em>None</em>
               </MenuItem>
-              {departments.map((department) => (
-                <MenuItem key={department.id} value={department.id}>
-                  {department.name}
-                </MenuItem>
-              ))}
+              {departments
+                .filter((d) => USER_FORM_DEPARTMENTS.includes(d.name))
+                .sort(
+                  (a, b) =>
+                    USER_FORM_DEPARTMENTS.indexOf(a.name) - USER_FORM_DEPARTMENTS.indexOf(b.name)
+                )
+                .map((department) => (
+                  <MenuItem key={department.id} value={department.id}>
+                    {department.name}
+                  </MenuItem>
+                ))}
             </Field.Select>
 
             <Field.Text name="designation" label="Designation" />

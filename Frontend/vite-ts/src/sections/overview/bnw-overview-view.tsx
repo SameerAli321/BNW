@@ -2,16 +2,21 @@ import { varAlpha } from 'minimal-shared/utils';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
+import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
 
 import { fDate } from 'src/utils/format-time';
 
+import { avatarSrc } from 'src/actions/users';
 import { DashboardContent } from 'src/layouts/dashboard';
 
 import { Label } from 'src/components/label';
 
+import { AnnouncementBoard } from 'src/sections/announcement/announcement-components';
+
 import { useAuthContext } from 'src/auth/hooks';
 
+import { HrOverviewView } from './hr-overview-view';
 import { CeoOverviewView } from './ceo-overview-view';
 import { AdminOverviewView } from './admin-overview-view';
 import { EmployeeOverviewView } from './employee-overview-view';
@@ -27,12 +32,11 @@ function greeting(hour: number): string {
 // ----------------------------------------------------------------------
 
 // BNW OMS: dashboard home page — same single app/login for everyone (see docs/PROJECT_STATUS.md),
-// but the content below the shared welcome banner is chosen per role, per explicit user request:
-// a User-facing view (own letters to sign, own E-record), an Admin view (user/template counts),
-// and a CEO view (letters awaiting their sign-off, company-wide staff count). HR, MANAGER and
-// PAYROLL fall back to the Employee-style "my stuff" view for now — they weren't part of the
-// specific 3-dashboard request, and "my own letters/E-record" is a reasonable default for any
-// role that isn't Admin or CEO. Revisit if HR/Manager get their own tailored view later.
+// with the content below the shared welcome banner + announcement board chosen per role: Admin
+// (user base and system activity), CEO (letters / appraisals awaiting them, company snapshot), HR
+// (the HR work queue, requests over time, who's away, hiring), and everyone else — EMPLOYEE,
+// MANAGER, PAYROLL — the personal view (leave balance, own requests, hours logged, letters to
+// sign). Line managers also get a "My team" block. All figures come from GET /dashboard.
 //
 // No logo/company-name repeated here — the sidebar already carries a big, prominent one (see
 // layout.tsx); showing it again on every dashboard page just duplicated it (the wordmark image
@@ -48,13 +52,15 @@ export function BnwOverviewView() {
         return <AdminOverviewView />;
       case 'CEO':
         return <CeoOverviewView />;
+      case 'HR':
+        return <HrOverviewView />;
       default:
         return <EmployeeOverviewView userId={user.id} />;
     }
   };
 
   return (
-    <DashboardContent maxWidth="lg">
+    <DashboardContent>
       <Box
         sx={(theme) => ({
           p: { xs: 3, md: 4 },
@@ -72,18 +78,34 @@ export function BnwOverviewView() {
           justifyContent="space-between"
           spacing={2}
         >
-          <Stack spacing={1}>
-            {user?.role && (
-              <Label color="primary" variant="soft" sx={{ alignSelf: 'flex-start' }}>
-                {user.role}
-              </Label>
-            )}
-            <Typography variant="h4">
-              {greeting(new Date().getHours())}, {user?.firstName ?? user?.displayName ?? 'there'}
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Here&apos;s what&apos;s happening across BNW Chartered Accountants today.
-            </Typography>
+          <Stack direction="row" alignItems="center" spacing={2.5}>
+            <Avatar
+              src={avatarSrc(user?.avatarUrl)}
+              alt={user?.firstName}
+              sx={{
+                width: 72,
+                height: 72,
+                fontSize: 28,
+                display: { xs: 'none', sm: 'flex' },
+                border: (theme) => `3px solid ${theme.vars.palette.background.paper}`,
+                boxShadow: (theme) => theme.vars.customShadows.z8,
+              }}
+            >
+              {user?.firstName?.charAt(0).toUpperCase()}
+            </Avatar>
+            <Stack spacing={1}>
+              {user?.role && (
+                <Label color="primary" variant="soft" sx={{ alignSelf: 'flex-start' }}>
+                  {user.role}
+                </Label>
+              )}
+              <Typography variant="h4">
+                {greeting(new Date().getHours())}, {user?.firstName ?? user?.displayName ?? 'there'}
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                Here&apos;s what&apos;s happening across BNW Chartered Accountants today.
+              </Typography>
+            </Stack>
           </Stack>
 
           <Typography variant="subtitle2" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
@@ -91,6 +113,9 @@ export function BnwOverviewView() {
           </Typography>
         </Stack>
       </Box>
+
+      {/* Announcement board — on every role's dashboard, right under the welcome banner. */}
+      <AnnouncementBoard />
 
       {renderRoleContent()}
     </DashboardContent>

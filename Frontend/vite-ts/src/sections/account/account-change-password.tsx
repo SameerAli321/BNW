@@ -9,6 +9,8 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 
+import axiosInstance, { endpoints } from 'src/lib/axios';
+
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 import { Form, Field } from 'src/components/hook-form';
@@ -21,9 +23,11 @@ export const ChangePassWordSchema = zod
   .object({
     oldPassword: zod
       .string()
-      .min(1, { message: 'Password is required!' })
-      .min(6, { message: 'Password must be at least 6 characters!' }),
-    newPassword: zod.string().min(1, { message: 'New password is required!' }),
+      .min(1, { message: 'Your current password is required!' }),
+    newPassword: zod
+      .string()
+      .min(1, { message: 'New password is required!' })
+      .min(8, { message: 'The new password must be at least 8 characters!' }),
     confirmNewPassword: zod.string().min(1, { message: 'Confirm password is required!' }),
   })
   .refine((data) => data.oldPassword !== data.newPassword, {
@@ -58,14 +62,19 @@ export function AccountChangePassword() {
     formState: { isSubmitting },
   } = methods;
 
+  // BNW OMS: was the template's fake submit (a timeout + "Update success!", nothing saved) —
+  // now really changes the password via POST /auth/change-password.
   const onSubmit = handleSubmit(async (data) => {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await axiosInstance.post(endpoints.auth.changePassword, {
+        currentPassword: data.oldPassword,
+        newPassword: data.newPassword,
+      });
       reset();
-      toast.success('Update success!');
-      console.info('DATA', data);
+      toast.success('Your password has been changed');
     } catch (error) {
       console.error(error);
+      toast.error(error instanceof Error ? error.message : 'Could not change the password');
     }
   });
 
@@ -82,7 +91,7 @@ export function AccountChangePassword() {
         <Field.Text
           name="oldPassword"
           type={showPassword.value ? 'text' : 'password'}
-          label="Old password"
+          label="Current password"
           slotProps={{
             input: {
               endAdornment: (
@@ -117,7 +126,7 @@ export function AccountChangePassword() {
           }}
           helperText={
             <Box component="span" sx={{ gap: 0.5, display: 'flex', alignItems: 'center' }}>
-              <Iconify icon="solar:info-circle-bold" width={16} /> Password must be minimum 6+
+              <Iconify icon="solar:info-circle-bold" width={16} /> At least 8 characters
             </Box>
           }
         />

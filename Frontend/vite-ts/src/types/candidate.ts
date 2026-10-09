@@ -61,6 +61,12 @@ export type ConvertCandidateDto = {
 export type ConvertCandidateResponse = {
   candidate: CandidateDto;
   user: { id: number; firstName: string; lastName: string; email: string };
+  /** Whether the new employee was emailed their sign-in details. */
+  welcomeEmail?: {
+    status: 'SENT' | 'FAILED' | 'NOT_CONFIGURED';
+    sentTo: string;
+    error?: string;
+  };
 };
 
 export type ICandidateListMeta = { total: number; page: number; limit: number };

@@ -1,17 +1,20 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { existsSync, unlinkSync } from 'fs';
+import { join } from 'path';
 import { User } from '../entities/user.entity';
 import { EmployeeProfile } from '../entities/employee-profile.entity';
 import { UserStatus } from '../common/enums/user-status.enum';
 import { RoleName } from '../common/enums/role.enum';
-import { toUserDto, UserDto } from '../common/mappers/user.mapper';
+import { COMPENSATION_VIEWER_ROLES, toUserDto, UserDto } from '../common/mappers/user.mapper';
 import {
   EmployeeProfileDto,
   toEmployeeProfileDto,
@@ -23,6 +26,22 @@ import { UpdateEmployeeProfileDto } from './dto/update-employee-profile.dto';
 import { generateTempPassword } from '../common/utils/temp-password';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { AVATARS_DIR } from './avatar.storage';
+import { MailService } from '../mail/mail.service';
+import { renderWelcomeEmail } from './welcome-email';
+
+/** Result of the welcome email sent when an account is created. */
+export type WelcomeEmailResult = {
+  status: 'SENT' | 'FAILED' | 'NOT_CONFIGURED';
+  sentTo: string;
+  error?: string;
+};
+
+/** Today as YYYY-MM-DD (server local time). */
+const todayIso = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 @Injectable()
 export class UsersService {
@@ -31,6 +50,7 @@ export class UsersService {
     @InjectRepository(EmployeeProfile)
     private readonly employeeProfilesRepo: Repository<EmployeeProfile>,
     private readonly auditLogService: AuditLogService,
+    private readonly mail: MailService,
   ) {}
 
   async findAll(
@@ -65,11 +85,33 @@ export class UsersService {
       .take(limit);
 
     const [rows, total] = await qb.getManyAndCount();
+    const profiles = await this.profilesFor(rows.map((row) => row.id));
 
+    // GET /users is HR / ADMIN only, so the salary fields are always included here.
     return {
-      data: rows.map(toUserDto),
+      data: rows.map((row) =>
+        toUserDto(row, { profile: profiles.get(row.id) ?? null, includeCompensation: true }),
+      ),
       meta: { total, page, limit },
     };
+  }
+
+  private async profilesFor(userIds: number[]): Promise<Map<number, EmployeeProfile>> {
+    if (!userIds.length) return new Map();
+    const profiles = await this.employeeProfilesRepo.find({ where: { userId: In(userIds) } });
+    return new Map(profiles.map((profile) => [profile.userId, profile]));
+  }
+
+  /**
+   * A user with their profile's contact number / CNIC, and the salary fields only when the
+   * viewer is HR / ADMIN.
+   */
+  async toDetailedDto(user: User, viewerRole?: string): Promise<UserDto> {
+    const profile = await this.employeeProfilesRepo.findOne({ where: { userId: user.id } });
+    return toUserDto(user, {
+      profile,
+      includeCompensation: !!viewerRole && COMPENSATION_VIEWER_ROLES.includes(viewerRole),
+    });
   }
 
   async findOneEntity(id: number): Promise<User> {
@@ -83,8 +125,41 @@ export class UsersService {
     return user;
   }
 
-  async findOne(id: number): Promise<UserDto> {
-    return toUserDto(await this.findOneEntity(id));
+  async findOne(id: number, viewerRole?: string): Promise<UserDto> {
+    return this.toDetailedDto(await this.findOneEntity(id), viewerRole);
+  }
+
+  /** Sets the caller's profile picture to the just-uploaded file, removing the previous one. */
+  async setAvatar(userId: number, fileName: string): Promise<UserDto> {
+    const user = await this.findOneEntity(userId);
+    this.removeAvatarFile(user.avatarPath);
+    user.avatarPath = fileName;
+    await this.usersRepo.update(userId, { avatarPath: fileName });
+    return toUserDto(user);
+  }
+
+  /** The caller's "notify me about every new request" switch. */
+  async setNotifyAllRequests(userId: number, enabled: boolean): Promise<UserDto> {
+    await this.usersRepo.update(userId, { notifyAllRequests: enabled });
+    return toUserDto(await this.findOneEntity(userId));
+  }
+
+  async removeAvatar(userId: number): Promise<UserDto> {
+    const user = await this.findOneEntity(userId);
+    this.removeAvatarFile(user.avatarPath);
+    user.avatarPath = null;
+    await this.usersRepo.update(userId, { avatarPath: null });
+    return toUserDto(user);
+  }
+
+  private removeAvatarFile(fileName: string | null): void {
+    if (!fileName) return;
+    const path = join(AVATARS_DIR, fileName);
+    try {
+      if (existsSync(path)) unlinkSync(path);
+    } catch {
+      // A leftover file is harmless — never fail the request over it.
+    }
   }
 
   async findReports(id: number): Promise<UserDto[]> {
@@ -95,7 +170,7 @@ export class UsersService {
       relations: ['manager', 'department'],
       order: { firstName: 'ASC' },
     });
-    return reports.map(toUserDto);
+    return reports.map((report) => toUserDto(report));
   }
 
   /**
@@ -103,13 +178,19 @@ export class UsersService {
    * (enforced by CreateUserDto). No more server-generated temp password on create; `mustChangePassword`
    * still forces them to change it on first login regardless.
    */
-  async create(dto: CreateUserDto): Promise<{ user: UserDto }> {
+  async create(
+    dto: CreateUserDto,
+    actorId?: number,
+  ): Promise<{ user: UserDto; welcomeEmail: WelcomeEmailResult }> {
     const existing = await this.usersRepo.findOne({ where: { email: dto.email } });
     if (existing) {
       throw new ConflictException('A user with this email already exists');
     }
+    await this.assertEmployeeCodeFree(dto.employeeCode, null);
+    this.assertDates(dto.joinDate ?? null, dto.leavingDate ?? null, dto.lastSalaryChangeDate);
 
     const password_hash = await bcrypt.hash(dto.password, 10);
+    const currentSalary = dto.currentSalary ?? null;
 
     const user = this.usersRepo.create({
       firstName: dto.firstName,
@@ -120,20 +201,125 @@ export class UsersService {
       departmentId: dto.departmentId ?? null,
       designation: dto.designation ?? null,
       joinDate: dto.joinDate ?? null,
-      employeeCode: dto.employeeCode ?? null,
-      status: UserStatus.ONBOARDING,
+      leavingDate: dto.leavingDate ?? null,
+      employeeCode: dto.employeeCode?.trim() || null,
+      status: dto.status ?? UserStatus.ACTIVE,
+      currentSalary,
+      previousSalary: dto.previousSalary ?? null,
+      deductionPolicy: dto.deductionPolicy?.trim() || null,
+      // A starting salary with no change date counts from the joining date (or today).
+      lastSalaryChangeDate:
+        dto.lastSalaryChangeDate ?? (currentSalary !== null ? (dto.joinDate ?? todayIso()) : null),
       mustChangePassword: true,
       password_hash,
     });
 
     const saved = await this.usersRepo.save(user);
+    await this.saveContactDetails(saved.id, dto);
+
+    if (currentSalary !== null) {
+      this.auditLogService.log({
+        actorId: actorId ?? null,
+        action: 'SALARY_SET',
+        entity: 'User',
+        entityId: saved.id,
+        after: { currentSalary, lastSalaryChangeDate: saved.lastSalaryChangeDate },
+      });
+    }
 
     const full = await this.findOneEntity(saved.id);
-    return { user: toUserDto(full) };
+    const welcomeEmail = await this.sendWelcomeEmail(full, dto.password, actorId);
+    return { user: await this.toDetailedDto(full, RoleName.HR), welcomeEmail };
   }
 
-  async update(id: number, dto: UpdateUserDto, actorId?: number): Promise<UserDto> {
+  /**
+   * Emails the new user their sign-in details at their registered address. Never throws — the
+   * account exists either way; the result is shown to HR so they know whether it arrived.
+   */
+  private async sendWelcomeEmail(
+    user: User,
+    password: string,
+    actorId?: number,
+  ): Promise<WelcomeEmailResult> {
+    const email = renderWelcomeEmail({
+      firstName: user.firstName,
+      fullName: `${user.firstName} ${user.lastName}`.trim(),
+      email: user.email,
+      password,
+      role: user.role,
+      employeeCode: user.employeeCode,
+      designation: user.designation,
+      departmentName: user.department?.name ?? null,
+      joinDate: user.joinDate,
+      signInUrl: this.mail.appUrl('/auth/jwt/sign-in'),
+    });
+    const result = await this.mail.send({ to: user.email, ...email });
+    const outcome: WelcomeEmailResult = {
+      status: result.status,
+      sentTo: user.email,
+      ...(result.status === 'FAILED' ? { error: result.error } : {}),
+    };
+    this.auditLogService.log({
+      actorId: actorId ?? null,
+      action: result.status === 'SENT' ? 'WELCOME_EMAIL_SENT' : 'WELCOME_EMAIL_FAILED',
+      entity: 'User',
+      entityId: user.id,
+      after: { to: user.email, status: result.status, error: outcome.error ?? null },
+    });
+    return outcome;
+  }
+
+  /** Contact number / CNIC live on employee_profiles — create the row on first write. */
+  private async saveContactDetails(
+    userId: number,
+    dto: { contactNumber?: string | null; cnic?: string | null },
+  ): Promise<void> {
+    if (dto.contactNumber === undefined && dto.cnic === undefined) return;
+    let profile = await this.employeeProfilesRepo.findOne({ where: { userId } });
+    if (!profile) profile = this.employeeProfilesRepo.create({ userId });
+    if (dto.contactNumber !== undefined) profile.phone = dto.contactNumber?.trim() || null;
+    if (dto.cnic !== undefined) profile.nationalId = dto.cnic || null;
+    await this.employeeProfilesRepo.save(profile);
+  }
+
+  private async assertEmployeeCodeFree(code: string | null | undefined, selfId: number | null) {
+    const value = code?.trim();
+    if (!value) return;
+    const clash = await this.usersRepo.findOne({
+      where: { employeeCode: value },
+      withDeleted: true,
+    });
+    if (clash && clash.id !== selfId) {
+      throw new ConflictException(`Employee code ${value} is already used by another employee`);
+    }
+  }
+
+  private assertDates(
+    joinDate: string | null,
+    leavingDate: string | null,
+    lastSalaryChangeDate: string | null | undefined,
+  ): void {
+    if (joinDate && leavingDate && leavingDate.slice(0, 10) < joinDate.slice(0, 10)) {
+      throw new BadRequestException('Leaving date cannot be before the date of joining');
+    }
+    if (lastSalaryChangeDate && lastSalaryChangeDate.slice(0, 10) > todayIso()) {
+      throw new BadRequestException('Last salary change date cannot be in the future');
+    }
+  }
+
+  async update(
+    id: number,
+    dto: UpdateUserDto,
+    actorId?: number,
+    viewerRole: string = RoleName.HR,
+  ): Promise<UserDto> {
     const user = await this.findOneEntity(id);
+    if (dto.employeeCode !== undefined) await this.assertEmployeeCodeFree(dto.employeeCode, id);
+    this.assertDates(
+      dto.joinDate !== undefined ? dto.joinDate : user.joinDate,
+      dto.leavingDate !== undefined ? dto.leavingDate : user.leavingDate,
+      dto.lastSalaryChangeDate,
+    );
 
     if (dto.email && dto.email !== user.email) {
       const existing = await this.usersRepo.findOne({ where: { email: dto.email } });
@@ -150,8 +336,34 @@ export class UsersService {
     if (dto.departmentId !== undefined) user.departmentId = dto.departmentId;
     if (dto.designation !== undefined) user.designation = dto.designation;
     if (dto.joinDate !== undefined) user.joinDate = dto.joinDate;
-    if (dto.employeeCode !== undefined) user.employeeCode = dto.employeeCode;
+    if (dto.employeeCode !== undefined) user.employeeCode = dto.employeeCode?.trim() || null;
     if (dto.status !== undefined) user.status = dto.status;
+    if (dto.leavingDate !== undefined) user.leavingDate = dto.leavingDate;
+    if (dto.deductionPolicy !== undefined) {
+      user.deductionPolicy = dto.deductionPolicy?.trim() || null;
+    }
+
+    // Salary history: a new current salary moves the old one into "previous salary" and stamps
+    // today as the change date — unless HR filled those in themselves.
+    const before = {
+      currentSalary: user.currentSalary,
+      previousSalary: user.previousSalary,
+      lastSalaryChangeDate: user.lastSalaryChangeDate,
+    };
+    const salaryChanged =
+      dto.currentSalary !== undefined && dto.currentSalary !== user.currentSalary;
+    const previousEdited =
+      dto.previousSalary !== undefined && dto.previousSalary !== user.previousSalary;
+    const dateEdited =
+      dto.lastSalaryChangeDate !== undefined &&
+      dto.lastSalaryChangeDate !== user.lastSalaryChangeDate;
+    if (salaryChanged) {
+      if (!previousEdited && user.currentSalary !== null) user.previousSalary = user.currentSalary;
+      if (!dateEdited) user.lastSalaryChangeDate = todayIso();
+      user.currentSalary = dto.currentSalary ?? null;
+    }
+    if (previousEdited) user.previousSalary = dto.previousSalary ?? null;
+    if (dateEdited) user.lastSalaryChangeDate = dto.lastSalaryChangeDate ?? null;
 
     let passwordChanged = false;
     if (dto.password) {
@@ -160,7 +372,9 @@ export class UsersService {
       passwordChanged = true;
     }
 
-    await this.usersRepo.save(user);
+    // Leave out the loaded manager/department objects so they can't override the new ids.
+    await this.usersRepo.save({ ...user, manager: undefined, department: undefined });
+    await this.saveContactDetails(id, dto);
 
     if (passwordChanged) {
       this.auditLogService.log({
@@ -170,8 +384,26 @@ export class UsersService {
         entityId: user.id,
       });
     }
+    if (
+      before.currentSalary !== user.currentSalary ||
+      before.previousSalary !== user.previousSalary ||
+      before.lastSalaryChangeDate !== user.lastSalaryChangeDate
+    ) {
+      this.auditLogService.log({
+        actorId: actorId ?? null,
+        action: 'SALARY_CHANGED',
+        entity: 'User',
+        entityId: user.id,
+        before,
+        after: {
+          currentSalary: user.currentSalary,
+          previousSalary: user.previousSalary,
+          lastSalaryChangeDate: user.lastSalaryChangeDate,
+        },
+      });
+    }
 
-    return this.findOne(id);
+    return this.findOne(id, viewerRole);
   }
 
   async softDelete(id: number): Promise<void> {

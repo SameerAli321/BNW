@@ -55,13 +55,15 @@ const STATUS_OPTIONS = [
 ];
 
 const TABLE_HEAD: TableHeadCellProps[] = [
-  { id: 'name', label: 'Name' },
-  { id: 'designation', label: 'Designation', width: 160 },
-  { id: 'department', label: 'Department', width: 160 },
-  { id: 'manager', label: 'Manager', width: 160 },
-  { id: 'role', label: 'Role', width: 120 },
-  { id: 'joinDate', label: 'Join date', width: 120 },
-  { id: 'status', label: 'Status', width: 110 },
+  { id: 'name', label: 'Employee' },
+  { id: 'designation', label: 'Job title', width: 150 },
+  { id: 'department', label: 'Department', width: 140 },
+  { id: 'manager', label: 'Reporting manager', width: 160 },
+  { id: 'contact', label: 'Contact number', width: 140 },
+  { id: 'salary', label: 'Current salary', width: 130, align: 'right' },
+  { id: 'role', label: 'Role', width: 110 },
+  { id: 'joinDate', label: 'Date of joining', width: 130 },
+  { id: 'status', label: 'Status', width: 120 },
   { id: '', width: 68 },
 ];
 
@@ -202,7 +204,6 @@ export function UserListView() {
                     }
                     color={
                       (tab.value === 'ACTIVE' && 'success') ||
-                      (tab.value === 'ONBOARDING' && 'warning') ||
                       (tab.value === 'INACTIVE' && 'error') ||
                       'default'
                     }
@@ -254,7 +255,7 @@ export function UserListView() {
             />
 
             <Scrollbar>
-              <Table size={table.dense ? 'small' : 'medium'} sx={{ minWidth: 960 }}>
+              <Table size={table.dense ? 'small' : 'medium'} sx={{ minWidth: 1320 }}>
                 <TableHeadCustom
                   order={table.order}
                   orderBy={table.orderBy}

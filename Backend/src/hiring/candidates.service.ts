@@ -11,7 +11,7 @@ import { Repository } from 'typeorm';
 import { Candidate } from '../entities/candidate.entity';
 import { CandidateStatus } from '../common/enums/candidate-status.enum';
 import { DocumentSource } from '../common/enums/document-source.enum';
-import { UsersService } from '../users/users.service';
+import { UsersService, WelcomeEmailResult } from '../users/users.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { UserDto } from '../common/mappers/user.mapper';
 import { CandidateDto, toCandidateDto } from '../common/mappers/candidate.mapper';
@@ -150,7 +150,7 @@ export class CandidatesService {
     id: number,
     dto: ConvertCandidateDto,
     convertedBy: number,
-  ): Promise<{ candidate: CandidateDto; user: UserDto }> {
+  ): Promise<{ candidate: CandidateDto; user: UserDto; welcomeEmail: WelcomeEmailResult }> {
     const candidate = await this.loadWithRelations(id);
 
     if (candidate.status === CandidateStatus.HIRED) {
@@ -175,7 +175,7 @@ export class CandidatesService {
 
     // UsersService.create() throws its own ConflictException (409) on a duplicate email — let it
     // propagate as-is, per the contract's "same check UsersService.create already does" note.
-    const { user } = await this.usersService.create(createUserDto);
+    const { user, welcomeEmail } = await this.usersService.create(createUserDto, convertedBy);
 
     candidate.status = CandidateStatus.HIRED;
     candidate.convertedUserId = user.id;
@@ -200,6 +200,6 @@ export class CandidatesService {
       console.error(`[candidates] failed to copy CV into E-record for user ${user.id}:`, err);
     }
 
-    return { candidate: toCandidateDto(await this.loadWithRelations(id)), user };
+    return { candidate: toCandidateDto(await this.loadWithRelations(id)), user, welcomeEmail };
   }
 }

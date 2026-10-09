@@ -33,7 +33,7 @@ const TABLE_HEAD: TableHeadCellProps[] = [
 ];
 
 /**
- * Letter Templates — HR/CEO/ADMIN read, ADMIN-only create/edit per docs/API_CONTRACT_SPRINT3.md.
+ * Manage letter templates (reached from Requests & Forms) — HR/CEO/ADMIN read, ADMIN-only create/edit per docs/API_CONTRACT_SPRINT3.md.
  * Deliberately a plain list, not a rich template editor — templates are dummy/placeholder content
  * this sprint (scope cut #1).
  */
@@ -50,10 +50,9 @@ export function LetterTemplateListView() {
     <RoleBasedGuard hasContent currentRole={currentRole} allowedRoles={['HR', 'CEO', 'ADMIN']}>
       <DashboardContent>
         <CustomBreadcrumbs
-          heading="Letter Templates"
+          heading="Manage letter templates"
           links={[
-            { name: 'Dashboard', href: paths.dashboard.root },
-            { name: 'Letters', href: paths.dashboard.letters.root },
+            { name: 'Dashboard', href: paths.dashboard.root }, { name: 'Requests & Forms', href: paths.dashboard.requestsForms },
             { name: 'Templates' },
           ]}
           action={

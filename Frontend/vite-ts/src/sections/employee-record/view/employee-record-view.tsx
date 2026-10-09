@@ -74,7 +74,8 @@ export function EmployeeRecordView() {
             { name: 'E-record' },
           ]}
           action={
-            record && (canManage || canUpload) && (
+            record &&
+            (canManage || canUpload) && (
               <Stack direction="row" spacing={1.5}>
                 {canManage && (
                   <Button

@@ -34,7 +34,7 @@ export class EmployeesController {
   @Get(':id/record')
   async getRecord(@Param('id', ParseIntPipe) id: number, @CurrentUser() caller: JwtUserPayload) {
     await this.usersService.assertCanViewRecord(caller, id);
-    return this.employeesService.getRecord(id);
+    return this.employeesService.getRecord(id, caller.role);
   }
 
   // HR, ADMIN, or self — an employee can now upload their own documents to their own E-record;

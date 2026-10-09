@@ -87,7 +87,7 @@ Full architecture reasoning and every deliberate deviation from the original gui
 | Hiring (CV upload, candidates, convert-to-employee, joining pack) | ✅ Built, live-tested | HR bulk-uploads CVs, manages candidates, converts one to a real employee account, then sends them an offer/contract via the existing Letter Engine. **Deviates from the guide**: no pre-account email-link signing (needs real SMTP/passwordless auth first) — see `docs/PROJECT_STATUS.md`. |
 | Leave, Feedback boxes, Announcements | ❌ Not built yet | Next per the original roadmap order. |
 | Work Orders (reimbursement/equipment requests) | ❌ Not built yet | |
-| Payslips | ❌ Not built yet | |
+| **Salary slips** | ✅ Built, flow-tested (not yet confirmed by you) | HR/Admin pick an employee + month → figures pre-fill from their last slip → server calculates Gross (Basic + Allowances + Bonus + Overtime) and Net (Gross − Deductions − Tax) → branded PDF is stored → preview/download/print → **Send** emails the PDF to the employee's registered address. Email status (Not sent / Sent / Failed + error) is kept, with Resend. One current slip per employee per month; "Regenerate" keeps the old one as a revision. Employees see only their own slips (Salary Slips in the sidebar). **Deviates from the guide**: HR/Admin enter the figures per slip (no separate salary-structure table or Payroll-role editing yet); employees view rather than generate their own. |
 | Attendance (biometric import) | ❌ Not built yet | |
 
 Since the last big status update, most of the work hasn't been new modules — it's been fixing and

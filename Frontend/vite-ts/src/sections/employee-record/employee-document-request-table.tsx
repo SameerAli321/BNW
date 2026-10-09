@@ -45,7 +45,10 @@ export function EmployeeDocumentRequestTable({ requests }: Props) {
               <TableRow key={request.id} hover>
                 <TableCell>{request.documentTypeName}</TableCell>
                 <TableCell>
-                  <Label variant="soft" color={request.status === 'RECEIVED' ? 'success' : 'warning'}>
+                  <Label
+                    variant="soft"
+                    color={request.status === 'RECEIVED' ? 'success' : 'warning'}
+                  >
                     {request.status}
                   </Label>
                 </TableCell>

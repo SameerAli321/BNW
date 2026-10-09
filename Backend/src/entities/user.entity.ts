@@ -14,6 +14,11 @@ import { RoleName } from '../common/enums/role.enum';
 import { UserStatus } from '../common/enums/user-status.enum';
 import { Department } from './department.entity';
 
+const money = {
+  to: (value: number | null) => value,
+  from: (value: string | null) => (value === null ? null : parseFloat(value)),
+};
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
@@ -58,11 +63,49 @@ export class User {
   @Column({ type: 'varchar', length: 150, nullable: true })
   designation: string | null;
 
-  @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ONBOARDING })
+  @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
   status: UserStatus;
 
   @Column({ name: 'join_date', type: 'date', nullable: true })
   joinDate: string | null;
+
+  @Column({ name: 'leaving_date', type: 'date', nullable: true })
+  leavingDate: string | null;
+
+  // --- Compensation (HR / ADMIN only — never put these in a response for anyone else) ---
+  @Column({
+    name: 'current_salary',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+    transformer: money,
+  })
+  currentSalary: number | null;
+
+  @Column({
+    name: 'previous_salary',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+    transformer: money,
+  })
+  previousSalary: number | null;
+
+  @Column({ name: 'deduction_policy', type: 'text', nullable: true })
+  deductionPolicy: string | null;
+
+  @Column({ name: 'last_salary_change_date', type: 'date', nullable: true })
+  lastSalaryChangeDate: string | null;
+
+  // Randomized file name under uploads/avatars/ — null until the user uploads a profile picture.
+  @Column({ name: 'avatar_path', type: 'varchar', length: 255, nullable: true })
+  avatarPath: string | null;
+
+  /** Opt-in (HR / Admin / CEO): a notification + email whenever anyone submits a request. */
+  @Column({ name: 'notify_all_requests', type: 'boolean', default: false })
+  notifyAllRequests: boolean;
 
   @Column({ name: 'must_change_password', type: 'boolean', default: true })
   mustChangePassword: boolean;
