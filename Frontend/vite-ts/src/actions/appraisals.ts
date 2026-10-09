@@ -6,6 +6,7 @@ import type {
   AppraisalRequestDto,
   MyAppraisalsResponseDto,
   CreateAppraisalRequestDto,
+  SelfEvaluationFormDefaults,
 } from 'src/types/appraisal';
 
 import { useMemo } from 'react';
@@ -202,9 +203,26 @@ export function useGetAppraisal(id?: number | string) {
 }
 
 /**
+ * GET /appraisal-requests/form-defaults — the caller's own name, job title, contact number, email,
+ * department and line manager, to pre-fill the Self Evaluation Form.
+ */
+export function useGetAppraisalFormDefaults() {
+  const { data, isLoading, error } = useSWR<{ data: SelfEvaluationFormDefaults }>(
+    endpoints.appraisalRequests.formDefaults,
+    fetcher,
+    swrOptions
+  );
+
+  return useMemo(
+    () => ({ formDefaults: data?.data, formDefaultsLoading: isLoading, formDefaultsError: error }),
+    [data?.data, error, isLoading]
+  );
+}
+
+/**
  * POST /appraisal-requests — self (anyone but the CEO; with no manager set it goes straight to
- * the CEO). `{ selfEvaluation }`. 409 if already requested one in the last 3 months — the axios
- * response interceptor collapses it into a plain `Error(message)`, surfaced by the caller.
+ * the CEO). `{ form }` — the full Self Evaluation Form. 409 if already requested one in the last
+ * 3 months — the axios response interceptor collapses it into a plain `Error(message)`.
  */
 export async function createAppraisalRequest(
   payload: CreateAppraisalRequestDto

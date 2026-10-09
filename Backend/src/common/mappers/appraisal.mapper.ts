@@ -1,5 +1,6 @@
 import { AppraisalRequest } from '../../entities/appraisal-request.entity';
 import { AppraisalEvent } from '../../entities/appraisal-event.entity';
+import type { SelfEvaluationForm } from '../../appraisals/self-evaluation-form';
 
 export interface AppraisalEventDto {
   id: number;
@@ -29,6 +30,7 @@ export interface AppraisalRequestDto {
   managerId: number | null;
   managerName: string | null;
   selfEvaluation: string;
+  selfEvaluationForm: SelfEvaluationForm | null;
   status: string;
   managerRemarks: string | null;
   managerMessage: string | null;
@@ -62,6 +64,7 @@ export function toAppraisalRequestDto(
       ? `${request.manager.firstName} ${request.manager.lastName}`
       : null,
     selfEvaluation: request.selfEvaluation,
+    selfEvaluationForm: request.selfEvaluationForm ?? null,
     status: request.status,
     managerRemarks: request.managerRemarks,
     managerMessage: request.managerMessage,
