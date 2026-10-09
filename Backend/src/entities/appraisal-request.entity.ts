@@ -12,6 +12,7 @@ import { AppraisalStatus } from '../common/enums/appraisal-status.enum';
 import { AppraisalManagerDecision } from '../common/enums/appraisal-manager-decision.enum';
 import { AppraisalCeoDecision } from '../common/enums/appraisal-ceo-decision.enum';
 import { User } from './user.entity';
+import type { SelfEvaluationForm } from '../appraisals/self-evaluation-form';
 
 /**
  * Sprint 4 — employee-initiated quarterly appraisal request. See
@@ -32,8 +33,14 @@ export class AppraisalRequest {
   @JoinColumn({ name: 'employee_id' })
   employee: User;
 
+  // Free-text summary. For requests made with the Self Evaluation Form this holds the form's
+  // "Employee Summary Remarks", so letters and older screens that read it keep working.
   @Column({ name: 'self_evaluation', type: 'text' })
   selfEvaluation: string;
+
+  // The full Self Evaluation Form. Null for requests submitted before the form existed.
+  @Column({ name: 'self_evaluation_form', type: 'jsonb', nullable: true })
+  selfEvaluationForm: SelfEvaluationForm | null;
 
   @Index()
   @Column({ type: 'enum', enum: AppraisalStatus, default: AppraisalStatus.PENDING_MANAGER })

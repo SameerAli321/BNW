@@ -72,6 +72,7 @@ export const endpoints = {
   appraisalRequests: {
     list: '/appraisal-requests',
     mine: '/appraisal-requests/mine',
+    formDefaults: '/appraisal-requests/form-defaults',
     team: '/appraisal-requests/team',
     pendingCeo: '/appraisal-requests/pending-ceo',
     details: (id: number | string) => `/appraisal-requests/${id}`,

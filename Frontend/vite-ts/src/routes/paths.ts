@@ -143,6 +143,7 @@ export const paths = {
     // docs/API_CONTRACT_SPRINT4.md.
     appraisals: {
       root: `${ROOTS.DASHBOARD}/appraisals`,
+      new: `${ROOTS.DASHBOARD}/appraisals/new`,
       details: (id: number | string) => `${ROOTS.DASHBOARD}/appraisals/${id}`,
     },
     // Sprint 5 — Hiring (candidates, bulk CV upload, convert-to-employee, joining pack), see

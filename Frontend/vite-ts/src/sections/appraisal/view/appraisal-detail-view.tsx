@@ -12,11 +12,7 @@ import { useParams } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import {
-  useGetAppraisal,
-  submitCeoDecision,
-  submitManagerDecision,
-} from 'src/actions/appraisals';
+import { useGetAppraisal, submitCeoDecision, submitManagerDecision } from 'src/actions/appraisals';
 
 import { LoadingScreen } from 'src/components/loading-screen';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
@@ -26,6 +22,7 @@ import { useAuthContext } from 'src/auth/hooks';
 import { AppraisalTimeline } from '../appraisal-timeline';
 import { AppraisalStatusLabel } from '../appraisal-status-label';
 import { AppraisalDecisionDialog } from '../appraisal-decision-dialog';
+import { AppraisalSelfEvaluationDetails } from '../appraisal-self-evaluation-details';
 
 // ----------------------------------------------------------------------
 
@@ -92,7 +89,8 @@ export function AppraisalDetailView() {
   const canSendResultLetter =
     (currentRole === 'HR' || currentRole === 'ADMIN') &&
     (appraisal.status === 'CEO_ACCEPTED' || appraisal.status === 'CEO_REJECTED');
-  const resultLetterType = appraisal.status === 'CEO_ACCEPTED' ? 'APPRECIATION' : 'APPRAISAL_REJECTION';
+  const resultLetterType =
+    appraisal.status === 'CEO_ACCEPTED' ? 'APPRECIATION' : 'APPRAISAL_REJECTION';
   const resultLetterHref = `${paths.dashboard.letters.new}?subjectUserId=${appraisal.employeeId}&letterType=${resultLetterType}`;
 
   const waitingMessage = (() => {
@@ -144,15 +142,21 @@ export function AppraisalDetailView() {
                 <AppraisalStatusLabel status={appraisal.status} />
               </Stack>
 
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Self-evaluation
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{ whiteSpace: 'pre-wrap', color: 'text.secondary' }}
-              >
-                {appraisal.selfEvaluation}
-              </Typography>
+              {/* Requests made with the Self Evaluation Form show it in full below; older
+                  free-text requests keep showing their original text here. */}
+              {!appraisal.selfEvaluationForm && (
+                <>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Self-evaluation
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{ whiteSpace: 'pre-wrap', color: 'text.secondary' }}
+                  >
+                    {appraisal.selfEvaluation}
+                  </Typography>
+                </>
+              )}
 
               <Stack direction="row" spacing={1.5} sx={{ mt: 3, flexWrap: 'wrap', gap: 1.5 }}>
                 {canManagerAct && (
@@ -182,6 +186,10 @@ export function AppraisalDetailView() {
                 )}
               </Stack>
             </Card>
+
+            {appraisal.selfEvaluationForm && (
+              <AppraisalSelfEvaluationDetails form={appraisal.selfEvaluationForm} />
+            )}
 
             {appraisal.managerDecision && (
               <Card>
@@ -257,7 +265,12 @@ export function AppraisalDetailView() {
           title="Review as CEO"
           description="Add remarks and a message, then accept, reject, or send it back to the manager for another look."
           buttons={[
-            { decision: 'SEND_BACK', label: 'Send back to manager', color: 'warning', variant: 'outlined' },
+            {
+              decision: 'SEND_BACK',
+              label: 'Send back to manager',
+              color: 'warning',
+              variant: 'outlined',
+            },
             { decision: 'REJECTED', label: 'Reject', color: 'error', variant: 'outlined' },
             { decision: 'ACCEPTED', label: 'Accept', variant: 'contained' },
           ]}

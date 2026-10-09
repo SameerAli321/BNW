@@ -33,6 +33,7 @@ import { CeoDecisionDto } from './dto/ceo-decision.dto';
 import { QueryAppraisalRequestsDto } from './dto/query-appraisal-requests.dto';
 import { QueryTeamAppraisalsDto } from './dto/query-team-appraisals.dto';
 import { RequestWatchersService } from '../notifications/request-watchers.service';
+import { SELF_EVALUATION_COMPETENCIES, SelfEvaluationFormDefaults } from './self-evaluation-form';
 
 const ELIGIBILITY_MONTHS = 3;
 
@@ -185,6 +186,45 @@ export class AppraisalsService {
     };
   }
 
+  /** Exactly one assessment per competency, and a date range that runs forwards. */
+  private assertFormComplete(form: CreateAppraisalRequestDto['form']): void {
+    const given = new Set(form.assessments.map((a) => a.competency));
+    const missing = SELF_EVALUATION_COMPETENCIES.filter((c) => !given.has(c));
+    if (missing.length || given.size !== form.assessments.length) {
+      throw new BadRequestException(
+        `Rate every competency exactly once${missing.length ? ` (missing: ${missing.join(', ')})` : ''}`,
+      );
+    }
+    // 'YYYY-MM-DD' strings compare correctly as plain strings.
+    if (form.duration.evaluationFrom > form.duration.evaluationTo) {
+      throw new BadRequestException('Evaluation "from" date must be on or before the "to" date');
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Form defaults — pre-fills the Self Evaluation Form from the caller's own records. Done here
+  // rather than on the frontend because an employee isn't allowed to read their manager's user
+  // record directly (GET /users/:id), but the form needs the manager's name and designation.
+  // ---------------------------------------------------------------------------------------------
+
+  async formDefaults(caller: JwtUserPayload): Promise<SelfEvaluationFormDefaults> {
+    const user = await this.usersService.findOneEntity(caller.sub);
+    const profile = await this.usersService.getProfile(caller.sub);
+    return {
+      employee: {
+        name: `${user.firstName} ${user.lastName}`,
+        jobTitle: user.designation ?? '',
+        contactNumber: profile?.phone ?? '',
+        email: user.email,
+        department: user.department?.name ?? '',
+      },
+      lineManager: {
+        name: user.manager ? `${user.manager.firstName} ${user.manager.lastName}` : '',
+        designation: user.manager?.designation ?? '',
+      },
+    };
+  }
+
   // ---------------------------------------------------------------------------------------------
   // Submit
   // ---------------------------------------------------------------------------------------------
@@ -214,9 +254,24 @@ export class AppraisalsService {
       );
     }
 
+    const form = dto.form;
+    this.assertFormComplete(form);
+
     const request = this.requestsRepo.create({
       employeeId: caller.sub,
-      selfEvaluation: dto.selfEvaluation,
+      // Summary remarks double as the plain-text self-evaluation (read by letters/older screens).
+      selfEvaluation: form.summaryRemarks,
+      selfEvaluationForm: {
+        employee: { ...form.employee },
+        lineManager: { ...form.lineManager },
+        duration: { ...form.duration },
+        // Stored in the form's own question order, whatever order the client sent them in.
+        assessments: SELF_EVALUATION_COMPETENCIES.map((competency) => {
+          const a = form.assessments.find((item) => item.competency === competency)!;
+          return { competency, rating: a.rating, reason: a.reason.trim() };
+        }),
+        summaryRemarks: form.summaryRemarks,
+      },
       status: skipManagerReview ? AppraisalStatus.PENDING_CEO : AppraisalStatus.PENDING_MANAGER,
       managerId: employee.managerId ?? null,
     });

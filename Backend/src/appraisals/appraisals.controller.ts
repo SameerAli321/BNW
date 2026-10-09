@@ -25,6 +25,12 @@ export class AppraisalsController {
     return this.appraisalsService.mine(caller);
   }
 
+  // Pre-fill values for the caller's own Self Evaluation Form. Declared before `:id`.
+  @Get('form-defaults')
+  async formDefaults(@CurrentUser() caller: JwtUserPayload) {
+    return this.appraisalsService.formDefaults(caller);
+  }
+
   @Roles(RoleName.MANAGER, RoleName.HR, RoleName.ADMIN)
   @Get('team')
   async team(@Query() query: QueryTeamAppraisalsDto, @CurrentUser() caller: JwtUserPayload) {
