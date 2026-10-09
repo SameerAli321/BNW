@@ -162,6 +162,52 @@ see a "Send appreciation letter" / "Send outcome letter" button that jumps to Ne
 employee and the right template pre-selected (`?subjectUserId=&letterType=`) — still just the
 normal New Letter form underneath, nothing bypassed.
 
+## Addendum 3: the BNW Self Evaluation Form replaces the free-text self-evaluation
+
+The single "self-evaluation" text box is replaced by BNW's own Self Evaluation Form (previously a
+Microsoft Form). Flow, statuses, decisions and the 3-month rule are unchanged — the owner chose to
+keep the 3-month limit.
+
+**Form contents** (all required):
+- *Employee details:* location, project description, employee name, job title, contact number,
+  email, department.
+- *Line manager details:* name, designation.
+- *Appraisal duration:* appraisal year, evaluation date from / to (`from` ≤ `to`).
+- *Assess yourself:* 10 competencies, each with a rating on a 4-step scale and a reason —
+  Technical Knowledge, Quality of Work Produced, Continuous Learning & Skill Development, Clarity
+  in Communication, Stakeholder Management, Professionalism, Conflict Resolution, Project/Task
+  Completion Rate, Efficiency Improvement, Accuracy of Decision-Making.
+  Scale: `GROWTH_SUPPORT_REQUIRED` (Growth and Support Required) · `DEVELOPING` (Developing
+  Performance) · `STRONG` (Strong Performance) · `EXCEPTIONAL` (Exceptional).
+- *Employee summary remarks.*
+
+**API changes:**
+- `POST /appraisal-requests` body is now `{ form: SelfEvaluationForm }` (was `{ selfEvaluation }`,
+  now rejected with 400). Exactly one assessment per competency; the server stores them in the
+  form's question order.
+- New `GET /appraisal-requests/form-defaults` (any authenticated) → the caller's own name, job
+  title (designation), contact number (profile phone), email, department and their line manager's
+  name + designation, to pre-fill the form. Server-side because an employee can't read their
+  manager's user record directly.
+- `AppraisalRequestDto` gains `selfEvaluationForm: SelfEvaluationForm | null` (null for requests
+  made before this change). `selfEvaluation` is still returned and now holds the summary remarks,
+  so letters and anything else reading it keep working.
+
+**DB:** new nullable `appraisal_requests.self_evaluation_form jsonb` (migration
+`1760300000000-AppraisalSelfEvaluationForm`). Existing rows untouched.
+
+**Frontend:** "Request appraisal" now opens a full page (`/dashboard/appraisals/new`) laid out like
+the original form, pre-filled where possible; it stays disabled during the 3-month wait, as before.
+The appraisal detail page shows the submitted form read-only (ratings as coloured labels, reasons,
+summary remarks) to the employee, their manager, the CEO and HR. Older free-text requests still
+show their original text.
+
+**Verified** (live API, temporary test user, cleaned up afterwards): form-defaults, all validation
+rules (old payload, missing/duplicate competency, bad rating, empty reason, reversed dates, missing
+field), valid submit → `PENDING_MANAGER` with assessments in form order, manager/CEO/HR can view
+the form and another employee can't (403), 3-month rule still returns 409, manager accept still
+works. Frontend `tsc` + ESLint clean. **Not yet clicked through in a browser.**
+
 ## Definition of done
 
 1. An employee (with a manager set) can submit a self-evaluation. Trying again within 3 months is

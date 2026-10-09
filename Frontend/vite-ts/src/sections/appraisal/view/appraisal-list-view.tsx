@@ -1,7 +1,7 @@
 import type { TableHeadCellProps } from 'src/components/table';
 
 import { useMemo } from 'react';
-import { useTabs, useBoolean, useSetState } from 'minimal-shared/hooks';
+import { useTabs, useSetState } from 'minimal-shared/hooks';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
@@ -18,13 +18,13 @@ import OutlinedInput from '@mui/material/OutlinedInput';
 import Select, { type SelectChangeEvent } from '@mui/material/Select';
 
 import { paths } from 'src/routes/paths';
+import { RouterLink } from 'src/routes/components';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
   useGetMyAppraisals,
   useGetAllAppraisals,
   useGetTeamAppraisals,
-  createAppraisalRequest,
   useGetPendingCeoAppraisals,
 } from 'src/actions/appraisals';
 
@@ -43,7 +43,6 @@ import { useAuthContext } from 'src/auth/hooks';
 import { APPRAISAL_STATUS_OPTIONS } from 'src/types/appraisal';
 
 import { AppraisalTableRow } from '../appraisal-table-row';
-import { AppraisalRequestDialog } from '../appraisal-request-dialog';
 
 // ----------------------------------------------------------------------
 
@@ -92,7 +91,6 @@ export function AppraisalListView() {
 
   const tabs = useTabs<ScopeTab>(canSeeMine ? 'mine' : 'pending-ceo');
   const table = useTable({ defaultRowsPerPage: 25 });
-  const requestDialog = useBoolean();
 
   const statusFilter = useSetState<{ status: string }>({ status: '' });
   const { state: currentStatusFilter, setState: setStatusFilter } = statusFilter;
@@ -120,7 +118,11 @@ export function AppraisalListView() {
   const { rows, rowsLoading, rowsTotal } = (() => {
     switch (tabs.value) {
       case 'team':
-        return { rows: team.appraisals, rowsLoading: team.appraisalsLoading, rowsTotal: team.appraisals.length };
+        return {
+          rows: team.appraisals,
+          rowsLoading: team.appraisalsLoading,
+          rowsTotal: team.appraisals.length,
+        };
       case 'pending-ceo':
         return {
           rows: pendingCeo.appraisals,
@@ -128,10 +130,18 @@ export function AppraisalListView() {
           rowsTotal: pendingCeo.appraisals.length,
         };
       case 'all':
-        return { rows: all.appraisals, rowsLoading: all.appraisalsLoading, rowsTotal: all.appraisalsMeta?.total ?? 0 };
+        return {
+          rows: all.appraisals,
+          rowsLoading: all.appraisalsLoading,
+          rowsTotal: all.appraisalsMeta?.total ?? 0,
+        };
       case 'mine':
       default:
-        return { rows: mine.appraisals, rowsLoading: mine.appraisalsLoading, rowsTotal: mine.appraisals.length };
+        return {
+          rows: mine.appraisals,
+          rowsLoading: mine.appraisalsLoading,
+          rowsTotal: mine.appraisals.length,
+        };
     }
   })();
 
@@ -141,10 +151,6 @@ export function AppraisalListView() {
 
   const canRequestNext = mine.appraisalsMeta?.canRequestNext ?? true;
   const nextEligibleDate = mine.appraisalsMeta?.nextEligibleDate;
-
-  const handleRequest = async (selfEvaluation: string) => {
-    await createAppraisalRequest({ selfEvaluation });
-  };
 
   return (
     <DashboardContent>
@@ -156,7 +162,8 @@ export function AppraisalListView() {
             <Button
               variant="contained"
               startIcon={<Iconify icon="mingcute:add-line" />}
-              onClick={requestDialog.onTrue}
+              component={RouterLink}
+              href={paths.dashboard.appraisals.new}
               disabled={!canRequestNext}
             >
               Request appraisal
@@ -168,14 +175,18 @@ export function AppraisalListView() {
 
       {tabs.value === 'mine' && !canRequestNext && nextEligibleDate && (
         <Alert severity="info" sx={{ mb: 3 }}>
-          You can request your next appraisal on{' '}
-          {new Date(nextEligibleDate).toLocaleDateString()} (once every 3 months).
+          You can request your next appraisal on {new Date(nextEligibleDate).toLocaleDateString()}{' '}
+          (once every 3 months).
         </Alert>
       )}
 
       <Card>
         {tabsList.length > 1 && (
-          <Tabs value={tabs.value} onChange={tabs.onChange} sx={{ px: 2.5, boxShadow: (theme) => `inset 0 -2px 0 0 ${theme.vars.palette.divider}` }}>
+          <Tabs
+            value={tabs.value}
+            onChange={tabs.onChange}
+            sx={{ px: 2.5, boxShadow: (theme) => `inset 0 -2px 0 0 ${theme.vars.palette.divider}` }}
+          >
             {tabsList.map((tab) => (
               <Tab key={tab.value} value={tab.value} label={tab.label} />
             ))}
@@ -242,12 +253,6 @@ export function AppraisalListView() {
           />
         )}
       </Card>
-
-      <AppraisalRequestDialog
-        open={requestDialog.value}
-        onClose={requestDialog.onFalse}
-        onConfirm={handleRequest}
-      />
     </DashboardContent>
   );
 }

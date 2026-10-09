@@ -50,6 +50,7 @@ const LetterTemplateCreatePage = lazy(() => import('src/pages/dashboard/letter-t
 const LetterTemplateEditPage = lazy(() => import('src/pages/dashboard/letter-templates/edit'));
 // Sprint 4 — Appraisals (see docs/API_CONTRACT_SPRINT4.md)
 const AppraisalListPage = lazy(() => import('src/pages/dashboard/appraisals/list'));
+const AppraisalNewPage = lazy(() => import('src/pages/dashboard/appraisals/new'));
 const AppraisalDetailPage = lazy(() => import('src/pages/dashboard/appraisals/detail'));
 // Sprint 5 — Hiring (see docs/API_CONTRACT_SPRINT5.md)
 const CandidateListPage = lazy(() => import('src/pages/dashboard/candidates/list'));
@@ -163,6 +164,7 @@ export const dashboardRoutes: RouteObject[] = [
         path: 'appraisals',
         children: [
           { index: true, element: <AppraisalListPage /> },
+          { path: 'new', element: <AppraisalNewPage /> },
           { path: ':id', element: <AppraisalDetailPage /> },
         ],
       },
