@@ -16,6 +16,7 @@ import {
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { EmptyContent } from 'src/components/empty-content';
 import { LoadingScreen } from 'src/components/loading-screen';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
@@ -69,10 +70,7 @@ export function AttendanceRegularizationDetailView() {
           ]}
           sx={{ mb: { xs: 3, md: 5 } }}
         />
-        <Stack sx={{ py: 10, textAlign: 'center', color: 'text.secondary' }}>
-          Unable to load this form — either it doesn&apos;t exist, or you don&apos;t have
-          permission to view it.
-        </Stack>
+        <EmptyContent filled title="Unable to load this form" description="Either it doesn't exist, or you don't have permission to view it." sx={{ py: 10 }} />
       </DashboardContent>
     );
   }
@@ -111,7 +109,7 @@ export function AttendanceRegularizationDetailView() {
           { name: `#${form.id}` },
         ]}
         action={
-          <Stack direction="row" spacing={1.5} alignItems="center">
+          <Stack direction="row" alignItems="center" flexWrap="wrap" sx={{ gap: 1.5 }}>
             <AttendanceRegularizationStatusLabel status={form.status} />
             <Button
               variant="outlined"

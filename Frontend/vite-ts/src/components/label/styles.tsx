@@ -69,10 +69,12 @@ export const LabelRoot = styled('span', {
          * @variant soft
          */
         ...(variant === 'soft' && {
+          // BNW: soft status badge — `lighter` background + `dark` text.
           color: theme.vars.palette[color].dark,
-          backgroundColor: varAlpha(theme.vars.palette[color].mainChannel, 0.16),
+          backgroundColor: theme.vars.palette[color].lighter,
           ...theme.applyStyles('dark', {
             color: theme.vars.palette[color].light,
+            backgroundColor: varAlpha(theme.vars.palette[color].mainChannel, 0.16),
           }),
         }),
         /**
@@ -96,9 +98,9 @@ export const LabelRoot = styled('span', {
     display: 'inline-flex',
     gap: theme.spacing(0.75),
     justifyContent: 'center',
-    padding: theme.spacing(0, 0.75),
+    padding: theme.spacing(0, 1),
     fontSize: theme.typography.pxToRem(12),
-    fontWeight: theme.typography.fontWeightBold,
+    fontWeight: theme.typography.fontWeightSemiBold,
     borderRadius: theme.shape.borderRadius * 0.75,
     transition: theme.transitions.create(['all'], { duration: theme.transitions.duration.shorter }),
     ...defaultStyles,

@@ -164,6 +164,7 @@ export function UserTableRow({
                 typography: 'subtitle1',
                 bgcolor: 'background.neutral',
                 fontFamily: 'monospace',
+                wordBreak: 'break-all',
               }}
             >
               {tempPassword}
@@ -234,7 +235,9 @@ export function UserTableRow({
           <Box sx={{ gap: 2, display: 'flex', alignItems: 'center' }}>
             <Avatar alt={fullName}>{fullName.charAt(0).toUpperCase()}</Avatar>
 
-            <Stack sx={{ typography: 'body2', flex: '1 1 auto', alignItems: 'flex-start' }}>
+            <Stack
+              sx={{ typography: 'body2', flex: '1 1 auto', alignItems: 'flex-start', minWidth: 0 }}
+            >
               <Link
                 component={RouterLink}
                 href={editHref}
@@ -243,7 +246,16 @@ export function UserTableRow({
               >
                 {fullName}
               </Link>
-              <Box component="span" sx={{ color: 'text.disabled' }}>
+              <Box
+                component="span"
+                sx={{
+                  color: 'text.secondary',
+                  maxWidth: 260,
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis',
+                }}
+              >
                 {[row.employeeCode, row.email].filter(Boolean).join(' · ')}
               </Box>
             </Stack>

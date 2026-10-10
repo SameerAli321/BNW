@@ -20,6 +20,8 @@ import Select, { type SelectChangeEvent } from '@mui/material/Select';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { fDate } from 'src/utils/format-time';
+
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
   useGetMyAppraisals,
@@ -157,10 +159,13 @@ export function AppraisalListView() {
       <CustomBreadcrumbs
         heading="Appraisals"
         links={[{ name: 'Dashboard', href: paths.dashboard.root }, { name: 'Appraisals' }]}
+        // Shown on every tab (not just "My Appraisals") so HR / Admin / managers, who land on other
+        // tabs too, can always request their own; the 3-month window is enforced by the backend.
         action={
-          tabs.value === 'mine' && (
+          canSeeMine && (
             <Button
               variant="contained"
+              color="primary"
               startIcon={<Iconify icon="mingcute:add-line" />}
               component={RouterLink}
               href={paths.dashboard.appraisals.new}
@@ -173,10 +178,9 @@ export function AppraisalListView() {
         sx={{ mb: { xs: 3, md: 5 } }}
       />
 
-      {tabs.value === 'mine' && !canRequestNext && nextEligibleDate && (
+      {canSeeMine && !canRequestNext && nextEligibleDate && (
         <Alert severity="info" sx={{ mb: 3 }}>
-          You can request your next appraisal on {new Date(nextEligibleDate).toLocaleDateString()}{' '}
-          (once every 3 months).
+          You can request your next appraisal on {fDate(nextEligibleDate)} (once every 3 months).
         </Alert>
       )}
 

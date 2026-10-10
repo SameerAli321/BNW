@@ -99,7 +99,14 @@ export function AppraisalDecisionDialog<TDecision extends string>({
           <Field.Text name="message" label="Message to the employee" multiline rows={3} />
         </DialogContent>
 
-        <DialogActions>
+        <DialogActions
+          sx={{
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+            gap: 1.5,
+            '& > :not(:first-of-type)': { ml: 0 },
+          }}
+        >
           <Button onClick={handleClose} color="inherit">
             Cancel
           </Button>

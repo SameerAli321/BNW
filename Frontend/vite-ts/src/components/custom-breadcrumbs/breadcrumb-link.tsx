@@ -51,7 +51,8 @@ const ItemRoot = styled('div', {
   alignItems: 'center',
   gap: theme.spacing(1),
   display: 'inline-flex',
-  color: theme.vars.palette.text.primary,
+  // BNW: breadcrumb trail is secondary text; the page heading carries the emphasis.
+  color: theme.vars.palette.text.secondary,
   ...(disabled && {
     cursor: 'default',
     pointerEvents: 'none',

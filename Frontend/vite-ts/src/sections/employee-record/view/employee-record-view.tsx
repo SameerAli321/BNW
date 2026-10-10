@@ -11,6 +11,7 @@ import { DashboardContent } from 'src/layouts/dashboard';
 import { useGetDocumentTypes, useGetEmployeeRecord } from 'src/actions/employee-records';
 
 import { Iconify } from 'src/components/iconify';
+import { EmptyContent } from 'src/components/empty-content';
 import { LoadingScreen } from 'src/components/loading-screen';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
@@ -76,7 +77,7 @@ export function EmployeeRecordView() {
           action={
             record &&
             (canManage || canUpload) && (
-              <Stack direction="row" spacing={1.5}>
+              <Stack direction="row" flexWrap="wrap" sx={{ gap: 1.5 }}>
                 {canManage && (
                   <Button
                     variant="outlined"
@@ -104,10 +105,7 @@ export function EmployeeRecordView() {
         {recordLoading && <LoadingScreen />}
 
         {!recordLoading && recordError && (
-          <Stack sx={{ py: 10, textAlign: 'center', color: 'text.secondary' }}>
-            Unable to load this employee&apos;s record — either it doesn&apos;t exist, or you
-            don&apos;t have permission to view it.
-          </Stack>
+          <EmptyContent filled title="Unable to load this employee's record" description="Either it doesn't exist, or you don't have permission to view it." sx={{ py: 10 }} />
         )}
 
         {!recordLoading && record && (

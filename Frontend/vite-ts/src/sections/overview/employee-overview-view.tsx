@@ -1,15 +1,13 @@
+import type { DashboardSharedBlocks } from './dashboard-widgets';
+
 import { useMemo } from 'react';
 
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import { useTheme } from '@mui/material/styles';
-import CardHeader from '@mui/material/CardHeader';
-import CardContent from '@mui/material/CardContent';
-import ListItemText from '@mui/material/ListItemText';
 
 import { paths } from 'src/routes/paths';
-import { RouterLink } from 'src/routes/components';
 
 import { useGetLetters } from 'src/actions/letters';
 import { useGetLeaveBalance } from 'src/actions/leave';
@@ -24,22 +22,26 @@ import {
   dayLabel,
   CardLink,
   BarChartCard,
+  DashboardList,
   DonutChartCard,
   DashboardLoading,
   MonthlyTrendCard,
+  DashboardListRow,
+  DashboardCardHeader,
   LeaveBalanceChartCard,
+  DashboardListSkeleton,
 } from './dashboard-widgets';
 
 // ----------------------------------------------------------------------
 
-type Props = {
+type Props = DashboardSharedBlocks & {
   userId: number;
 };
 
 // BNW OMS: the "User" dashboard home (EMPLOYEE / MANAGER / PAYROLL — anyone without a company-wide
-// view): leave balance, their own requests, logged work hours, and letters waiting on their
-// signature. Line managers also get the "My team" block.
-export function EmployeeOverviewView({ userId }: Props) {
+// view): leave balance, the shared announcement / quick-action blocks, their own requests, logged
+// work hours, and letters waiting on their signature. Line managers also get the "My team" block.
+export function EmployeeOverviewView({ userId, announcements, quickActions }: Props) {
   const theme = useTheme();
   const { dashboard, dashboardLoading } = useGetDashboard();
   const { balances } = useGetLeaveBalance(userId);
@@ -106,23 +108,16 @@ export function EmployeeOverviewView({ userId }: Props) {
       </Grid>
 
       <Grid container spacing={3}>
-        <Grid size={{ xs: 12, md: 8 }}>
+        <Grid size={{ xs: 12, md: 7 }}>
           <LeaveBalanceChartCard
             balances={balances}
             action={<CardLink href={paths.dashboard.leaveRequests.new} label="Apply" />}
           />
         </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <DonutChartCard
-            title="My requests"
-            subheader="Every form you've submitted"
-            data={personal.myRequestsByStatus}
-            humanizeLabels={false}
-            colors={[theme.palette.warning.main, theme.palette.success.main, theme.palette.error.main]}
-            emptyLabel="You haven't submitted any forms yet"
-          />
-        </Grid>
+        <Grid size={{ xs: 12, md: 5 }}>{announcements}</Grid>
       </Grid>
+
+      {quickActions}
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
@@ -151,62 +146,68 @@ export function EmployeeOverviewView({ userId }: Props) {
       </Grid>
 
       <Grid container spacing={3}>
-        <Grid size={{ xs: 12, md: 7 }}>
-          <MonthlyTrendCard
-            title="Leave taken"
-            subheader="Approved leave days per month"
-            data={personal.leaveDaysByMonth}
-            type="bar"
-            colors={[theme.palette.primary.main]}
-            height={280}
-            emptyLabel="No approved leave in the last 12 months"
+        <Grid size={{ xs: 12, md: 4 }}>
+          <DonutChartCard
+            title="My requests"
+            subheader="Every form you've submitted"
+            data={personal.myRequestsByStatus}
+            humanizeLabels={false}
+            colors={[
+              theme.palette.warning.main,
+              theme.palette.success.main,
+              theme.palette.error.main,
+            ]}
+            emptyLabel="You haven't submitted any forms yet"
           />
         </Grid>
-        <Grid size={{ xs: 12, md: 5 }}>
-          <Card sx={{ height: 1 }}>
-            <CardHeader
-              title="Letters waiting for your signature"
+        <Grid size={{ xs: 12, md: 8 }}>
+          <Card sx={{ height: 1, display: 'flex', flexDirection: 'column' }}>
+            <DashboardCardHeader
+              title="Letters to sign"
+              subheader="Sent to you for e-signing"
               action={<CardLink href={paths.dashboard.letters.root} />}
             />
-            <CardContent sx={{ pt: 2 }}>
-              {!lettersLoading && letters.length === 0 && (
-                <EmptyContent
-                  title="Nothing to sign"
-                  description="Letters sent to you for e-signing will show up here."
-                  sx={{ py: 5 }}
-                />
-              )}
-              <Stack spacing={1.5}>
+            {lettersLoading ? (
+              <DashboardListSkeleton rows={3} />
+            ) : letters.length === 0 ? (
+              <EmptyContent
+                title="Nothing to sign"
+                description="Letters sent to you for e-signing will show up here."
+                sx={{ py: 5, flexGrow: 1 }}
+                slotProps={{ img: { sx: { maxWidth: 96 } } }}
+              />
+            ) : (
+              <DashboardList>
                 {letters.map((letter) => (
-                  <Stack
+                  <DashboardListRow
                     key={letter.id}
-                    direction="row"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    component={RouterLink}
                     href={paths.dashboard.letters.details(letter.id)}
-                    sx={{
-                      p: 1.5,
-                      borderRadius: 1,
-                      textDecoration: 'none',
-                      color: 'text.primary',
-                      border: `1px solid ${theme.vars.palette.divider}`,
-                      transition: theme.transitions.create(['background-color', 'transform']),
-                      '&:hover': { bgcolor: 'action.hover', transform: 'translateY(-1px)' },
-                    }}
-                  >
-                    <ListItemText
-                      primary={letter.templateName}
-                      secondary={`Prepared by ${letter.preparedByName}`}
-                    />
-                    <Label color="warning">Sign now</Label>
-                  </Stack>
+                    icon="solar:letter-unread-bold"
+                    color="warning"
+                    title={letter.templateName}
+                    secondary={`Prepared by ${letter.preparedByName}`}
+                    meta={
+                      <Label color="warning" variant="soft">
+                        Sign now
+                      </Label>
+                    }
+                  />
                 ))}
-              </Stack>
-            </CardContent>
+              </DashboardList>
+            )}
           </Card>
         </Grid>
       </Grid>
+
+      <MonthlyTrendCard
+        title="Leave taken"
+        subheader="Approved leave days per month"
+        data={personal.leaveDaysByMonth}
+        type="bar"
+        colors={[theme.palette.primary.main]}
+        height={280}
+        emptyLabel="No approved leave in the last 12 months"
+      />
 
       {team && <DashboardTeamSection team={team} />}
     </Stack>

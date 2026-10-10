@@ -135,7 +135,7 @@ export function JwtSignInView() {
       <m.div variants={varFade('inUp')}>
         <Button
           fullWidth
-          color="inherit"
+          color="primary"
           size="large"
           type="submit"
           variant="contained"

@@ -29,7 +29,7 @@ const MuiInputLabel: Components<Theme>['MuiInputLabel'] = {
           props: (props) => !!props.shrink && !!props.focused,
           style: {
             [`&:not(.${inputLabelClasses.error})`]: {
-              color: 'inherit',
+              color: theme.vars.palette.primary.main,
             },
           },
         },

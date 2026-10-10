@@ -13,11 +13,13 @@ import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import { useTheme } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
 import { paths } from 'src/routes/paths';
@@ -58,6 +60,8 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
   const [pinned, setPinned] = useState(current?.pinned ?? false);
   const [expiresOn, setExpiresOn] = useState(current?.expiresOn ?? '');
   const [saving, setSaving] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const onSave = async () => {
     if (!title.trim() || !body.trim()) {
@@ -95,7 +99,7 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" fullScreen={isMobile}>
       <DialogTitle>{current ? 'Edit announcement' : 'New announcement'}</DialogTitle>
       <DialogContent>
         <Stack spacing={2.5} sx={{ pt: 1 }}>
@@ -201,7 +205,7 @@ export function AnnouncementItem({ announcement: a, compact }: ItemProps) {
   return (
     <Box
       sx={{
-        p: 2.5,
+        p: { xs: 2, md: 2.5 },
         borderRadius: 1.5,
         position: 'relative',
         bgcolor: (theme) =>
@@ -286,8 +290,14 @@ export function AnnouncementBoard() {
   const { announcements, announcementsLoading } = useGetAnnouncements({ limit: 3 });
 
   return (
-    <Card sx={{ p: 3, mb: 4 }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+    <Card sx={{ p: { xs: 2, md: 3 }, mb: 4 }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        flexWrap="wrap"
+        sx={{ gap: 1.5, mb: 2 }}
+      >
         <Stack direction="row" alignItems="center" spacing={1.5}>
           <Box
             sx={{

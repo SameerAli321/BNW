@@ -22,7 +22,10 @@ const MuiTable: Components<Theme>['MuiTable'] = {
   // ▼▼▼▼▼▼▼▼ 🎨 STYLE ▼▼▼▼▼▼▼▼
   styleOverrides: {
     root: ({ theme }) => ({
-      [parseCssVar(theme.vars.palette.TableCell.border)]: theme.vars.palette.divider,
+      [parseCssVar(theme.vars.palette.TableCell.border)]: theme.vars.palette.grey[200],
+      ...theme.applyStyles('dark', {
+        [parseCssVar(theme.vars.palette.TableCell.border)]: theme.vars.palette.divider,
+      }),
     }),
   },
 };
@@ -31,6 +34,9 @@ const MuiTableRow: Components<Theme>['MuiTableRow'] = {
   // ▼▼▼▼▼▼▼▼ 🎨 STYLE ▼▼▼▼▼▼▼▼
   styleOverrides: {
     root: ({ theme }) => ({
+      [`&.${tableRowClasses.hover}:hover`]: {
+        backgroundColor: varAlpha(theme.vars.palette.primary.mainChannel, 0.04),
+      },
       [`&.${tableRowClasses.selected}`]: {
         backgroundColor: varAlpha(theme.vars.palette.primary.darkChannel, 0.04),
         '&:hover': {
@@ -50,17 +56,24 @@ const MuiTableCell: Components<Theme>['MuiTableCell'] = {
   // ▼▼▼▼▼▼▼▼ 🎨 STYLE ▼▼▼▼▼▼▼▼
   styleOverrides: {
     root: {
-      borderBottomStyle: 'dashed',
+      borderBottomStyle: 'solid',
     },
     head: ({ theme }) => ({
-      fontSize: theme.typography.pxToRem(14),
+      fontSize: theme.typography.pxToRem(13),
       color: theme.vars.palette.text.secondary,
       fontWeight: theme.typography.fontWeightSemiBold,
-      backgroundColor: theme.vars.palette.background.neutral,
+      backgroundColor: theme.vars.palette.background.default,
+      borderBottom: 'none',
+      ...theme.applyStyles('dark', {
+        backgroundColor: theme.vars.palette.background.neutral,
+      }),
     }),
     stickyHeader: ({ theme }) => ({
       backgroundColor: theme.vars.palette.background.paper,
-      backgroundImage: `linear-gradient(to bottom, ${theme.vars.palette.background.neutral}, ${theme.vars.palette.background.neutral})`,
+      backgroundImage: `linear-gradient(to bottom, ${theme.vars.palette.background.default}, ${theme.vars.palette.background.default})`,
+      ...theme.applyStyles('dark', {
+        backgroundImage: `linear-gradient(to bottom, ${theme.vars.palette.background.neutral}, ${theme.vars.palette.background.neutral})`,
+      }),
     }),
     paddingCheckbox: ({ theme }) => ({
       paddingLeft: theme.spacing(1),

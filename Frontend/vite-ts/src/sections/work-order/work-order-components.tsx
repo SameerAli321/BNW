@@ -44,11 +44,11 @@ export function workOrderStatusText(status: WorkOrderStatus, type?: WorkOrderTyp
 
 const STATUS_COLOR: Record<WorkOrderStatus, LabelColor> = {
   PENDING_MANAGER: 'warning',
-  PENDING_CEO: 'secondary',
-  PENDING_PROCESSING: 'info',
+  PENDING_CEO: 'warning',
+  PENDING_PROCESSING: 'warning',
   COMPLETED: 'success',
   REJECTED: 'error',
-  CANCELLED: 'default',
+  CANCELLED: 'error',
 };
 
 export function WorkOrderStatusLabel({ status, type }: { status: WorkOrderStatus; type?: WorkOrderType }) {

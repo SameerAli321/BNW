@@ -26,7 +26,7 @@ const MuiTabs: Components<Theme>['MuiTabs'] = {
         },
       ],
     },
-    indicator: { backgroundColor: 'currentColor' },
+    indicator: ({ theme }) => ({ backgroundColor: theme.vars.palette.primary.main }),
   },
 };
 
@@ -47,7 +47,7 @@ const MuiTab: Components<Theme>['MuiTab'] = {
       fontWeight: theme.typography.fontWeightMedium,
       lineHeight: theme.typography.body2.lineHeight,
       [`&.${tabClasses.selected}`]: {
-        color: theme.vars.palette.text.primary,
+        color: theme.vars.palette.primary.main,
         fontWeight: theme.typography.fontWeightSemiBold,
       },
     }),

@@ -25,11 +25,11 @@ import { toast } from 'src/components/snackbar';
 
 const STATUS: Record<LeaveRequestStatus, { label: string; color: LabelColor }> = {
   PENDING_MANAGER: { label: 'Waiting for manager', color: 'warning' },
-  PENDING_HR: { label: 'Waiting for HR', color: 'info' },
+  PENDING_HR: { label: 'Waiting for HR', color: 'warning' },
   APPROVED: { label: 'Approved', color: 'success' },
   CANCELLATION_REQUESTED: { label: 'Cancellation requested', color: 'warning' },
   REJECTED: { label: 'Not approved', color: 'error' },
-  CANCELLED: { label: 'Cancelled', color: 'default' },
+  CANCELLED: { label: 'Cancelled', color: 'error' },
 };
 
 export const LEAVE_STATUS_LABEL = Object.fromEntries(
@@ -158,7 +158,7 @@ export function LeavePolicyEditor() {
                 setDrafts((prev) => ({ ...prev, [type.id]: event.target.value }))
               }
               slotProps={{ htmlInput: { min: 0, max: 365, step: 0.5 } }}
-              sx={{ width: 150 }}
+              sx={{ width: { xs: 1, sm: 150 } }}
             />
             <FormControlLabel
               control={
@@ -239,7 +239,7 @@ export function LeaveDecisionForm({ approveLabel, signatureLabel, onSubmit }: De
         slotProps={{ htmlInput: { maxLength: 255 } }}
         fullWidth
       />
-      <Stack direction="row" spacing={1.5} justifyContent="flex-end">
+      <Stack direction="row" flexWrap="wrap" justifyContent="flex-end" sx={{ gap: 1.5 }}>
         <Button
           variant="outlined"
           color="error"

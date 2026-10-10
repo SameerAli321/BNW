@@ -124,7 +124,7 @@ export function EmployeeProfileForm({
 
   return (
     <Form methods={methods} onSubmit={onSubmit}>
-      <Card sx={{ p: 3 }}>
+      <Card sx={{ p: { xs: 2, md: 3 } }}>
         {(title || subheader) && (
           <CardHeader
             title={title}

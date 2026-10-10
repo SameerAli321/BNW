@@ -1,13 +1,11 @@
+import type { DashboardSharedBlocks } from './dashboard-widgets';
+
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import { useTheme } from '@mui/material/styles';
-import CardHeader from '@mui/material/CardHeader';
-import CardContent from '@mui/material/CardContent';
-import ListItemText from '@mui/material/ListItemText';
 
 import { paths } from 'src/routes/paths';
-import { RouterLink } from 'src/routes/components';
 
 import { useGetLetters } from 'src/actions/letters';
 import { useGetDashboard } from 'src/actions/dashboard';
@@ -22,10 +20,14 @@ import {
   CardLink,
   statusColor,
   BarChartCard,
+  DashboardList,
   DonutChartCard,
   DashboardLoading,
   MonthlyTrendCard,
   OnLeaveTodayCard,
+  DashboardListRow,
+  DashboardCardHeader,
+  DashboardListSkeleton,
 } from './dashboard-widgets';
 
 // ----------------------------------------------------------------------
@@ -40,9 +42,9 @@ const LETTER_STATUS_ORDER = [
 ];
 
 // BNW OMS: CEO dashboard home — what's waiting on the CEO (letters to sign, appraisals to decide),
-// a company snapshot (headcount by department, joiners, who's away) and how letters and appraisals
-// are moving through their flows.
-export function CeoOverviewView() {
+// the shared announcement / quick-action blocks, a company snapshot (headcount by department,
+// joiners, who's away) and how letters and appraisals are moving through their flows.
+export function CeoOverviewView({ announcements, quickActions }: DashboardSharedBlocks) {
   const theme = useTheme();
   const { dashboard, dashboardLoading } = useGetDashboard();
   const { letters, lettersLoading } = useGetLetters({ status: 'PENDING_CEO', limit: 5 });
@@ -100,49 +102,48 @@ export function CeoOverviewView() {
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 7 }}>
-          <Card sx={{ height: 1 }}>
-            <CardHeader
+          <Card sx={{ height: 1, display: 'flex', flexDirection: 'column' }}>
+            <DashboardCardHeader
               title="Letters awaiting your review"
+              subheader="Submitted by HR for your review / signature"
               action={<CardLink href={paths.dashboard.letters.root} />}
             />
-            <CardContent sx={{ pt: 2 }}>
-              {!lettersLoading && letters.length === 0 && (
-                <EmptyContent
-                  title="Nothing pending"
-                  description="Letters HR submits for your review / signature will show up here."
-                  sx={{ py: 5 }}
-                />
-              )}
-              <Stack spacing={1.5}>
+            {lettersLoading ? (
+              <DashboardListSkeleton rows={3} />
+            ) : letters.length === 0 ? (
+              <EmptyContent
+                title="Nothing pending"
+                description="Letters HR submits for your review / signature will show up here."
+                sx={{ py: 5, flexGrow: 1 }}
+                slotProps={{ img: { sx: { maxWidth: 96 } } }}
+              />
+            ) : (
+              <DashboardList>
                 {letters.map((letter) => (
-                  <Stack
+                  <DashboardListRow
                     key={letter.id}
-                    direction="row"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    component={RouterLink}
                     href={paths.dashboard.letters.details(letter.id)}
-                    sx={{
-                      p: 1.5,
-                      borderRadius: 1,
-                      textDecoration: 'none',
-                      color: 'text.primary',
-                      border: `1px solid ${theme.vars.palette.divider}`,
-                      transition: theme.transitions.create(['background-color', 'transform']),
-                      '&:hover': { bgcolor: 'action.hover', transform: 'translateY(-1px)' },
-                    }}
-                  >
-                    <ListItemText
-                      primary={`${letter.templateName} — ${letter.subjectName}`}
-                      secondary={`Prepared by ${letter.preparedByName}`}
-                    />
-                    <Label color="info">Review</Label>
-                  </Stack>
+                    icon="solar:letter-unread-bold"
+                    color="warning"
+                    title={`${letter.templateName} — ${letter.subjectName}`}
+                    secondary={`Prepared by ${letter.preparedByName}`}
+                    meta={
+                      <Label color="info" variant="soft">
+                        Review
+                      </Label>
+                    }
+                  />
                 ))}
-              </Stack>
-            </CardContent>
+              </DashboardList>
+            )}
           </Card>
         </Grid>
+        <Grid size={{ xs: 12, md: 5 }}>{announcements}</Grid>
+      </Grid>
+
+      {quickActions}
+
+      <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 5 }}>
           <DonutChartCard
             title="Headcount by department"
@@ -152,9 +153,6 @@ export function CeoOverviewView() {
             action={<CardLink href={paths.dashboard.staffSummary} />}
           />
         </Grid>
-      </Grid>
-
-      <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 7 }}>
           <BarChartCard
             title="Letters by status"
@@ -169,7 +167,10 @@ export function CeoOverviewView() {
             emptyLabel="No letters yet"
           />
         </Grid>
-        <Grid size={{ xs: 12, md: 5 }}>
+      </Grid>
+
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <DonutChartCard
             title="Appraisal outcomes"
             subheader="All appraisal requests"
@@ -179,33 +180,38 @@ export function CeoOverviewView() {
             emptyLabel="No appraisals yet"
           />
         </Grid>
-      </Grid>
-
-      <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
           <MonthlyTrendCard
             title="Requests received"
             subheader="Forms submitted per month (last 6 months)"
             data={company.requestsByMonth}
-            colors={[theme.palette.primary.main, theme.palette.error.main, theme.palette.info.main]}
+            colors={[
+              theme.palette.primary.main,
+              theme.palette.secondary.main,
+              theme.palette.success.main,
+            ]}
             height={320}
             emptyLabel="No forms submitted in the last 6 months"
           />
         </Grid>
+      </Grid>
+
+      <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 4 }}>
           <OnLeaveTodayCard items={company.onLeaveToday} />
         </Grid>
+        <Grid size={{ xs: 12, md: 8 }}>
+          <MonthlyTrendCard
+            title="New joiners"
+            subheader="By join date, last 12 months"
+            data={company.joinersByMonth}
+            type="bar"
+            colors={[theme.palette.success.main]}
+            height={280}
+            emptyLabel="No joiners in the last 12 months"
+          />
+        </Grid>
       </Grid>
-
-      <MonthlyTrendCard
-        title="New joiners"
-        subheader="By join date, last 12 months"
-        data={company.joinersByMonth}
-        type="bar"
-        colors={[theme.palette.success.main]}
-        height={260}
-        emptyLabel="No joiners in the last 12 months"
-      />
 
       {team && <DashboardTeamSection team={team} />}
     </Stack>

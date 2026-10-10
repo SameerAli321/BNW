@@ -82,7 +82,7 @@ export function AccountChangePassword() {
     <Form methods={methods} onSubmit={onSubmit}>
       <Card
         sx={{
-          p: 3,
+          p: { xs: 2, md: 3 },
           gap: 3,
           display: 'flex',
           flexDirection: 'column',
@@ -150,7 +150,7 @@ export function AccountChangePassword() {
           }}
         />
 
-        <Button type="submit" variant="contained" loading={isSubmitting} sx={{ ml: 'auto' }}>
+        <Button type="submit" variant="contained" loading={isSubmitting} sx={{ ml: { sm: 'auto' } }}>
           Save changes
         </Button>
       </Card>

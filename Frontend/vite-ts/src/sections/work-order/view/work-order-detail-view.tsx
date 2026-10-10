@@ -26,6 +26,7 @@ import {
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { EmptyContent } from 'src/components/empty-content';
 import { LoadingScreen } from 'src/components/loading-screen';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
@@ -74,9 +75,7 @@ export function WorkOrderDetailView() {
           ]}
           sx={{ mb: 3 }}
         />
-        <Typography sx={{ py: 10, textAlign: 'center', color: 'text.secondary' }}>
-          Unable to load this work order — it doesn&apos;t exist, or you don&apos;t have access to it.
-        </Typography>
+        <EmptyContent filled title="Unable to load this work order" description="It doesn't exist, or you don't have access to it." sx={{ py: 10 }} />
       </DashboardContent>
     );
   }
@@ -112,7 +111,7 @@ export function WorkOrderDetailView() {
           { name: `WO-${order.id}` },
         ]}
         action={
-          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+          <Stack direction="row" alignItems="center" flexWrap="wrap" sx={{ gap: 1.5 }}>
             <WorkOrderStatusLabel status={order.status} type={order.type} />
             {canCancel && (
               <Button
@@ -142,7 +141,7 @@ export function WorkOrderDetailView() {
       />
 
       <Stack spacing={3}>
-        <Card sx={{ p: 3 }}>
+        <Card sx={{ p: { xs: 2, md: 3 } }}>
           <WorkOrderSteps order={order} />
         </Card>
 

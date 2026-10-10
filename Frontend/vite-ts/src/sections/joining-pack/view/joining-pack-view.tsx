@@ -23,6 +23,7 @@ import { useGetJoiningPackItems, acknowledgeJoiningPackItem } from 'src/actions/
 import { Label } from 'src/components/label';
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { EmptyContent } from 'src/components/empty-content';
 import { LoadingScreen } from 'src/components/loading-screen';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
@@ -87,6 +88,7 @@ export function JoiningPackView() {
           canManage && (
             <Button
               variant="contained"
+              color="primary"
               startIcon={<Iconify icon="mingcute:add-line" />}
               onClick={openNewItem}
             >
@@ -100,9 +102,7 @@ export function JoiningPackView() {
       {itemsLoading && <LoadingScreen />}
 
       {!itemsLoading && !visibleItems.length && (
-        <Stack sx={{ py: 10, textAlign: 'center', color: 'text.secondary' }}>
-          No joining pack items yet.
-        </Stack>
+        <EmptyContent filled title="No joining pack items yet" sx={{ py: 10 }} />
       )}
 
       {!itemsLoading && !!visibleItems.length && (

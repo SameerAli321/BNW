@@ -5,6 +5,7 @@ import { paths } from 'src/routes/paths';
 import { CONFIG } from 'src/global-config';
 
 import { SvgColor } from 'src/components/svg-color';
+import { Iconify, type IconifyName } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
@@ -12,16 +13,24 @@ const icon = (name: string) => (
   <SvgColor src={`${CONFIG.assetsDir}/assets/icons/navbar/${name}.svg`} />
 );
 
+// Solar duotone icons from the offline-registered Iconify set — same family as the navbar SVGs,
+// used where the SVG set has no fitting icon so every nav item gets its own.
+const solarIcon = (name: IconifyName) => <Iconify icon={name} width="100%" />;
+
 const ICONS = {
   user: icon('ic-user'),
   dashboard: icon('ic-dashboard'),
   folder: icon('ic-folder'),
   mail: icon('ic-mail'),
-  file: icon('ic-file'),
   lock: icon('ic-lock'),
   job: icon('ic-job'),
-  external: icon('ic-external'),
   invoice: icon('ic-invoice'),
+  analytics: icon('ic-analytics'),
+  product: icon('ic-product'),
+  team: solarIcon('solar:users-group-rounded-bold-duotone'),
+  forms: solarIcon('solar:file-check-bold-duotone'),
+  announcement: solarIcon('solar:bell-bing-bold-duotone'),
+  activity: solarIcon('solar:notebook-bold-duotone'),
 };
 
 // ----------------------------------------------------------------------
@@ -56,7 +65,7 @@ export const navData: NavSectionProps['data'] = [
       {
         title: 'Staff Summary',
         path: paths.dashboard.staffSummary,
-        icon: ICONS.folder,
+        icon: ICONS.team,
         allowedRoles: ['HR', 'CEO', 'ADMIN'],
       },
       {
@@ -85,15 +94,20 @@ export const navData: NavSectionProps['data'] = [
         // table is reached from here ("Manage letter templates").
         title: 'Requests & Forms',
         path: paths.dashboard.requestsForms,
-        icon: ICONS.file,
+        icon: ICONS.forms,
       },
       {
         // Announcement board. No `allowedRoles`: everyone reads it (it's also on every dashboard);
         // the Post / Edit / Delete controls inside only render for CEO / ADMIN / HR.
         title: 'Announcements',
         path: paths.dashboard.announcements,
-        icon: ICONS.mail,
+        icon: ICONS.announcement,
       },
+    ],
+  },
+  {
+    subheader: 'People & Performance',
+    items: [
       {
         // Sprint 4 — Appraisals (see docs/API_CONTRACT_SPRINT4.md). No `allowedRoles`: every
         // role can see this item, same reasoning as "Letters" — an employee needs it to find/
@@ -102,7 +116,7 @@ export const navData: NavSectionProps['data'] = [
         // grants them to; `GET /appraisal-requests/mine` is always self-scoped by the backend).
         title: 'Appraisals',
         path: paths.dashboard.appraisals.root,
-        icon: ICONS.job,
+        icon: ICONS.analytics,
       },
       {
         // Daily activity log (see docs/API_CONTRACT_ACTIVITY_LOG.md). No `allowedRoles`: every
@@ -110,23 +124,7 @@ export const navData: NavSectionProps['data'] = [
         // MANAGER / CEO / ADMIN, and the backend scopes each endpoint by role.
         title: 'Daily Activity',
         path: paths.dashboard.activity,
-        icon: ICONS.file,
-      },
-      {
-        // Salary slips. No `allowedRoles`: everyone sees their own slips here; HR / ADMIN also
-        // get the history of every slip plus Generate / Send controls (gated in the page and by
-        // the backend's @Roles).
-        title: 'Salary Slips',
-        path: paths.dashboard.salarySlips.root,
-        icon: ICONS.invoice,
-      },
-      {
-        // Gap-fix — Audit Log (see docs/API_CONTRACT_GAPS_FIX.md Gap 2). CEO/ADMIN only, same
-        // `allowedRoles` pattern as "Staff Summary".
-        title: 'Audit Log',
-        path: paths.dashboard.auditLog,
-        icon: ICONS.lock,
-        allowedRoles: ['CEO', 'ADMIN'],
+        icon: ICONS.activity,
       },
       {
         // Sprint 5 — Hiring (see docs/API_CONTRACT_SPRINT5.md). HR/ADMIN manage candidates
@@ -143,8 +141,29 @@ export const navData: NavSectionProps['data'] = [
         // hidden from their sidebar.
         title: 'Joining Pack',
         path: paths.dashboard.joiningPack,
-        icon: ICONS.external,
+        icon: ICONS.product,
         allowedRoles: ['HR', 'MANAGER', 'PAYROLL', 'ADMIN', 'EMPLOYEE'],
+      },
+    ],
+  },
+  {
+    subheader: 'Finance & Reports',
+    items: [
+      {
+        // Salary slips. No `allowedRoles`: everyone sees their own slips here; HR / ADMIN also
+        // get the history of every slip plus Generate / Send controls (gated in the page and by
+        // the backend's @Roles).
+        title: 'Salary Slips',
+        path: paths.dashboard.salarySlips.root,
+        icon: ICONS.invoice,
+      },
+      {
+        // Gap-fix — Audit Log (see docs/API_CONTRACT_GAPS_FIX.md Gap 2). CEO/ADMIN only, same
+        // `allowedRoles` pattern as "Staff Summary".
+        title: 'Audit Log',
+        path: paths.dashboard.auditLog,
+        icon: ICONS.lock,
+        allowedRoles: ['CEO', 'ADMIN'],
       },
     ],
   },

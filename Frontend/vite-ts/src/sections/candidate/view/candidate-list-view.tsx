@@ -122,6 +122,7 @@ export function CandidateListView() {
               </Button>
               <Button
                 variant="contained"
+                color="primary"
                 startIcon={<Iconify icon="eva:cloud-upload-fill" />}
                 onClick={uploadDialog.onTrue}
               >

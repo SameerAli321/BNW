@@ -51,7 +51,7 @@ export function EmployeeRecordBasicInfo({ user }: Props) {
   const showsSalary = user.currentSalary !== undefined;
 
   return (
-    <Card sx={{ p: 3 }}>
+    <Card sx={{ p: { xs: 2, md: 3 } }}>
       <Box sx={{ textAlign: 'center' }}>
         <Avatar
           alt={fullName}

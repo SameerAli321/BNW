@@ -129,6 +129,7 @@ export function SalarySlipListView() {
               component={RouterLink}
               href={paths.dashboard.salarySlips.new}
               variant="contained"
+              color="primary"
               startIcon={<Iconify icon="mingcute:add-line" />}
             >
               Generate salary slip
@@ -171,6 +172,9 @@ export function SalarySlipListView() {
       <Card>
         {canManage && (
           <Tabs
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             value={scope}
             onChange={(_event, value: SalarySlipScope) => {
               resetPage();

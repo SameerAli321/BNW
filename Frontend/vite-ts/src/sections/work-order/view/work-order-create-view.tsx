@@ -222,14 +222,16 @@ export function WorkOrderCreateView() {
             fullWidth
           />
 
-          <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap">
+          <Stack direction="row" alignItems="center" flexWrap="wrap" sx={{ gap: 1.5 }}>
             <input ref={fileInput} type="file" hidden accept="application/pdf,image/png,image/jpeg,image/webp" onChange={onPickFile} />
             <Button variant="outlined" color="inherit" startIcon={<Iconify icon="eva:attach-2-fill" />} onClick={() => fileInput.current?.click()}>
               {receipt ? 'Change file' : isReimbursement ? 'Attach receipt' : 'Attach quotation (optional)'}
             </Button>
             {receipt ? (
-              <Stack direction="row" alignItems="center" spacing={0.5}>
-                <Typography variant="body2">{receipt.name}</Typography>
+              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ minWidth: 0 }}>
+                <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
+                  {receipt.name}
+                </Typography>
                 <Button size="small" color="error" onClick={() => setReceipt(null)}>
                   Remove
                 </Button>

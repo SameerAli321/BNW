@@ -11,6 +11,7 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import MenuList from '@mui/material/MenuList';
 import { useTheme } from '@mui/material/styles';
+import ButtonBase from '@mui/material/ButtonBase';
 import IconButton from '@mui/material/IconButton';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -32,11 +33,11 @@ export type SearchbarProps = BoxProps & {
   data?: NavSectionProps['data'];
 };
 
-const breakpoint: Breakpoint = 'sm';
+const breakpoint: Breakpoint = 'md';
 
 export function Searchbar({ data: navItems = [], sx, ...other }: SearchbarProps) {
   const theme = useTheme();
-  const smUp = useMediaQuery(theme.breakpoints.up(breakpoint));
+  const mdUp = useMediaQuery(theme.breakpoints.up(breakpoint));
 
   const { value: open, onFalse: onClose, onTrue: onOpen, onToggle } = useBoolean();
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,7 +49,8 @@ export function Searchbar({ data: navItems = [], sx, ...other }: SearchbarProps)
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      if (event.metaKey && event.key.toLowerCase() === 'k') {
+      // Ctrl+K on Windows/Linux, ⌘K on macOS.
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         onToggle();
         setSearchQuery('');
@@ -82,56 +84,63 @@ export function Searchbar({ data: navItems = [], sx, ...other }: SearchbarProps)
 
   const notFound = searchQuery && !dataFiltered.length;
 
+  // BNW OMS: on md+ the trigger looks like a search input ("Search anything..." + shortcut
+  // hint) and opens the same dialog; below md it's a plain icon button.
   const renderButton = () => (
-    <Box
-      onClick={onOpen}
-      sx={[
-        {
-          display: 'flex',
-          alignItems: 'center',
-          [theme.breakpoints.up(breakpoint)]: {
-            pr: 1,
+    <Box sx={[{ display: 'flex', alignItems: 'center' }, ...(Array.isArray(sx) ? sx : [sx])]} {...other}>
+      {mdUp ? (
+        <ButtonBase
+          onClick={onOpen}
+          aria-label="Search"
+          aria-keyshortcuts="Control+K Meta+K"
+          sx={{
+            gap: 1,
+            px: 1.5,
+            height: 40,
+            width: { md: 240, lg: 300 },
             borderRadius: 1.5,
-            cursor: 'pointer',
-            bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.08),
-            transition: theme.transitions.create('background-color', {
+            justifyContent: 'flex-start',
+            color: 'text.disabled',
+            bgcolor: 'background.default',
+            border: `1px solid ${theme.vars.palette.divider}`,
+            transition: theme.transitions.create(['border-color', 'background-color'], {
               easing: theme.transitions.easing.easeInOut,
               duration: theme.transitions.duration.shortest,
             }),
             '&:hover': {
-              bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.16),
+              borderColor: theme.vars.palette.grey[300],
+              bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.04),
             },
-          },
-        },
-        ...(Array.isArray(sx) ? sx : [sx]),
-      ]}
-      {...other}
-    >
-      <Box
-        component={smUp ? 'span' : IconButton}
-        sx={{
-          [theme.breakpoints.up(breakpoint)]: {
-            p: 1,
-            display: 'inline-flex',
-            color: 'action.active',
-          },
-        }}
-      >
-        <Iconify icon="eva:search-fill" />
-      </Box>
+            '&.Mui-focusVisible': {
+              outline: `2px solid ${theme.vars.palette.primary.main}`,
+              outlineOffset: 2,
+            },
+            '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+          }}
+        >
+          <Iconify icon="eva:search-fill" width={20} sx={{ color: 'text.secondary' }} />
 
-      <Label
-        sx={{
-          color: 'grey.800',
-          cursor: 'inherit',
-          bgcolor: 'common.white',
-          fontSize: theme.typography.pxToRem(12),
-          boxShadow: theme.vars.customShadows.z1,
-          display: { xs: 'none', [breakpoint]: 'inline-flex' },
-        }}
-      >
-        ⌘K
-      </Label>
+          <Box component="span" sx={{ flex: '1 1 auto', textAlign: 'left', typography: 'body2' }}>
+            Search anything...
+          </Box>
+
+          <Label
+            sx={{
+              color: 'text.secondary',
+              cursor: 'inherit',
+              bgcolor: 'background.paper',
+              fontSize: theme.typography.pxToRem(11),
+              border: `1px solid ${theme.vars.palette.divider}`,
+            }}
+          >
+            Ctrl K
+          </Label>
+        </ButtonBase>
+      ) : (
+        <IconButton onClick={onOpen} aria-label="Search">
+          <Iconify icon="eva:search-fill" />
+        </IconButton>
+      )}
     </Box>
   );
 

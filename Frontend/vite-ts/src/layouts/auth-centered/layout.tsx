@@ -3,6 +3,7 @@ import type { AuthCenteredContentProps } from './content';
 import type { MainSectionProps, HeaderSectionProps, LayoutSectionProps } from '../core';
 
 import { merge } from 'es-toolkit';
+import { varAlpha } from 'minimal-shared/utils';
 
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
@@ -10,8 +11,6 @@ import Alert from '@mui/material/Alert';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
-
-import { CONFIG } from 'src/global-config';
 
 import { Logo } from 'src/components/logo';
 
@@ -137,9 +136,13 @@ export function AuthCenteredLayout({
 
 // ----------------------------------------------------------------------
 
+// BNW OMS: soft navy / gold glows instead of the minimal-kit's stock blurred photo.
 const backgroundStyles = (theme: Theme): CSSObject => ({
   ...theme.mixins.bgGradient({
-    images: [`url(${CONFIG.assetsDir}/assets/background/background-3-blur.webp)`],
+    images: [
+      `radial-gradient(circle at 0% 0%, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.6)}, transparent 50%)`,
+      `radial-gradient(circle at 100% 100%, ${varAlpha(theme.vars.palette.secondary.mainChannel, 0.5)}, transparent 50%)`,
+    ],
   }),
   zIndex: 1,
   opacity: 0.24,

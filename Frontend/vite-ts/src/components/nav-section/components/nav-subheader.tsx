@@ -36,6 +36,8 @@ export const NavSubheader = styled(({ open, children, className, ...other }: Nav
   color: 'var(--nav-subheader-color)',
   padding: theme.spacing(2, 1, 1, 1.5),
   fontSize: theme.typography.pxToRem(11),
+  // BNW OMS: small, muted, letter-spaced group labels.
+  letterSpacing: '0.08em',
   transition: theme.transitions.create(['color', 'padding-left'], {
     duration: theme.transitions.duration.standard,
   }),
@@ -47,6 +49,7 @@ export const NavSubheader = styled(({ open, children, className, ...other }: Nav
       duration: theme.transitions.duration.standard,
     }),
   },
+  '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
   '&:hover': {
     paddingLeft: theme.spacing(2),
     color: 'var(--nav-subheader-hover-color)',

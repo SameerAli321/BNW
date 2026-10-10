@@ -19,10 +19,12 @@ import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TextField from '@mui/material/TextField';
+import { useTheme } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
@@ -78,6 +80,8 @@ export function LeaveListView() {
   const scope: LeaveScope = tabs.value || 'mine';
   const table = useTable({ defaultRowsPerPage: 25 });
   const policyDialog = useBoolean();
+  const muiTheme = useTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
 
@@ -112,7 +116,7 @@ export function LeaveListView() {
           { name: 'Leave & Holidays' },
         ]}
         action={
-          <Stack direction="row" spacing={1.5}>
+          <Stack direction="row" flexWrap="wrap" sx={{ gap: 1.5 }}>
             {canEditPolicy && (
               <Button
                 variant="outlined"
@@ -126,6 +130,7 @@ export function LeaveListView() {
               component={RouterLink}
               href={paths.dashboard.leaveRequests.new}
               variant="contained"
+              color="primary"
               startIcon={<Iconify icon="mingcute:add-line" />}
             >
               Apply for leave
@@ -142,6 +147,9 @@ export function LeaveListView() {
       <Card>
         {tabsList.length > 1 && (
           <Tabs
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             value={scope}
             onChange={(event, value) => {
               table.onResetPage();
@@ -254,7 +262,13 @@ export function LeaveListView() {
       </Card>
 
       {canEditPolicy && (
-        <Dialog open={policyDialog.value} onClose={policyDialog.onFalse} fullWidth maxWidth="sm">
+        <Dialog
+          open={policyDialog.value}
+          onClose={policyDialog.onFalse}
+          fullWidth
+          maxWidth="sm"
+          fullScreen={isMobile}
+        >
           <DialogTitle>Leave policy</DialogTitle>
           <DialogContent>
             <LeavePolicyEditor />

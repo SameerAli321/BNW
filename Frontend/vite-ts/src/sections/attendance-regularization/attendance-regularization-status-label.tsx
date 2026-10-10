@@ -8,7 +8,7 @@ import { Label } from 'src/components/label';
 const STATUS_COLOR: Record<AttendanceRegularizationStatus, LabelColor> = {
   PENDING_HOD: 'warning',
   HOD_NOT_RECOMMENDED: 'error',
-  PENDING_HR: 'info',
+  PENDING_HR: 'warning',
   TAKEN_ON_RECORD: 'success',
   NOT_IN_ORDER: 'error',
 };

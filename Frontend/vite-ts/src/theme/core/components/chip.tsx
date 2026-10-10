@@ -64,6 +64,11 @@ const softVariants = [
     props: (props) => props.variant === 'soft' && props.color === colorKey,
     style: ({ theme }) => ({
       ...theme.mixins.softStyles(theme, colorKey, { hover: true }),
+      // BNW: status badges — `lighter` background + `dark` text in light mode.
+      ...theme.applyStyles('light', {
+        color: theme.vars.palette[colorKey].dark,
+        backgroundColor: theme.vars.palette[colorKey].lighter,
+      }),
     }),
   })) satisfies ComponentsVariants<Theme>['MuiChip']),
 ] satisfies ComponentsVariants<Theme>['MuiChip'];

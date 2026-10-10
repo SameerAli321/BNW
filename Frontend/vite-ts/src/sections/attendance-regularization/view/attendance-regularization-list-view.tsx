@@ -102,6 +102,7 @@ export function AttendanceRegularizationListView() {
             component={RouterLink}
             href={paths.dashboard.attendanceRegularizations.new}
             variant="contained"
+            color="primary"
             startIcon={<Iconify icon="mingcute:add-line" />}
           >
             New form
@@ -113,6 +114,9 @@ export function AttendanceRegularizationListView() {
       <Card>
         {tabsList.length > 1 && (
           <Tabs
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             value={tabs.value}
             onChange={(event, value) => {
               table.onResetPage();

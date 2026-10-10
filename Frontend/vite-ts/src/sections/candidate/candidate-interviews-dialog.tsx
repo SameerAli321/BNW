@@ -14,6 +14,7 @@ import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -170,8 +171,16 @@ function InterviewCard({ interview, candidate }: { interview: InterviewDto; cand
   };
 
   return (
-    <Card variant="outlined" sx={{ p: 2.5, opacity: interview.status === 'CANCELLED' ? 0.7 : 1 }}>
-      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2}>
+    <Card
+      variant="outlined"
+      sx={{ p: { xs: 2, sm: 2.5 }, opacity: interview.status === 'CANCELLED' ? 0.7 : 1 }}
+    >
+      <Stack
+        direction="row"
+        alignItems="flex-start"
+        justifyContent="space-between"
+        sx={{ flexWrap: 'wrap', gap: 1.5 }}
+      >
         <Box sx={{ minWidth: 0 }}>
           <Typography variant="subtitle1">{interviewWhen(interview)}</Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -283,8 +292,10 @@ export function CandidateInterviewsDialog({ open, onClose, candidate }: Props) {
   const [scheduling, setScheduling] = useState(false);
   const canSchedule = candidate.status === 'SHORTLISTED';
 
+  const smDown = useMediaQuery((theme) => theme.breakpoints.down('sm'));
+
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" fullScreen={smDown}>
       <DialogTitle>
         Interviews — {candidate.name}
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>

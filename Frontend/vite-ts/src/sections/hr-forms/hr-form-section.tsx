@@ -27,7 +27,7 @@ export function HrFormSection({ title, children }: SectionProps) {
       >
         <Typography variant="subtitle2">{title}</Typography>
       </Box>
-      <Stack spacing={2.5} sx={{ p: 2.5 }}>
+      <Stack spacing={2.5} sx={{ p: { xs: 2, md: 2.5 } }}>
         {children}
       </Stack>
     </Card>
@@ -43,7 +43,7 @@ type FieldProps = {
 export function HrFormField({ label, value }: FieldProps) {
   return (
     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0.5, sm: 2 }}>
-      <Typography variant="subtitle2" sx={{ minWidth: 200, flexShrink: 0 }}>
+      <Typography variant="subtitle2" sx={{ minWidth: { sm: 200 }, flexShrink: 0 }}>
         {label}
       </Typography>
       <Typography

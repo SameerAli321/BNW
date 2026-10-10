@@ -50,7 +50,7 @@ export function AppraisalSelfEvaluationDetails({ form }: Props) {
     <Card>
       <CardHeader title="Self Evaluation Form" />
 
-      <Stack spacing={3} sx={{ p: 3 }}>
+      <Stack spacing={3} sx={{ p: { xs: 2, md: 3 } }}>
         <Stack spacing={1.5}>
           <Typography variant="subtitle2">Employee Details</Typography>
           <Box sx={infoGrid}>
@@ -95,7 +95,7 @@ export function AppraisalSelfEvaluationDetails({ form }: Props) {
                   direction={{ xs: 'column', sm: 'row' }}
                   spacing={1}
                   justifyContent="space-between"
-                  alignItems={{ sm: 'center' }}
+                  alignItems={{ xs: 'flex-start', sm: 'center' }}
                   sx={{ mb: 1 }}
                 >
                   <Typography variant="subtitle2">{item.title}</Typography>

@@ -44,6 +44,7 @@ export function AnnouncementsView() {
           canPost && (
             <Button
               variant="contained"
+              color="primary"
               startIcon={<Iconify icon="mingcute:add-line" />}
               onClick={postDialog.onTrue}
             >
@@ -68,7 +69,7 @@ export function AnnouncementsView() {
         </Stack>
       )}
 
-      <Card sx={{ p: 3 }}>
+      <Card sx={{ p: { xs: 2, md: 3 } }}>
         <Stack spacing={2}>
           {announcements.map((announcement) => (
             <AnnouncementItem key={announcement.id} announcement={announcement} />

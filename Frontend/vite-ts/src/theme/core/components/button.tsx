@@ -30,10 +30,19 @@ const DIMENSIONS: Record<string, CSSObject> = {
 const containedVariants = [
   {
     props: (props) => props.variant === 'contained' && props.color === 'inherit',
+    // BNW: neutral contained buttons render as Premium Navy (secondary) instead of near-black.
     style: ({ theme }) => ({
-      ...theme.mixins.filledStyles(theme, 'inherit', {
-        hover: {
-          boxShadow: theme.vars.customShadows.z8,
+      color: theme.vars.palette.secondary.contrastText,
+      backgroundColor: theme.vars.palette.secondary.main,
+      '&:hover': {
+        backgroundColor: theme.vars.palette.secondary.dark,
+        boxShadow: theme.vars.customShadows.z8,
+      },
+      ...theme.applyStyles('dark', {
+        color: theme.vars.palette.grey[800],
+        backgroundColor: theme.vars.palette.common.white,
+        '&:hover': {
+          backgroundColor: theme.vars.palette.grey[300],
         },
       }),
     }),
@@ -61,10 +70,16 @@ const outlinedVariants = [
   {
     props: (props) => props.variant === 'outlined' && props.color === 'inherit',
     style: ({ theme }) => ({
-      borderColor: theme.vars.palette.shared.buttonOutlined,
+      color: theme.vars.palette.text.primary,
+      borderColor: theme.vars.palette.grey[300],
       '&:hover': {
+        borderColor: theme.vars.palette.grey[400],
+        boxShadow: 'none',
         backgroundColor: theme.vars.palette.action.hover,
       },
+      ...theme.applyStyles('dark', {
+        borderColor: theme.vars.palette.shared.buttonOutlined,
+      }),
     }),
   },
   ...(COLORS.map((colorKey) => ({
@@ -170,6 +185,13 @@ const MuiButton: Components<Theme>['MuiButton'] = {
   // ▼▼▼▼▼▼▼▼ 🎨 STYLE ▼▼▼▼▼▼▼▼
   styleOverrides: {
     root: ({ theme }) => ({
+      fontWeight: theme.typography.fontWeightSemiBold,
+      textTransform: 'none',
+      borderRadius: theme.shape.borderRadius,
+      '&.Mui-focusVisible': {
+        outline: `2px solid ${varAlpha(theme.vars.palette.primary.mainChannel, 0.48)}`,
+        outlineOffset: 2,
+      },
       // BNW OMS: subtle lift on hover, press-down on click — tactile feedback so buttons feel
       // clickable rather than flat/static. Kept small (1px / 3% scale) to stay in the "minimal"
       // design language rather than reading as flashy.

@@ -8,14 +8,15 @@ import { varAlpha } from 'minimal-shared/utils';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import Skeleton from '@mui/material/Skeleton';
 import CardHeader from '@mui/material/CardHeader';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
-import CircularProgress from '@mui/material/CircularProgress';
 
 import { RouterLink } from 'src/routes/components';
 
@@ -75,17 +76,20 @@ export function statusColor(theme: Theme, status: string): string {
   return theme.palette.grey[500];
 }
 
-/** A categorical palette for things with no meaning attached (departments, roles, leave types). */
+/**
+ * A categorical palette for things with no meaning attached (departments, roles, leave types) —
+ * brand blue and navy first, then emerald / amber / sky, then lighter tints of the same.
+ */
 export function categoricalColors(theme: Theme): string[] {
   return [
     theme.palette.primary.main,
-    theme.palette.info.main,
-    theme.palette.warning.main,
-    theme.palette.success.main,
-    theme.palette.error.main,
     theme.palette.secondary.main,
-    theme.palette.primary.dark,
-    theme.palette.info.dark,
+    theme.palette.success.main,
+    theme.palette.warning.main,
+    theme.palette.info.main,
+    theme.palette.primary.light,
+    theme.palette.secondary.light,
+    theme.palette.success.dark,
   ];
 }
 
@@ -93,26 +97,100 @@ const hasValues = (values: number[]) => values.some((value) => value > 0);
 
 // ----------------------------------------------------------------------
 
+/** Turns off skeleton pulses / hover lifts for people who asked for less motion. */
+export const reducedMotionSx = {
+  '@media (prefers-reduced-motion: reduce)': {
+    animation: 'none',
+    transition: 'none',
+    transform: 'none',
+  },
+} as const;
+
 function EmptyChart({ label = 'No data yet', height = 240 }: { label?: string; height?: number }) {
   return (
-    <Stack alignItems="center" justifyContent="center" spacing={1} sx={{ height, color: 'text.disabled' }}>
-      <Iconify icon="solar:chart-square-outline" width={40} />
-      <Typography variant="body2">{label}</Typography>
+    <Stack
+      alignItems="center"
+      justifyContent="center"
+      spacing={1.5}
+      sx={{ height, px: 3, textAlign: 'center' }}
+    >
+      <Box
+        sx={{
+          width: 56,
+          height: 56,
+          display: 'flex',
+          borderRadius: '50%',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'text.disabled',
+          bgcolor: 'background.neutral',
+        }}
+      >
+        <Iconify icon="solar:chart-square-outline" width={28} />
+      </Box>
+      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+        {label}
+      </Typography>
     </Stack>
   );
 }
 
-type CardShellProps = {
+type HeaderProps = {
   title: string;
-  subheader?: string;
+  subheader?: ReactNode;
   action?: ReactNode;
+  /** Optional tinted icon square before the title. */
+  icon?: IconifyName;
+};
+
+/**
+ * The one card heading every dashboard widget uses: (optional icon), title, optional muted
+ * subtitle, and an action (a "View all" link, a status label, a button) on the right. Slightly
+ * tighter padding on phones so a 360px screen keeps its content width.
+ */
+export function DashboardCardHeader({ title, subheader, action, icon }: HeaderProps) {
+  return (
+    <CardHeader
+      title={title}
+      subheader={subheader}
+      action={action}
+      avatar={
+        icon ? (
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              display: 'flex',
+              borderRadius: 1.25,
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'primary.main',
+              bgcolor: (theme) => varAlpha(theme.vars.palette.primary.mainChannel, 0.1),
+            }}
+          >
+            <Iconify icon={icon} width={22} />
+          </Box>
+        ) : undefined
+      }
+      sx={{
+        px: { xs: 2.5, md: 3 },
+        pt: { xs: 2.5, md: 3 },
+        pb: 0,
+        '& .MuiCardHeader-content': { minWidth: 0 },
+        '& .MuiCardHeader-action': { alignSelf: 'center', m: 0, ml: 1.5 },
+      }}
+    />
+  );
+}
+
+type CardShellProps = HeaderProps & {
   children: ReactNode;
 };
 
 function ChartCard({ title, subheader, action, children }: CardShellProps) {
   return (
     <Card sx={{ height: 1, display: 'flex', flexDirection: 'column' }}>
-      <CardHeader title={title} subheader={subheader} action={action} />
+      <DashboardCardHeader title={title} subheader={subheader} action={action} />
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         {children}
       </Box>
@@ -127,11 +205,143 @@ export function CardLink({ href, label = 'View all' }: { href: string; label?: s
       component={RouterLink}
       href={href}
       size="small"
-      color="inherit"
-      endIcon={<Iconify icon="eva:arrow-ios-forward-fill" width={18} />}
+      color="primary"
+      endIcon={<Iconify icon="eva:arrow-ios-forward-fill" width={16} sx={{ ml: -0.5 }} />}
+      sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
     >
       {label}
     </Button>
+  );
+}
+
+// ----------------------------------------------------------------------
+
+type ListRowProps = {
+  href: string;
+  icon: IconifyName;
+  color?: PaletteColorKey;
+  title: ReactNode;
+  secondary?: ReactNode;
+  /** Right-hand side before the chevron — a relative time, a status label, … */
+  meta?: ReactNode;
+  dimmed?: boolean;
+};
+
+/**
+ * A linked list row — soft round icon, bold one-line title, one-line muted body, meta on the right
+ * and a chevron. Used by the announcement and "letters waiting" cards; DashboardList puts the
+ * dividers between rows.
+ */
+export function DashboardListRow({
+  href,
+  icon,
+  color = 'primary',
+  title,
+  secondary,
+  meta,
+  dimmed,
+}: ListRowProps) {
+  return (
+    <Stack
+      direction="row"
+      alignItems="center"
+      spacing={1.5}
+      component={RouterLink}
+      href={href}
+      sx={(theme) => ({
+        px: 1,
+        py: 1.5,
+        borderRadius: 1,
+        color: 'text.primary',
+        textDecoration: 'none',
+        opacity: dimmed ? 0.6 : 1,
+        transition: theme.transitions.create('background-color'),
+        '&:hover': { bgcolor: 'action.hover' },
+        '&:focus-visible': {
+          outline: `2px solid ${theme.vars.palette.primary.main}`,
+          outlineOffset: -2,
+        },
+        ...reducedMotionSx,
+      })}
+    >
+      <Box
+        sx={(theme) => ({
+          width: 40,
+          height: 40,
+          flexShrink: 0,
+          display: 'flex',
+          borderRadius: '50%',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: `${color}.main`,
+          bgcolor: `${color}.lighter`,
+          ...theme.applyStyles('dark', {
+            bgcolor: varAlpha(theme.vars.palette[color].mainChannel, 0.16),
+          }),
+        })}
+      >
+        <Iconify icon={icon} width={20} />
+      </Box>
+      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+        <Typography variant="subtitle2" noWrap>
+          {title}
+        </Typography>
+        {secondary && (
+          <Typography variant="body2" noWrap sx={{ color: 'text.secondary' }}>
+            {secondary}
+          </Typography>
+        )}
+      </Box>
+      {meta && <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>{meta}</Box>}
+      <Iconify
+        icon="eva:arrow-ios-forward-fill"
+        width={16}
+        sx={{ color: 'text.disabled', flexShrink: 0 }}
+      />
+    </Stack>
+  );
+}
+
+/** Wraps DashboardListRow-s with dashed dividers between them. */
+export function DashboardList({ children }: { children: ReactNode }) {
+  return (
+    <Stack
+      divider={<Divider flexItem sx={{ borderStyle: 'dashed' }} />}
+      sx={{ px: { xs: 1.5, md: 2 }, py: 1.5 }}
+    >
+      {children}
+    </Stack>
+  );
+}
+
+/** Placeholder rows while a DashboardList is loading. */
+export function DashboardListSkeleton({ rows = 3 }: { rows?: number }) {
+  return (
+    <Stack spacing={2.5} sx={{ px: { xs: 2.5, md: 3 }, py: 2.5 }}>
+      {Array.from({ length: rows }, (_, index) => (
+        <Stack key={index} direction="row" alignItems="center" spacing={1.5}>
+          <Skeleton variant="circular" width={40} height={40} sx={reducedMotionSx} />
+          <Box sx={{ flexGrow: 1 }}>
+            <Skeleton width="45%" sx={reducedMotionSx} />
+            <Skeleton width="80%" sx={reducedMotionSx} />
+          </Box>
+        </Stack>
+      ))}
+    </Stack>
+  );
+}
+
+/** Section heading between groups of cards (e.g. "My team"). */
+export function DashboardSectionTitle({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <Box sx={{ pt: 1 }}>
+      <Typography variant="h6">{title}</Typography>
+      {subtitle && (
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          {subtitle}
+        </Typography>
+      )}
+    </Box>
   );
 }
 
@@ -363,11 +573,19 @@ export type PendingItem = {
 };
 
 /** "Waiting on you" checklist — each row links to the list where the work is done. */
-export function PendingActionsCard({ title, subheader, items }: { title: string; subheader?: string; items: PendingItem[] }) {
+export function PendingActionsCard({
+  title,
+  subheader,
+  items,
+}: {
+  title: string;
+  subheader?: string;
+  items: PendingItem[];
+}) {
   const total = items.reduce((sum, item) => sum + item.count, 0);
   return (
     <Card sx={{ height: 1 }}>
-      <CardHeader
+      <DashboardCardHeader
         title={title}
         subheader={subheader}
         action={
@@ -376,7 +594,7 @@ export function PendingActionsCard({ title, subheader, items }: { title: string;
           </Label>
         }
       />
-      <Stack spacing={1} sx={{ p: 2 }}>
+      <Stack spacing={0.5} sx={{ p: { xs: 1.5, md: 2 } }}>
         {items.map((item) => (
           <Stack
             key={item.label}
@@ -385,18 +603,23 @@ export function PendingActionsCard({ title, subheader, items }: { title: string;
             spacing={1.5}
             component={RouterLink}
             href={item.href}
-            sx={{
-              p: 1.25,
-              borderRadius: 1.25,
+            sx={(theme) => ({
+              p: 1,
+              borderRadius: 1,
               color: 'text.primary',
               textDecoration: 'none',
               opacity: item.count ? 1 : 0.6,
-              transition: (theme) => theme.transitions.create('background-color'),
+              transition: theme.transitions.create('background-color'),
               '&:hover': { bgcolor: 'action.hover' },
-            }}
+              '&:focus-visible': {
+                outline: `2px solid ${theme.vars.palette.primary.main}`,
+                outlineOffset: -2,
+              },
+              ...reducedMotionSx,
+            })}
           >
             <Box
-              sx={{
+              sx={(theme) => ({
                 width: 36,
                 height: 36,
                 flexShrink: 0,
@@ -405,18 +628,28 @@ export function PendingActionsCard({ title, subheader, items }: { title: string;
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: `${item.color}.main`,
-                bgcolor: (theme) => varAlpha(theme.vars.palette[item.color].mainChannel, 0.12),
-              }}
+                bgcolor: `${item.color}.lighter`,
+                ...theme.applyStyles('dark', {
+                  bgcolor: varAlpha(theme.vars.palette[item.color].mainChannel, 0.16),
+                }),
+              })}
             >
               <Iconify icon={item.icon} width={20} />
             </Box>
-            <Typography variant="body2" sx={{ flexGrow: 1 }}>
+            <Typography variant="body2" sx={{ flexGrow: 1, minWidth: 0 }}>
               {item.label}
             </Typography>
-            <Typography variant="subtitle1" sx={{ color: item.count ? `${item.color}.main` : 'text.disabled' }}>
+            <Typography
+              variant="subtitle1"
+              sx={{ color: item.count ? `${item.color}.main` : 'text.disabled' }}
+            >
               {item.count}
             </Typography>
-            <Iconify icon="eva:arrow-ios-forward-fill" width={16} sx={{ color: 'text.disabled' }} />
+            <Iconify
+              icon="eva:arrow-ios-forward-fill"
+              width={16}
+              sx={{ color: 'text.disabled', flexShrink: 0 }}
+            />
           </Stack>
         ))}
       </Stack>
@@ -437,43 +670,84 @@ export function OnLeaveTodayCard({
   action?: ReactNode;
 }) {
   return (
-    <Card sx={{ height: 1 }}>
-      <CardHeader
+    <Card sx={{ height: 1, display: 'flex', flexDirection: 'column' }}>
+      <DashboardCardHeader
         title={title}
         subheader={items.length ? `${items.length} away` : undefined}
         action={action}
       />
-      <Stack spacing={1.5} sx={{ p: 2.5, pt: 2 }}>
-        {!items.length && (
-          <Stack alignItems="center" spacing={1} sx={{ py: 4, color: 'text.disabled' }}>
-            <Iconify icon="solar:users-group-rounded-bold-duotone" width={40} />
-            <Typography variant="body2">Everyone is in today</Typography>
-          </Stack>
-        )}
-        {items.slice(0, 6).map((item) => (
-          <Stack key={`${item.employeeId}-${item.endDate}`} direction="row" alignItems="center" spacing={1.5}>
-            <Avatar sx={{ width: 36, height: 36, typography: 'subtitle2', bgcolor: 'primary.lighter', color: 'primary.dark' }}>
-              {item.employeeName.charAt(0).toUpperCase()}
-            </Avatar>
-            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-              <Typography variant="subtitle2" noWrap>
-                {item.employeeName}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {item.leaveTypeName}
-              </Typography>
-            </Box>
-            <Typography variant="caption" sx={{ color: 'text.disabled', whiteSpace: 'nowrap' }}>
-              until {fDate(item.endDate)}
-            </Typography>
-          </Stack>
-        ))}
-        {items.length > 6 && (
-          <Typography variant="caption" sx={{ color: 'text.secondary', textAlign: 'center' }}>
-            +{items.length - 6} more
+      {!items.length ? (
+        <Stack
+          alignItems="center"
+          justifyContent="center"
+          spacing={1.5}
+          sx={{ flexGrow: 1, py: 5, px: 3, textAlign: 'center' }}
+        >
+          <Box
+            sx={{
+              width: 56,
+              height: 56,
+              display: 'flex',
+              borderRadius: '50%',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'success.main',
+              bgcolor: 'success.lighter',
+            }}
+          >
+            <Iconify icon="solar:users-group-rounded-bold-duotone" width={28} />
+          </Box>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            Everyone is in today
           </Typography>
-        )}
-      </Stack>
+        </Stack>
+      ) : (
+        <Stack
+          divider={<Divider flexItem sx={{ borderStyle: 'dashed' }} />}
+          sx={{ px: { xs: 2.5, md: 3 }, py: 1.5 }}
+        >
+          {items.slice(0, 6).map((item) => (
+            <Stack
+              key={`${item.employeeId}-${item.endDate}`}
+              direction="row"
+              alignItems="center"
+              spacing={1.5}
+              sx={{ py: 1.25 }}
+            >
+              <Avatar
+                sx={{
+                  width: 36,
+                  height: 36,
+                  typography: 'subtitle2',
+                  bgcolor: 'primary.lighter',
+                  color: 'primary.dark',
+                }}
+              >
+                {item.employeeName.charAt(0).toUpperCase()}
+              </Avatar>
+              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                <Typography variant="subtitle2" noWrap>
+                  {item.employeeName}
+                </Typography>
+                <Typography variant="caption" noWrap component="div" sx={{ color: 'text.secondary' }}>
+                  {item.leaveTypeName}
+                </Typography>
+              </Box>
+              <Typography variant="caption" sx={{ color: 'text.disabled', whiteSpace: 'nowrap' }}>
+                until {fDate(item.endDate)}
+              </Typography>
+            </Stack>
+          ))}
+          {items.length > 6 && (
+            <Typography
+              variant="caption"
+              sx={{ py: 1.25, color: 'text.secondary', textAlign: 'center' }}
+            >
+              +{items.length - 6} more
+            </Typography>
+          )}
+        </Stack>
+      )}
     </Card>
   );
 }
@@ -485,7 +759,13 @@ export function LeaveBalanceChartCard({
   balances,
   action,
 }: {
-  balances: { leaveTypeName: string; annualQuota: number | null; used: number; pending: number; remaining: number | null }[];
+  balances: {
+    leaveTypeName: string;
+    annualQuota: number | null;
+    used: number;
+    pending: number;
+    remaining: number | null;
+  }[];
   action?: ReactNode;
 }) {
   const theme = useTheme();
@@ -503,7 +783,11 @@ export function LeaveBalanceChartCard({
         { name: 'Pending', data: limited.map((b) => b.pending) },
         { name: 'Remaining', data: limited.map((b) => b.remaining ?? 0) },
       ]}
-      colors={[theme.palette.primary.main, theme.palette.warning.main, alpha(theme.palette.grey[500], 0.24)]}
+      colors={[
+        theme.palette.primary.main,
+        theme.palette.warning.main,
+        alpha(theme.palette.grey[500], 0.24),
+      ]}
       valueSuffix=" d"
       action={action}
       emptyLabel="No leave types set up yet"
@@ -513,10 +797,45 @@ export function LeaveBalanceChartCard({
 
 // ----------------------------------------------------------------------
 
+/** The shared blocks every role view places in its grid (built once in bnw-overview-view.tsx). */
+export type DashboardSharedBlocks = {
+  announcements?: ReactNode;
+  quickActions?: ReactNode;
+};
+
+// ----------------------------------------------------------------------
+
+/**
+ * Placeholder for a role dashboard while GET /dashboard loads — the same shape as the real page
+ * (a row of KPI cards, then two chart cards) so nothing jumps when the data lands.
+ */
 export function DashboardLoading() {
   return (
-    <Stack alignItems="center" justifyContent="center" sx={{ py: 10 }}>
-      <CircularProgress />
+    <Stack spacing={3} aria-busy="true" aria-label="Loading dashboard">
+      <Grid container spacing={3}>
+        {[0, 1, 2, 3].map((index) => (
+          <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card sx={{ p: { xs: 2, md: 2.5 }, display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Skeleton variant="rounded" width={48} height={48} sx={reducedMotionSx} />
+              <Box sx={{ flexGrow: 1 }}>
+                <Skeleton width="40%" height={36} sx={reducedMotionSx} />
+                <Skeleton width="75%" sx={reducedMotionSx} />
+              </Box>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+      <Grid container spacing={3}>
+        {[8, 4].map((md) => (
+          <Grid key={md} size={{ xs: 12, md }}>
+            <Card sx={{ p: { xs: 2.5, md: 3 } }}>
+              <Skeleton width="35%" height={28} sx={reducedMotionSx} />
+              <Skeleton width="55%" sx={reducedMotionSx} />
+              <Skeleton variant="rounded" height={240} sx={{ mt: 2.5, ...reducedMotionSx }} />
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
     </Stack>
   );
 }

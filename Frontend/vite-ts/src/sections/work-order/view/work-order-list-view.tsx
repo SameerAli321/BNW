@@ -148,6 +148,7 @@ export function WorkOrderListView() {
               component={RouterLink}
               href={`${paths.dashboard.workOrders.new}?type=REIMBURSEMENT`}
               variant="contained"
+              color="primary"
               startIcon={<Iconify icon="solar:wad-of-money-bold" />}
             >
               Claim reimbursement
@@ -164,6 +165,9 @@ export function WorkOrderListView() {
 
       <Card>
         <Tabs
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           value={scope}
           onChange={(event, value) => {
             table.onResetPage();

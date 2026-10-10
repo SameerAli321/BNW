@@ -15,6 +15,10 @@ function colorVars(theme: Theme, variant?: 'vertical' | 'mini' | 'horizontal') {
     '--nav-item-color': palette.text.secondary,
     '--nav-item-hover-bg': palette.action.hover,
     '--nav-item-caption-color': palette.text.disabled,
+    // BNW OMS: keyboard focus ring, and a separate idle icon colour (the pastel sidebar's icons
+    // are lighter than its labels; active items always use the label colour).
+    '--nav-item-focus-ring': palette.primary.main,
+    '--nav-item-icon-color': 'currentColor',
     // root
     '--nav-item-root-active-color': palette.primary.main,
     '--nav-item-root-active-color-on-dark': palette.primary.light,

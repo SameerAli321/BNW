@@ -1,13 +1,19 @@
+import type { DashboardSharedBlocks } from './dashboard-widgets';
+
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import { useTheme } from '@mui/material/styles';
 
 import { paths } from 'src/routes/paths';
 
+import { fPercent } from 'src/utils/format-number';
+
+import { useGetUsers } from 'src/actions/users';
 import { useGetDashboard } from 'src/actions/dashboard';
 import { useGetLetterTemplates } from 'src/actions/letters';
 
 import { DashboardStatCard } from './dashboard-stat-card';
+import { computeUserTrends, DashboardUserOverview } from './dashboard-user-overview';
 import {
   CardLink,
   BarChartCard,
@@ -19,17 +25,29 @@ import {
 
 // ----------------------------------------------------------------------
 
-// BNW OMS: Admin dashboard home — the user base (by status, role and department), joiners over
-// time, system activity (forms submitted, letters in flight) and a queue of open items across
-// the modules.
-export function AdminOverviewView() {
+// Every user record, for the User overview chart and the 7-day KPI trends. GET /users has no
+// upper bound on `limit`; if the firm ever outgrows this the list comes back incomplete
+// (meta.total > rows) and the chart / trends hide themselves rather than show wrong numbers.
+const ALL_USERS = { limit: 1000 };
+
+// BNW OMS: Admin dashboard home — the user base (KPIs with 7-day trends, a user-history chart, by
+// role and department), the shared announcement / quick-action blocks, joiners over time, system
+// activity (forms submitted, letters in flight) and a queue of open items across the modules.
+export function AdminOverviewView({ announcements, quickActions }: DashboardSharedBlocks) {
   const theme = useTheme();
   const { dashboard, dashboardLoading } = useGetDashboard();
   const { templates } = useGetLetterTemplates();
+  const { users, usersMeta, usersLoading } = useGetUsers(ALL_USERS);
 
   if (dashboardLoading || !dashboard?.company) return <DashboardLoading />;
   const { company } = dashboard;
+  const { total, active, inactive } = company.headcount;
   const activeTemplates = templates.filter((t) => t.isActive).length;
+
+  const usersComplete = !!usersMeta && usersMeta.total <= users.length;
+  const trends = computeUserTrends(users, usersComplete);
+  const shareOfAll = (value: number) =>
+    total ? `${fPercent((value / total) * 100)} of all users` : undefined;
 
   return (
     <Stack spacing={3}>
@@ -37,9 +55,10 @@ export function AdminOverviewView() {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <DashboardStatCard
             icon="solar:users-group-rounded-bold"
-            total={company.headcount.total}
+            total={total}
             label="Total users"
-            caption={`${company.headcount.inactive} removed`}
+            caption={trends ? `${trends.newThisWeek} new this week` : `${inactive} removed`}
+            trend={trends?.totalTrend}
             href={paths.dashboard.user.list}
             color="primary"
           />
@@ -47,8 +66,10 @@ export function AdminOverviewView() {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <DashboardStatCard
             icon="solar:shield-check-bold"
-            total={company.headcount.active}
+            total={active}
             label="Active"
+            caption={shareOfAll(active)}
+            trend={trends?.activeTrend}
             href={paths.dashboard.user.list}
             color="success"
           />
@@ -56,8 +77,9 @@ export function AdminOverviewView() {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <DashboardStatCard
             icon="solar:forbidden-circle-bold"
-            total={company.headcount.inactive}
+            total={inactive}
             label="Removed"
+            caption={shareOfAll(inactive)}
             href={paths.dashboard.user.list}
             color="error"
           />
@@ -73,6 +95,15 @@ export function AdminOverviewView() {
           />
         </Grid>
       </Grid>
+
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 7 }}>
+          <DashboardUserOverview users={users} loading={usersLoading} complete={usersComplete} />
+        </Grid>
+        <Grid size={{ xs: 12, md: 5 }}>{announcements}</Grid>
+      </Grid>
+
+      {quickActions}
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 4 }}>
@@ -125,7 +156,11 @@ export function AdminOverviewView() {
             subheader="Per month, last 6 months"
             data={company.requestsByMonth}
             type="bar"
-            colors={[theme.palette.primary.main, theme.palette.error.main, theme.palette.info.main]}
+            colors={[
+              theme.palette.primary.main,
+              theme.palette.secondary.main,
+              theme.palette.success.main,
+            ]}
             height={320}
             emptyLabel="No forms submitted in the last 6 months"
           />

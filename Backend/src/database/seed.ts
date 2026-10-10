@@ -23,6 +23,20 @@ import {
   EMPLOYMENT_LETTER_FIELDS,
   EMPLOYMENT_LETTER_NAME,
 } from '../letters/employment-letter-body';
+import {
+  EXPERIENCE_LETTER_BODY,
+  EXPERIENCE_LETTER_FIELDS,
+  EXPERIENCE_LETTER_NAME,
+  OFFER_LETTER_BODY,
+  OFFER_LETTER_FIELDS,
+  OFFER_LETTER_NAME,
+  REDUNDANCY_LETTER_BODY,
+  REDUNDANCY_LETTER_FIELDS,
+  REDUNDANCY_LETTER_NAME,
+  WARNING_LETTER_BODY,
+  WARNING_LETTER_FIELDS,
+  WARNING_LETTER_NAME,
+} from '../letters/hr-letter-bodies';
 
 // The first four are what the user-creation form offers (client feedback); Finance / Engineering
 // are kept for existing data.
@@ -42,8 +56,8 @@ const DOCUMENT_TYPES = [
   'Other',
 ];
 
-// Placeholder letter templates (Sprint 3), per docs/API_CONTRACT_SPRINT3.md scope cut #1 — dummy
-// content per explicit project-owner instruction, real bodyHtml comes later.
+// Letter templates. Offer / Experience / Redundancy / Warning carry the owner-provided wording
+// (letters/hr-letter-bodies.ts); Contract and Terms Change are still Sprint 3 placeholders.
 const LETTER_TEMPLATES: Array<{
   type: LetterTemplateType;
   name: string;
@@ -53,38 +67,21 @@ const LETTER_TEMPLATES: Array<{
 }> = [
   {
     type: LetterTemplateType.OFFER,
-    name: 'Offer Letter (placeholder)',
+    name: OFFER_LETTER_NAME,
     roleScope: null,
-    bodyHtml:
-      '<p><em>[PLACEHOLDER TEMPLATE — replace with real offer letter content]</em></p>' +
-      '<p>Dear {{employee.fullName}},</p>' +
-      '<p>We are pleased to offer you the position of {{employee.designation}} at a monthly salary ' +
-      'of {{salary}}, starting {{startDate}}.</p>',
-    fieldsSchema: [
-      { key: 'employee.fullName', label: 'Employee name', autoFilled: true },
-      { key: 'employee.designation', label: 'Designation', autoFilled: true },
-      { key: 'salary', label: 'Monthly salary', autoFilled: false },
-      { key: 'startDate', label: 'Start date', autoFilled: false },
-    ],
+    bodyHtml: OFFER_LETTER_BODY,
+    fieldsSchema: OFFER_LETTER_FIELDS,
   },
   {
     type: LetterTemplateType.EXPERIENCE,
-    name: 'Experience Letter (placeholder)',
+    name: EXPERIENCE_LETTER_NAME,
     roleScope: null,
-    bodyHtml:
-      '<p><em>[PLACEHOLDER TEMPLATE — replace with real experience letter content]</em></p>' +
-      '<p>This is to certify that {{employee.fullName}} worked as {{employee.designation}} ' +
-      'from {{startDate}} to {{endDate}}.</p>',
-    fieldsSchema: [
-      { key: 'employee.fullName', label: 'Employee name', autoFilled: true },
-      { key: 'employee.designation', label: 'Designation', autoFilled: true },
-      { key: 'startDate', label: 'Start date', autoFilled: false },
-      { key: 'endDate', label: 'End date', autoFilled: false },
-    ],
+    bodyHtml: EXPERIENCE_LETTER_BODY,
+    fieldsSchema: EXPERIENCE_LETTER_FIELDS,
   },
-  // Gap-fix (docs/API_CONTRACT_GAPS_FIX.md, Gap 4) — 4 more placeholder templates so all 6 guide
-  // letter types share the one generic engine. Same idempotent-by-`type` pattern, same "clearly
-  // marked placeholder" body text convention as OFFER/EXPERIENCE above.
+  // Gap-fix (docs/API_CONTRACT_GAPS_FIX.md, Gap 4) — 4 more templates so all 6 guide letter types
+  // share the one generic engine, same idempotent-by-`type` pattern. Contract and Terms Change
+  // still carry clearly marked placeholder bodies.
   {
     type: LetterTemplateType.CONTRACT,
     name: 'Employment Contract (placeholder)',
@@ -103,17 +100,10 @@ const LETTER_TEMPLATES: Array<{
   },
   {
     type: LetterTemplateType.REDUNDANCY,
-    name: 'Redundancy Letter (placeholder)',
+    name: REDUNDANCY_LETTER_NAME,
     roleScope: null,
-    bodyHtml:
-      '<p><em>[PLACEHOLDER TEMPLATE — replace with real redundancy letter content]</em></p>' +
-      '<p>Dear {{employee.fullName}},</p>' +
-      '<p>Your last working day will be {{lastWorkingDay}}. Reason: {{reason}}.</p>',
-    fieldsSchema: [
-      { key: 'employee.fullName', label: 'Employee name', autoFilled: true },
-      { key: 'lastWorkingDay', label: 'Last working day', autoFilled: false },
-      { key: 'reason', label: 'Reason', autoFilled: false },
-    ],
+    bodyHtml: REDUNDANCY_LETTER_BODY,
+    fieldsSchema: REDUNDANCY_LETTER_FIELDS,
   },
   {
     type: LetterTemplateType.TERMS_CHANGE,
@@ -132,18 +122,10 @@ const LETTER_TEMPLATES: Array<{
   },
   {
     type: LetterTemplateType.WARNING,
-    name: 'Warning Letter (placeholder)',
+    name: WARNING_LETTER_NAME,
     roleScope: null,
-    bodyHtml:
-      '<p><em>[PLACEHOLDER TEMPLATE — replace with real warning letter content]</em></p>' +
-      '<p>Dear {{employee.fullName}},</p>' +
-      '<p>This letter serves as a formal warning regarding: {{warningReason}}. Issued on ' +
-      '{{issuedDate}}.</p>',
-    fieldsSchema: [
-      { key: 'employee.fullName', label: 'Employee name', autoFilled: true },
-      { key: 'warningReason', label: 'Warning reason', autoFilled: false },
-      { key: 'issuedDate', label: 'Issued date', autoFilled: false },
-    ],
+    bodyHtml: WARNING_LETTER_BODY,
+    fieldsSchema: WARNING_LETTER_FIELDS,
   },
   // Appraisal-result letters — sent by HR once an appraisal reaches a final CEO decision, per
   // docs/API_CONTRACT_SPRINT4.md addendum. Bodies live in letters/appraisal-letter-bodies.ts (shared
@@ -182,15 +164,11 @@ const LETTER_TEMPLATES: Array<{
   },
 ];
 
-// The original placeholder templates are created hidden (inactive) — per the project owner only the
-// real letters are offered to HR. They can be re-activated from Letter Templates.
+// The remaining placeholder templates are created hidden (inactive) — per the project owner only
+// the real letters are offered to HR. They can be re-activated from Letter Templates.
 const HIDDEN_TEMPLATE_TYPES: LetterTemplateType[] = [
-  LetterTemplateType.OFFER,
   LetterTemplateType.CONTRACT,
-  LetterTemplateType.REDUNDANCY,
   LetterTemplateType.TERMS_CHANGE,
-  LetterTemplateType.WARNING,
-  LetterTemplateType.EXPERIENCE,
 ];
 
 // Starter joining pack items (Sprint 5), per docs/API_CONTRACT_SPRINT5.md's "New tables" section.

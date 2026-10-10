@@ -76,7 +76,12 @@ export function AccountLayout({ children, ...other }: DashboardContentProps) {
         sx={{ mb: 3 }}
       />
 
-      <Tabs value={removeLastSlash(pathname)} sx={{ mb: { xs: 3, md: 5 } }}>
+      <Tabs
+        value={removeLastSlash(pathname)}
+        variant="scrollable"
+        scrollButtons={false}
+        sx={{ mb: { xs: 3, md: 5 } }}
+      >
         {NAV_ITEMS.map((tab) => (
           <Tab
             component={RouterLink}

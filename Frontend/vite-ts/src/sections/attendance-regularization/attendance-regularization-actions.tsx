@@ -74,7 +74,7 @@ export function HodRecommendationForm({ form }: Props) {
         slotProps={{ htmlInput: { maxLength: 255 } }}
         fullWidth
       />
-      <Stack direction="row" spacing={1.5} justifyContent="flex-end">
+      <Stack direction="row" flexWrap="wrap" justifyContent="flex-end" sx={{ gap: 1.5 }}>
         <Button
           variant="outlined"
           color="error"

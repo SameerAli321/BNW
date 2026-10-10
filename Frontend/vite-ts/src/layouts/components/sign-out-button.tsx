@@ -25,11 +25,11 @@ const signOut =
   (CONFIG.auth.method === 'amplify' && amplifySignOut) ||
   jwtSignOut;
 
-type Props = ButtonProps & {
-  onClose?: () => void;
-};
-
-export function SignOutButton({ onClose, sx, ...other }: Props) {
+/**
+ * The sign-out handler on its own, so the sidebar's "Log out" item (nav-footer.tsx) runs the
+ * exact same logic as this button instead of a copy of it.
+ */
+export function useSignOut(onClose?: () => void) {
   const router = useRouter();
 
   const { checkUserSession } = useAuthContext();
@@ -61,13 +61,25 @@ export function SignOutButton({ onClose, sx, ...other }: Props) {
     }
   }, [onClose, router, signOutAuth0]);
 
+  return CONFIG.auth.method === 'auth0' ? handleLogoutAuth0 : handleLogout;
+}
+
+// ----------------------------------------------------------------------
+
+type Props = ButtonProps & {
+  onClose?: () => void;
+};
+
+export function SignOutButton({ onClose, sx, ...other }: Props) {
+  const handleSignOut = useSignOut(onClose);
+
   return (
     <Button
       fullWidth
       variant="soft"
       size="large"
       color="error"
-      onClick={CONFIG.auth.method === 'auth0' ? handleLogoutAuth0 : handleLogout}
+      onClick={handleSignOut}
       sx={sx}
       {...other}
     >

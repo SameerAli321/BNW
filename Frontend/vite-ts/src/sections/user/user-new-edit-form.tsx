@@ -326,11 +326,12 @@ export function UserNewEditForm({ currentUser }: Props) {
     <Form methods={methods} onSubmit={onSubmit}>
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 12 }}>
-          <Card sx={{ p: 3 }}>
+          <Card sx={{ p: { xs: 2, md: 3 } }}>
             <Stack
-              direction="row"
+              direction={{ xs: 'column', sm: 'row' }}
               justifyContent="space-between"
-              alignItems="center"
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              spacing={1}
               sx={{ mb: 3 }}
             >
               <Typography variant="h6">Employee Information</Typography>
@@ -460,14 +461,14 @@ export function UserNewEditForm({ currentUser }: Props) {
             </Box>
 
             <Stack
-              direction="row"
+              direction={{ xs: 'column', sm: 'row' }}
               spacing={1.5}
               justifyContent="flex-end"
-              alignItems="center"
+              alignItems={{ xs: 'stretch', sm: 'center' }}
               sx={{ mt: 3 }}
             >
               {currentUser && isDirty && (
-                <Typography variant="body2" sx={{ color: 'warning.main', mr: 'auto' }}>
+                <Typography variant="body2" sx={{ color: 'warning.main', mr: { sm: 'auto' } }}>
                   You have unsaved changes
                 </Typography>
               )}

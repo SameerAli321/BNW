@@ -13,9 +13,9 @@ export const defaultSettings: SettingsState = {
   contrast: 'default',
   navLayout: 'vertical',
   primaryColor: 'default',
-  // Dark sidebar by default (built-in minimal-kit mode, not custom CSS) — matches the reference
-  // design the user asked to follow. Still user-adjustable via the settings drawer.
-  navColor: 'apparent',
+  // Soft pastel-blue sidebar (src/theme/bnw-sidebar.ts, applied in dashboardNavColorVars
+  // 'integrate') per the client's UI brief. Still user-adjustable via the settings drawer.
+  navColor: 'integrate',
   compactLayout: true,
   fontSize: 16,
   fontFamily: themeConfig.fontFamily.primary,

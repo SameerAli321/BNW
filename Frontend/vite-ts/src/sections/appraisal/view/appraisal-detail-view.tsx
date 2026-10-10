@@ -14,6 +14,7 @@ import { RouterLink } from 'src/routes/components';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useGetAppraisal, submitCeoDecision, submitManagerDecision } from 'src/actions/appraisals';
 
+import { EmptyContent } from 'src/components/empty-content';
 import { LoadingScreen } from 'src/components/loading-screen';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
@@ -68,10 +69,7 @@ export function AppraisalDetailView() {
           ]}
           sx={{ mb: { xs: 3, md: 5 } }}
         />
-        <Stack sx={{ py: 10, textAlign: 'center', color: 'text.secondary' }}>
-          Unable to load this appraisal — either it doesn&apos;t exist, or you don&apos;t have
-          permission to view it.
-        </Stack>
+        <EmptyContent filled title="Unable to load this appraisal" description="Either it doesn't exist, or you don't have permission to view it." sx={{ py: 10 }} />
       </DashboardContent>
     );
   }
@@ -126,14 +124,14 @@ export function AppraisalDetailView() {
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
           <Stack spacing={3}>
-            <Card sx={{ p: 3 }}>
+            <Card sx={{ p: { xs: 2, md: 3 } }}>
               <Stack
                 direction="row"
                 justifyContent="space-between"
                 alignItems="flex-start"
-                sx={{ mb: 3 }}
+                sx={{ mb: 3, gap: 1.5, flexWrap: 'wrap' }}
               >
-                <Stack spacing={0.5}>
+                <Stack spacing={0.5} sx={{ minWidth: 0 }}>
                   <Typography variant="h6">{appraisal.employeeName}</Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                     Manager: {appraisal.managerName ?? '—'}
@@ -158,7 +156,11 @@ export function AppraisalDetailView() {
                 </>
               )}
 
-              <Stack direction="row" spacing={1.5} sx={{ mt: 3, flexWrap: 'wrap', gap: 1.5 }}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                alignItems={{ xs: 'stretch', sm: 'center' }}
+                sx={{ mt: 3, flexWrap: 'wrap', gap: 1.5 }}
+              >
                 {canManagerAct && (
                   <Button variant="contained" onClick={managerDialog.onTrue}>
                     Review as manager
@@ -194,7 +196,7 @@ export function AppraisalDetailView() {
             {appraisal.managerDecision && (
               <Card>
                 <CardHeader title="Manager's review" />
-                <Stack sx={{ p: 3, pt: 2 }} spacing={1}>
+                <Stack sx={{ px: { xs: 2, md: 3 }, pb: { xs: 2, md: 3 }, pt: 2 }} spacing={1}>
                   <Typography variant="body2">
                     Decision: <strong>{appraisal.managerDecision}</strong>
                     {appraisal.managerDecidedAt &&
@@ -217,7 +219,7 @@ export function AppraisalDetailView() {
             {appraisal.ceoDecision && (
               <Card>
                 <CardHeader title="CEO's review" />
-                <Stack sx={{ p: 3, pt: 2 }} spacing={1}>
+                <Stack sx={{ px: { xs: 2, md: 3 }, pb: { xs: 2, md: 3 }, pt: 2 }} spacing={1}>
                   <Typography variant="body2">
                     Decision: <strong>{appraisal.ceoDecision}</strong>
                     {appraisal.ceoDecidedAt &&

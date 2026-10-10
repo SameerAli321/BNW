@@ -21,6 +21,7 @@ import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
 import Autocomplete from '@mui/material/Autocomplete';
 import ToggleButton from '@mui/material/ToggleButton';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -74,10 +75,10 @@ function EmailPreviewFrame({ preview }: { preview: EmailPreview }) {
         sandbox=""
         sx={{
           width: 1,
-          height: 540,
+          height: { xs: '60vh', sm: 540 },
           border: (theme) => `1px solid ${theme.vars.palette.divider}`,
           borderRadius: 1,
-          bgcolor: '#f4f6f8',
+          bgcolor: 'grey.200',
         }}
       />
       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -106,6 +107,8 @@ type Props = {
 export function InterviewScheduleDialog({ open, onClose, candidate, current }: Props) {
   const { users } = useGetUsers({ limit: 200 });
   const { mailStatus } = useGetMailStatus();
+
+  const smDown = useMediaQuery((theme) => theme.breakpoints.down('sm'));
 
   const [date, setDate] = useState(current?.date ?? '');
   const [time, setTime] = useState(current?.time ?? '');
@@ -201,7 +204,13 @@ export function InterviewScheduleDialog({ open, onClose, candidate, current }: P
   const sendLabel = current ? (notify ? 'Save & email update' : 'Save changes') : 'Send invitation';
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="md">
+    <Dialog
+      open={open}
+      onClose={busy ? undefined : onClose}
+      fullWidth
+      maxWidth="md"
+      fullScreen={smDown}
+    >
       <DialogTitle>
         {current ? 'Reschedule interview' : 'Schedule interview'} — {candidate.name}
       </DialogTitle>
@@ -359,7 +368,9 @@ export function InterviewScheduleDialog({ open, onClose, candidate, current }: P
         )}
       </DialogContent>
 
-      <DialogActions>
+      <DialogActions
+        sx={{ flexWrap: 'wrap', gap: 1.5, '& > :not(:first-of-type)': { ml: 0 } }}
+      >
         {preview ? (
           <Button color="inherit" onClick={() => setPreview(null)} startIcon={<Iconify icon="eva:arrow-ios-back-fill" />}>
             Back to edit

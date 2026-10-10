@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { varAlpha } from 'minimal-shared/utils';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -94,7 +95,7 @@ export function AccountGeneral() {
   return (
     <Grid container spacing={3}>
       <Grid size={{ xs: 12, md: 4 }}>
-        <Card sx={{ pt: 6, pb: 5, px: 3, textAlign: 'center' }}>
+        <Card sx={{ pt: { xs: 4, md: 6 }, pb: { xs: 3, md: 5 }, px: { xs: 2, md: 3 }, textAlign: 'center' }}>
           <input ref={fileInput} type="file" accept={AVATAR_ACCEPT} hidden onChange={onFileChosen} />
           <ButtonBase
             disabled={busy}
@@ -130,7 +131,7 @@ export function AccountGeneral() {
                 gap: 0.5,
                 color: 'common.white',
                 typography: 'caption',
-                bgcolor: 'rgba(0, 0, 0, 0.48)',
+                bgcolor: (theme) => varAlpha(theme.vars.palette.grey['900Channel'], 0.48),
                 opacity: busy ? 1 : 0,
                 transition: (theme) => theme.transitions.create('opacity'),
               }}
@@ -170,7 +171,7 @@ export function AccountGeneral() {
       </Grid>
 
       <Grid size={{ xs: 12, md: 8 }}>
-        <Card sx={{ p: 3 }}>
+        <Card sx={{ p: { xs: 2, md: 3 } }}>
           <Stack
             sx={{
               rowGap: 3,

@@ -11,6 +11,7 @@ type NavItemStyles = {
   title: (theme: Theme) => CSSObject;
   arrow: (theme: Theme) => CSSObject;
   captionText: (theme: Theme) => CSSObject;
+  interaction: (theme: Theme) => CSSObject;
 };
 
 export const navItemStyles: NavItemStyles = {
@@ -55,4 +56,16 @@ export const navItemStyles: NavItemStyles = {
     ...theme.typography.caption,
   }),
   disabled: { opacity: 0.48, pointerEvents: 'none' },
+  // BNW OMS: smooth hover/active colour changes (off under reduced motion) and a visible
+  // keyboard focus ring — ButtonBase only adds `.Mui-focusVisible` for keyboard focus.
+  interaction: (theme: Theme) => ({
+    transition: theme.transitions.create(['background-color', 'color'], {
+      duration: theme.transitions.duration.shorter,
+    }),
+    '&.Mui-focusVisible': {
+      outline: '2px solid var(--nav-item-focus-ring)',
+      outlineOffset: -2,
+    },
+    '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+  }),
 };

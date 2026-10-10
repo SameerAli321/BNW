@@ -354,7 +354,13 @@ export function SalarySlipGenerateView() {
   const lineItems = (list: 'allowances' | 'deductions', placeholder: string) => (
     <Stack spacing={1.5}>
       {form[list].map((entry, i) => (
-        <Stack key={entry.key} direction="row" spacing={1} alignItems="flex-start">
+        <Stack
+          key={entry.key}
+          direction="row"
+          alignItems="flex-start"
+          flexWrap={{ xs: 'wrap', sm: 'nowrap' }}
+          sx={{ gap: 1 }}
+        >
           <TextField
             size="small"
             label="Name"
@@ -364,7 +370,7 @@ export function SalarySlipGenerateView() {
             error={!!show(errors[list][i]?.label)}
             helperText={show(errors[list][i]?.label)}
             slotProps={{ htmlInput: { maxLength: 60 } }}
-            sx={{ flex: 1.4 }}
+            sx={{ flex: { xs: '1 1 100%', sm: 1.4 } }}
           />
           <TextField
             size="small"
@@ -798,7 +804,7 @@ function EmployeeDetails({ defaults }: { defaults: SalarySlipDefaults }) {
   ];
   return (
     <Box sx={{ p: 2, borderRadius: 1.5, bgcolor: 'background.neutral' }}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+      <Stack direction="row" alignItems="center" flexWrap="wrap" sx={{ gap: 1, mb: 1.5 }}>
         <Iconify icon="solar:user-id-bold" />
         <Typography variant="subtitle1">{employee.name}</Typography>
         {employee.status === 'INACTIVE' && (

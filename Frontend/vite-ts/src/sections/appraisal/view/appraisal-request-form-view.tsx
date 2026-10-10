@@ -190,10 +190,10 @@ export function AppraisalRequestFormView() {
   );
 
   const sectionGrid = {
-    p: 3,
-    gap: 3,
+    p: { xs: 2, md: 3 },
+    gap: { xs: 2.5, md: 3 },
     display: 'grid',
-    gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' },
+    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
   } as const;
 
   return (
@@ -236,7 +236,7 @@ export function AppraisalRequestFormView() {
                 label="2. Project Description"
                 multiline
                 minRows={2}
-                sx={{ gridColumn: { md: 'span 2' } }}
+                sx={{ gridColumn: { sm: 'span 2' } }}
               />
               <Field.Text name="employee.jobTitle" label="4. Job Title" />
               <Field.Text name="employee.contactNumber" label="5. Contact Number" />
@@ -258,7 +258,7 @@ export function AppraisalRequestFormView() {
             <Box
               sx={{
                 ...sectionGrid,
-                gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
               }}
             >
               <Field.Text name="duration.appraisalYear" label="10. Appraisal Year" />
@@ -272,7 +272,10 @@ export function AppraisalRequestFormView() {
               title="Assess Yourself"
               subheader="Rate yourself on each area and give the reason for your choice."
             />
-            <Stack divider={<Divider sx={{ borderStyle: 'dashed' }} />} sx={{ px: 3, pb: 1 }}>
+            <Stack
+              divider={<Divider sx={{ borderStyle: 'dashed' }} />}
+              sx={{ px: { xs: 2, md: 3 }, pb: 1 }}
+            >
               {SELF_EVALUATION_COMPETENCIES.map((item, index) => {
                 const questionNo = 13 + index * 2;
                 return (
@@ -292,7 +295,7 @@ export function AppraisalRequestFormView() {
                       row
                       name={`assessments.${index}.rating`}
                       options={APPRAISAL_RATING_OPTIONS}
-                      sx={{ columnGap: 3 }}
+                      sx={{ columnGap: 3, flexDirection: { xs: 'column', sm: 'row' } }}
                     />
 
                     <Field.Text
@@ -309,7 +312,7 @@ export function AppraisalRequestFormView() {
 
           <Card>
             <CardHeader title="33. Employee Summary Remarks" />
-            <Stack spacing={2} sx={{ p: 3 }}>
+            <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
               <Alert severity="info" variant="outlined">
                 Please explain your experience for the appraisal period, what you achieved, learned
                 and also mention the mistakes you made or areas you believe you require development
@@ -324,7 +327,11 @@ export function AppraisalRequestFormView() {
             </Stack>
           </Card>
 
-          <Stack direction="row" spacing={2} justifyContent="flex-end">
+          <Stack
+            direction={{ xs: 'column-reverse', sm: 'row' }}
+            spacing={2}
+            justifyContent="flex-end"
+          >
             <Button
               component={RouterLink}
               href={paths.dashboard.appraisals.root}

@@ -171,6 +171,7 @@ export function UserListView() {
               component={RouterLink}
               href={paths.dashboard.user.new}
               variant="contained"
+              color="primary"
               startIcon={<Iconify icon="mingcute:add-line" />}
             >
               New user
@@ -183,6 +184,8 @@ export function UserListView() {
           <Tabs
             value={currentFilters.status}
             onChange={handleFilterStatus}
+            variant="scrollable"
+            scrollButtons={false}
             sx={[
               (theme) => ({
                 px: 2.5,

@@ -27,6 +27,7 @@ import {
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { EmptyContent } from 'src/components/empty-content';
 import { LoadingScreen } from 'src/components/loading-screen';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
@@ -86,10 +87,7 @@ export function LetterDetailView() {
           ]}
           sx={{ mb: { xs: 3, md: 5 } }}
         />
-        <Stack sx={{ py: 10, textAlign: 'center', color: 'text.secondary' }}>
-          Unable to load this letter — either it doesn&apos;t exist, or you don&apos;t have
-          permission to view it.
-        </Stack>
+        <EmptyContent filled title="Unable to load this letter" description="Either it doesn't exist, or you don't have permission to view it." sx={{ py: 10 }} />
       </DashboardContent>
     );
   }
@@ -211,14 +209,14 @@ export function LetterDetailView() {
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
           <Stack spacing={3}>
-            <Card sx={{ p: 3 }}>
+            <Card sx={{ p: { xs: 2, md: 3 } }}>
               <Stack
                 direction="row"
                 justifyContent="space-between"
                 alignItems="flex-start"
-                sx={{ mb: 3 }}
+                sx={{ mb: 3, gap: 1.5, flexWrap: 'wrap' }}
               >
-                <Stack spacing={0.5}>
+                <Stack spacing={0.5} sx={{ minWidth: 0 }}>
                   <Typography variant="h6">{letter.templateName}</Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                     {letter.type} · for {letter.subjectName} · prepared by {letter.preparedByName}
@@ -234,7 +232,11 @@ export function LetterDetailView() {
                 disabled={!canEditFields}
               />
 
-              <Stack direction="row" spacing={1.5} sx={{ mt: 3, flexWrap: 'wrap', gap: 1.5 }}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                alignItems={{ xs: 'stretch', sm: 'center' }}
+                sx={{ mt: 3, flexWrap: 'wrap', gap: 1.5 }}
+              >
                 {canEditFields && editValues && (
                   <Button variant="contained" loading={saving} onClick={handleSaveFields}>
                     Save changes
@@ -306,14 +308,19 @@ export function LetterDetailView() {
 
             <Card>
               <CardHeader title="Signatures" />
-              <Stack sx={{ p: 3, pt: 2 }} spacing={1.5}>
+              <Stack sx={{ px: { xs: 2, md: 3 }, pb: { xs: 2, md: 3 }, pt: 2 }} spacing={1.5}>
                 {!letter.signatures?.length && (
                   <Typography variant="body2" sx={{ color: 'text.disabled' }}>
                     No signatures yet.
                   </Typography>
                 )}
                 {letter.signatures?.map((sig) => (
-                  <Stack key={sig.id} direction="row" justifyContent="space-between">
+                  <Stack
+                    key={sig.id}
+                    direction="row"
+                    justifyContent="space-between"
+                    sx={{ flexWrap: 'wrap', columnGap: 2, rowGap: 0.5 }}
+                  >
                     <Typography variant="body2">
                       <strong>{sig.signerName}</strong> ({sig.signerRole})
                     </Typography>

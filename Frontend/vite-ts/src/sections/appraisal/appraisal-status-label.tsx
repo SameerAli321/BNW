@@ -8,7 +8,7 @@ import { Label } from 'src/components/label';
 const STATUS_COLOR: Record<AppraisalStatus, LabelColor> = {
   PENDING_MANAGER: 'warning',
   MANAGER_REJECTED: 'error',
-  PENDING_CEO: 'info',
+  PENDING_CEO: 'warning',
   CEO_ACCEPTED: 'success',
   CEO_REJECTED: 'error',
 };

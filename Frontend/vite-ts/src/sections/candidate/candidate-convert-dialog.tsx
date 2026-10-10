@@ -12,6 +12,7 @@ import Dialog from '@mui/material/Dialog';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import DialogTitle from '@mui/material/DialogTitle';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
@@ -62,6 +63,8 @@ function splitName(name: string) {
 export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
   const { users } = useGetUsers({ limit: 200 });
   const { departments } = useGetDepartments();
+
+  const smDown = useMediaQuery((theme) => theme.breakpoints.down('sm'));
 
   const { first: defaultFirstName, last: defaultLastName } = useMemo(
     () => splitName(candidate.name),
@@ -128,7 +131,7 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
   });
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm" fullScreen={smDown}>
       <Form methods={methods} onSubmit={onSubmit}>
         <DialogTitle>Convert to employee</DialogTitle>
 

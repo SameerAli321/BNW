@@ -9,11 +9,13 @@ import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import Tooltip from '@mui/material/Tooltip';
+import { useTheme } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { fDateTime } from 'src/utils/format-time';
@@ -215,7 +217,14 @@ export function SalarySlipPdfFrame({ slipId, height = 720 }: { slipId: number; h
   if (error) return <Alert severity="error">{error}</Alert>;
   if (!url) {
     return (
-      <Box sx={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box
+        sx={{
+          height: { xs: '70vh', md: height },
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -225,7 +234,14 @@ export function SalarySlipPdfFrame({ slipId, height = 720 }: { slipId: number; h
       component="iframe"
       title="Salary slip PDF"
       src={`${url}#toolbar=1&navpanes=0`}
-      sx={{ width: 1, height, border: 0, borderRadius: 1, bgcolor: 'background.neutral' }}
+      // Shorter on phones so the dialog actions stay in view; the PDF viewer scales to width.
+      sx={{
+        width: 1,
+        height: { xs: '70vh', md: height },
+        border: 0,
+        borderRadius: 1,
+        bgcolor: 'background.neutral',
+      }}
     />
   );
 }
@@ -243,11 +259,13 @@ export function SalarySlipPreviewDialog({ slip: initial, canSend, onClose }: Pre
   const [slip, setSlip] = useState(initial);
   const actions = useSalarySlipActions(setSlip);
   useEffect(() => setSlip(initial), [initial]);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="md">
+    <Dialog open onClose={onClose} fullWidth maxWidth="md" fullScreen={isMobile}>
       <DialogTitle sx={{ pb: 1 }}>
-        <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap">
+        <Stack direction="row" alignItems="center" flexWrap="wrap" sx={{ gap: 1.5 }}>
           <span>
             {slip.employeeName} — {slip.salaryMonthLabel}
           </span>
@@ -271,7 +289,7 @@ export function SalarySlipPreviewDialog({ slip: initial, canSend, onClose }: Pre
         )}
         <SalarySlipPdfFrame slipId={slip.id} height={640} />
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ flexWrap: 'wrap', rowGap: 1 }}>
         <Button color="inherit" onClick={onClose}>
           Close
         </Button>

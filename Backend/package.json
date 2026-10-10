@@ -19,7 +19,8 @@
     "migration:create": "npm run typeorm -- migration:create",
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
-    "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts"
+    "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts",
+    "letters:rerender": "ts-node -r tsconfig-paths/register src/database/rerender-letters.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

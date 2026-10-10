@@ -13,6 +13,7 @@ import { useGetComplaint, downloadComplaintPdf } from 'src/actions/complaints';
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { EmptyContent } from 'src/components/empty-content';
 import { LoadingScreen } from 'src/components/loading-screen';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
@@ -58,10 +59,7 @@ export function ComplaintDetailView() {
           ]}
           sx={{ mb: { xs: 3, md: 5 } }}
         />
-        <Stack sx={{ py: 10, textAlign: 'center', color: 'text.secondary' }}>
-          Unable to load this complaint — either it doesn&apos;t exist, or you don&apos;t have
-          permission to view it.
-        </Stack>
+        <EmptyContent filled title="Unable to load this complaint" description="Either it doesn't exist, or you don't have permission to view it." sx={{ py: 10 }} />
       </DashboardContent>
     );
   }
@@ -88,7 +86,7 @@ export function ComplaintDetailView() {
           { name: `#${complaint.id}` },
         ]}
         action={
-          <Stack direction="row" spacing={1.5} alignItems="center">
+          <Stack direction="row" alignItems="center" flexWrap="wrap" sx={{ gap: 1.5 }}>
             <ComplaintStatusLabel status={complaint.status} />
             <Button
               variant="outlined"

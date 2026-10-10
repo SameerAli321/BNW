@@ -43,10 +43,14 @@ export function Logo({
   isMark = false,
   ...other
 }: LogoProps) {
+  // Always the original artwork (blue + green, as supplied) — also on the sidebar, per the
+  // client brief. `logo-full-dark.png` is still on disk but intentionally unused.
+  const fileName = isMark ? 'logo-mark' : 'logo-full';
+
   const logoImg = (
     <img
       alt="BNW Chartered Accountants"
-      src={`${CONFIG.assetsDir}/logo/${isMark ? 'logo-mark' : 'logo-full'}.png`}
+      src={`${CONFIG.assetsDir}/logo/${fileName}.png`}
       width="100%"
       height="100%"
       style={{ objectFit: 'contain' }}
@@ -95,4 +99,13 @@ const LogoRoot = styled(Link)(({ theme }) => ({
     filter: `drop-shadow(0 4px 10px ${theme.vars.palette.grey[500]}40)`,
   },
   '&:active': { transform: 'scale(0.98)' },
+  '&:focus-visible': {
+    outline: `2px solid ${theme.vars.palette.primary.main}`,
+    outlineOffset: 2,
+    borderRadius: 4,
+  },
+  '@media (prefers-reduced-motion: reduce)': {
+    transition: 'none',
+    '&:hover, &:active': { transform: 'none' },
+  },
 }));

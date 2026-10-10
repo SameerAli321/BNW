@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { join } from 'path';
-import { writeFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { Injectable } from '@nestjs/common';
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
 import { Letter } from '../entities/letter.entity';
@@ -12,7 +12,19 @@ import { RoleName } from '../common/enums/role.enum';
 import { Gender } from '../common/enums/gender.enum';
 import { ensureLettersDirExists, LETTERS_DIR } from './letter-pdf.storage';
 
-const COMPANY_NAME = 'BNW Consultants';
+const COMPANY_NAME = 'BNW Consultants (SMC-PRIVATE) Limited';
+
+// Letterhead, as on the owner-supplied company letters (logo + contacts, green/blue rule, website
+// and green address bar footer on every page).
+const LETTERHEAD_MARK_PATH = join(process.cwd(), 'assets', 'letterhead', 'bnw-mark.png');
+const LETTERHEAD = {
+  subtitle: 'CONSULTANTS (SMC-PRIVATE) LIMITED',
+  contacts: ['+92 51 2723510', '+44 20 8648 0800', 'info@bnwconsultants.com'],
+  website: 'www.bnwconsultants.com',
+  address: '427, Street 5/2, Block D, National Police Foundation, O9 PWD, Islamabad',
+};
+const BRAND_GREEN = rgb(0.42, 0.76, 0.27);
+const BRAND_BLUE = rgb(0.11, 0.38, 0.72);
 
 // Keys resolvable from the subject User — usable as `{{key}}` in any template body, whether or not
 // the template lists them in fieldsSchema.
@@ -32,6 +44,7 @@ const AUTO_FIELD_KEYS = [
   'employee.his',
   'employee.His',
   'employee.him',
+  'employee.title',
 ];
 
 // Gendered wording from the E-record profile; unknown/unset gender keeps the letter's "he/she".
@@ -42,6 +55,7 @@ const GENDERED: Record<string, { MALE: string; FEMALE: string; fallback: string 
   'employee.his': { MALE: 'his', FEMALE: 'her', fallback: 'his/her' },
   'employee.His': { MALE: 'His', FEMALE: 'Her', fallback: 'His/Her' },
   'employee.him': { MALE: 'him', FEMALE: 'her', fallback: 'him/her' },
+  'employee.title': { MALE: 'Mr.', FEMALE: 'Ms.', fallback: 'Mr./Ms.' },
 };
 
 /** 'YYYY-MM-DD' -> "5 July 2024"; anything unparseable is returned as-is. */
@@ -204,7 +218,7 @@ function parseBodyBlocks(html: string): TextBlock[] {
 /**
  * Renders a letter as an A4 PDF with pdf-lib, per docs/API_CONTRACT_SPRINT3.md scope cut #4 (no
  * puppeteer — headless Chromium is unreliable to provision in a sandboxed build environment).
- * Lays out the template's `bodyHtml` with placeholders filled in, under a simple letterhead, then
+ * Lays out the template's `bodyHtml` with placeholders filled in, under the company letterhead, then
  * appends the CEO signature block (and the employee's acknowledgement once they've signed).
  * Supports the subset of HTML the templates use: `<p>` (with text-align), `<strong>`/`<b>`,
  * `<em>`/`<i>`, `<br>`.
@@ -251,13 +265,17 @@ export class LetterPdfRendererService {
 
     const pdfDoc = await PDFDocument.create();
     pdfDoc.setTitle(`${template.name} — ${values['employee.fullName']}`);
+    // Body in Times, like the owner's letters; the letterhead itself uses Helvetica.
     const fonts = {
-      regular: await pdfDoc.embedFont(StandardFonts.Helvetica),
-      bold: await pdfDoc.embedFont(StandardFonts.HelveticaBold),
-      italic: await pdfDoc.embedFont(StandardFonts.HelveticaOblique),
-      boldItalic: await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique),
+      regular: await pdfDoc.embedFont(StandardFonts.TimesRoman),
+      bold: await pdfDoc.embedFont(StandardFonts.TimesRomanBold),
+      italic: await pdfDoc.embedFont(StandardFonts.TimesRomanItalic),
+      boldItalic: await pdfDoc.embedFont(StandardFonts.TimesRomanBoldItalic),
       signature: await pdfDoc.embedFont(StandardFonts.TimesRomanBoldItalic),
+      headRegular: await pdfDoc.embedFont(StandardFonts.Helvetica),
+      headBold: await pdfDoc.embedFont(StandardFonts.HelveticaBold),
     };
+    const mark = await pdfDoc.embedPng(await readFile(LETTERHEAD_MARK_PATH));
     const fontFor = (run: { bold: boolean; italic: boolean }) =>
       run.bold
         ? run.italic
@@ -280,17 +298,111 @@ export class LetterPdfRendererService {
 
     const pageWidth = 595.28; // A4 portrait, points
     const pageHeight = 841.89;
-    const margin = 64;
+    const margin = 62;
     const contentWidth = pageWidth - margin * 2;
+    const contentTop = pageHeight - 150; // below the letterhead rule
+    const contentBottom = 125; // above the website line + address bar
     const black = rgb(0, 0, 0);
     const grey = rgb(0.45, 0.45, 0.45);
-    let page: PDFPage = pdfDoc.addPage([pageWidth, pageHeight]);
-    let y = pageHeight - margin;
+    const white = rgb(1, 1, 1);
+
+    // Letterhead + footer, drawn on every page.
+    const drawLetterhead = (p: PDFPage) => {
+      // Logo: round mark, green "BNW", blue company line.
+      p.drawImage(mark, { x: margin, y: pageHeight - 94, width: 34, height: 34 });
+      p.drawText('BNW', {
+        x: margin + 40,
+        y: pageHeight - 92,
+        size: 40,
+        font: fonts.headBold,
+        color: BRAND_GREEN,
+      });
+      p.drawText(LETTERHEAD.subtitle, {
+        x: margin,
+        y: pageHeight - 104,
+        size: 6.6,
+        font: fonts.headBold,
+        color: BRAND_BLUE,
+      });
+
+      // Contacts, top right, each with a small green icon tile.
+      const contactX = pageWidth - margin - 170;
+      LETTERHEAD.contacts.forEach((line, i) => {
+        const lineY = pageHeight - 72 - i * 14.5;
+        p.drawRectangle({ x: contactX, y: lineY - 1.5, width: 9, height: 9, color: BRAND_GREEN });
+        p.drawText(line, {
+          x: contactX + 15,
+          y: lineY,
+          size: 9.5,
+          font: fonts.headRegular,
+          color: BRAND_BLUE,
+        });
+      });
+
+      // Two-tone rule under the header: green, then blue on the right.
+      const ruleY = pageHeight - 114;
+      const split = margin + contentWidth * 0.62;
+      p.drawLine({
+        start: { x: margin - 14, y: ruleY },
+        end: { x: split, y: ruleY },
+        thickness: 3,
+        color: BRAND_GREEN,
+      });
+      p.drawLine({
+        start: { x: split, y: ruleY },
+        end: { x: pageWidth - margin + 6, y: ruleY },
+        thickness: 3,
+        color: BRAND_BLUE,
+      });
+
+      // Footer: website line, then the rounded green address bar.
+      const siteSize = 10.5;
+      const siteWidth = fonts.headRegular.widthOfTextAtSize(LETTERHEAD.website, siteSize);
+      const siteX = (pageWidth - siteWidth) / 2 + 8;
+      p.drawRectangle({ x: siteX - 16, y: 100, width: 10, height: 10, color: BRAND_GREEN });
+      p.drawText(LETTERHEAD.website, {
+        x: siteX,
+        y: 101,
+        size: siteSize,
+        font: fonts.headRegular,
+        color: BRAND_BLUE,
+      });
+
+      const barX = margin;
+      const barW = contentWidth;
+      const barH = 26;
+      const barTop = 88; // from the bottom edge
+      const r = barH / 2;
+      p.drawSvgPath(
+        `M ${r} 0 H ${barW - r} A ${r} ${r} 0 0 1 ${barW - r} ${barH} H ${r} A ${r} ${r} 0 0 1 ${r} 0 Z`,
+        { x: barX, y: barTop, color: BRAND_GREEN },
+      );
+      const addrSize = 9.5;
+      const addrWidth = fonts.headRegular.widthOfTextAtSize(LETTERHEAD.address, addrSize);
+      const addrX = barX + (barW - addrWidth) / 2 + 7;
+      const addrY = barTop - barH / 2 - addrSize / 2 + 2.5;
+      p.drawRectangle({ x: addrX - 15, y: addrY - 1, width: 9, height: 9, color: white });
+      p.drawText(LETTERHEAD.address, {
+        x: addrX,
+        y: addrY,
+        size: addrSize,
+        font: fonts.headRegular,
+        color: white,
+      });
+    };
+
+    const addPage = () => {
+      const p = pdfDoc.addPage([pageWidth, pageHeight]);
+      drawLetterhead(p);
+      return p;
+    };
+    let page: PDFPage = addPage();
+    let y = contentTop;
 
     const ensureSpace = (height: number) => {
-      if (y - height < margin) {
-        page = pdfDoc.addPage([pageWidth, pageHeight]);
-        y = pageHeight - margin;
+      if (y - height < contentBottom) {
+        page = addPage();
+        y = contentTop;
       }
     };
     const drawSimple = (
@@ -305,19 +417,8 @@ export class LetterPdfRendererService {
       y -= size * 0.5;
     };
 
-    // Letterhead
-    drawSimple(COMPANY_NAME, { font: fonts.bold, size: 16 });
-    y -= 4;
-    page.drawLine({
-      start: { x: margin, y },
-      end: { x: pageWidth - margin, y },
-      thickness: 0.75,
-      color: grey,
-    });
-    y -= 24;
-
     // Body
-    const size = 11;
+    const size = 11.5;
     const lineHeight = 16;
     type Word = { text: string; font: PDFFont; spaceBefore: boolean };
     for (const block of blocks) {

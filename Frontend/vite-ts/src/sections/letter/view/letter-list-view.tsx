@@ -78,6 +78,7 @@ export function LetterListView() {
               component={RouterLink}
               href={paths.dashboard.letters.new}
               variant="contained"
+              color="primary"
               startIcon={<Iconify icon="mingcute:add-line" />}
             >
               New letter

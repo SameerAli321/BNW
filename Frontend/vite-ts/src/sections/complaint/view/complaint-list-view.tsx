@@ -90,6 +90,7 @@ export function ComplaintListView() {
             component={RouterLink}
             href={paths.dashboard.complaints.new}
             variant="contained"
+            color="primary"
             startIcon={<Iconify icon="mingcute:add-line" />}
           >
             New complaint
@@ -101,6 +102,9 @@ export function ComplaintListView() {
       <Card>
         {canSeeAll && (
           <Tabs
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             value={tabs.value}
             onChange={(event, value) => {
               table.onResetPage();

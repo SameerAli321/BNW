@@ -14,8 +14,11 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { fDate } from 'src/utils/format-time';
+
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useGetLetterTemplates } from 'src/actions/letters';
+import { useGetMyAppraisals } from 'src/actions/appraisals';
 
 import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
@@ -45,7 +48,7 @@ function ItemCard({ kind, title, description, icon, color, flow, actions = [], c
   return (
     <Card
       sx={{
-        p: 3,
+        p: { xs: 2, md: 3 },
         height: 1,
         display: 'flex',
         flexDirection: 'column',
@@ -111,7 +114,7 @@ function ItemCard({ kind, title, description, icon, color, flow, actions = [], c
       {children}
 
       {!!actions.length && (
-        <Stack direction="row" spacing={1} sx={{ mt: 'auto', pt: 1 }}>
+        <Stack direction="row" flexWrap="wrap" sx={{ gap: 1, mt: 'auto', pt: 1 }}>
           {actions.map((action) => (
             <Button
               key={action.label}
@@ -119,7 +122,7 @@ function ItemCard({ kind, title, description, icon, color, flow, actions = [], c
               href={action.href}
               size="small"
               variant={action.primary ? 'contained' : 'outlined'}
-              color={action.primary ? 'inherit' : 'inherit'}
+              color={action.primary ? 'primary' : 'inherit'}
             >
               {action.label}
             </Button>
@@ -158,7 +161,7 @@ function LetterTemplateRow({ label, template, type, canCreate, canEdit }: Letter
             : 'Template missing or hidden'}
         </Typography>
       </Box>
-      <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+      <Stack direction="row" flexWrap="wrap" sx={{ gap: 1, flexShrink: 0 }}>
         {canEdit && template && (
           <Button
             component={RouterLink}
@@ -203,6 +206,13 @@ export function RequestsFormsView() {
   const canCreateLetters = ['HR', 'ADMIN'].includes(role);
   const canEditTemplates = role === 'ADMIN';
   const seesAllForms = ['HR', 'ADMIN', 'CEO'].includes(role);
+
+  // Appraisal requests: everyone except the CEO (nobody reviews the owner), once every 3 months —
+  // the backend enforces the window; this only shows when the next one opens.
+  const canRequestAppraisal = role !== 'CEO';
+  const { appraisalsMeta, appraisalsLoading } = useGetMyAppraisals();
+  const canRequestNext = appraisalsMeta?.canRequestNext ?? true;
+  const nextEligibleDate = appraisalsMeta?.nextEligibleDate ?? null;
 
   const { templates } = useGetLetterTemplates({ isActive: true }, seesLetters);
   const templateOf = (type: LetterType) => templates.find((t) => t.type === type);
@@ -300,6 +310,30 @@ export function RequestsFormsView() {
             ]}
           />
         </Grid>
+        {canRequestAppraisal && (
+          <Grid size={{ xs: 12, md: 6 }}>
+            <ItemCard
+              kind="Form"
+              title="Appraisal Request"
+              description="Fill in the Self Evaluation Form to request your performance appraisal. You can request one every 3 months."
+              icon="solar:cup-star-bold"
+              color="success"
+              flow={['You', 'Your manager', 'CEO']}
+              actions={[
+                { label: 'Request appraisal', href: paths.dashboard.appraisals.new, primary: true },
+                { label: 'My appraisals', href: paths.dashboard.appraisals.root },
+              ]}
+            >
+              {!appraisalsLoading && (
+                <Label color={canRequestNext ? 'success' : 'warning'} sx={{ alignSelf: 'flex-start' }}>
+                  {canRequestNext
+                    ? 'Available now'
+                    : `Next request on ${fDate(nextEligibleDate)}`}
+                </Label>
+              )}
+            </ItemCard>
+          </Grid>
+        )}
         <Grid size={{ xs: 12, md: 6 }}>
           <ItemCard
             kind="Form"

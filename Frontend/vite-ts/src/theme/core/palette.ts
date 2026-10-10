@@ -95,12 +95,14 @@ export const grey = createPaletteChannel(themeConfig.palette.grey);
  * ➤
  */
 export const text = {
-  light: createPaletteChannel({ primary: grey[800], secondary: grey[600], disabled: grey[500] }),
+  // BNW OMS: brand text colours — primary #17324D (headings / content), secondary #64748B.
+  light: createPaletteChannel({ primary: '#17324D', secondary: grey[500], disabled: grey[400] }),
   dark: createPaletteChannel({ primary: '#FFFFFF', secondary: grey[500], disabled: grey[600] }),
 };
 
 export const background = {
-  light: createPaletteChannel({ paper: '#FFFFFF', default: '#FFFFFF', neutral: grey[200] }),
+  // BNW OMS: very light gray-blue #F7F9FC workspace behind white cards.
+  light: createPaletteChannel({ paper: '#FFFFFF', default: '#F7F9FC', neutral: grey[100] }),
   dark: createPaletteChannel({ paper: grey[800], default: grey[900], neutral: '#28323D' }),
 };
 

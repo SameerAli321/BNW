@@ -10,9 +10,11 @@ import Box from '@mui/material/Box';
 import Dialog from '@mui/material/Dialog';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { toast } from 'src/components/snackbar';
 import { Form, Field } from 'src/components/hook-form';
@@ -61,6 +63,9 @@ function defaultValues(current?: ActivityLogDto | null): ActivityLogSchemaType {
 }
 
 export function ActivityLogDialog({ open, onClose, current, onConfirm }: Props) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const methods = useForm<ActivityLogSchemaType>({
     resolver: zodResolver(ActivityLogSchema),
     defaultValues: defaultValues(current),
@@ -96,7 +101,7 @@ export function ActivityLogDialog({ open, onClose, current, onConfirm }: Props) 
   });
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" fullScreen={isMobile}>
       <Form methods={methods} onSubmit={onSubmit}>
         <DialogTitle>{current ? 'Edit activity' : 'Log activity'}</DialogTitle>
 

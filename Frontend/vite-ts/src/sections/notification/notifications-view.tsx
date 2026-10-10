@@ -23,6 +23,7 @@ import {
 import { Label } from 'src/components/label';
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { EmptyContent } from 'src/components/empty-content';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
 import { useAuthContext } from 'src/auth/hooks';
@@ -62,7 +63,7 @@ function WatchAllRequestsCard() {
   };
 
   return (
-    <Card sx={{ p: 2.5, mb: 3 }}>
+    <Card sx={{ p: { xs: 2, md: 2.5 }, mb: 3 }}>
       <FormControlLabel
         sx={{ m: 0, width: 1, justifyContent: 'space-between', alignItems: 'flex-start' }}
         labelPlacement="start"
@@ -119,6 +120,9 @@ export function NotificationsView() {
 
       <Card>
         <Tabs
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           value={tab}
           onChange={(_event, value) => setTab(value)}
           sx={{ px: 2.5, boxShadow: (theme) => `inset 0 -2px 0 0 ${theme.vars.palette.divider}` }}
@@ -139,12 +143,10 @@ export function NotificationsView() {
         </Tabs>
 
         {!notificationsLoading && !notifications.length && (
-          <Stack alignItems="center" spacing={1} sx={{ py: 10, color: 'text.disabled' }}>
-            <Iconify icon="solar:bell-off-bold" width={48} />
-            <Typography variant="body2">
-              {tab === 'unread' ? 'Nothing unread' : 'No notifications yet'}
-            </Typography>
-          </Stack>
+          <EmptyContent
+            title={tab === 'unread' ? 'Nothing unread' : 'No notifications yet'}
+            sx={{ py: 10 }}
+          />
         )}
         {notifications.map((notification) => (
           <NotificationItem key={notification.id} notification={notification} />

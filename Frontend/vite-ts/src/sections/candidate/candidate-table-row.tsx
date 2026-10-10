@@ -119,9 +119,20 @@ export function CandidateTableRow({ row, nextInterview }: Props) {
     <>
       <TableRow hover>
         <TableCell>
-          <Stack sx={{ typography: 'body2' }}>
-            <Box component="span">{row.name}</Box>
-            <Box component="span" sx={{ color: 'text.disabled' }}>
+          <Stack sx={{ typography: 'body2', minWidth: 0 }}>
+            <Box component="span" sx={{ wordBreak: 'break-word' }}>
+              {row.name}
+            </Box>
+            <Box
+              component="span"
+              sx={{
+                color: 'text.secondary',
+                maxWidth: 260,
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
+              }}
+            >
               {row.email}
             </Box>
           </Stack>

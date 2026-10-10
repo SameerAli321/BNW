@@ -26,9 +26,9 @@ const ACTION_LABEL: Record<LetterEventDto['action'], string> = {
   CANCELLED: 'Cancelled',
 };
 
-const ACTION_COLOR: Record<LetterEventDto['action'], 'primary' | 'error' | 'success' | 'grey'> = {
+const ACTION_COLOR: Record<LetterEventDto['action'], 'primary' | 'error' | 'success' | 'warning' | 'grey'> = {
   SUBMITTED: 'primary',
-  CHANGES_REQUESTED: 'error',
+  CHANGES_REQUESTED: 'warning',
   CEO_SIGNED: 'success',
   SENT_TO_EMPLOYEE: 'primary',
   EMPLOYEE_SIGNED: 'success',

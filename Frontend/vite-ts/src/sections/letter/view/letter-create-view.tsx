@@ -105,7 +105,7 @@ export function LetterCreateView() {
 
         <Grid container spacing={3}>
           <Grid size={{ xs: 12 }}>
-            <Card sx={{ p: 3 }}>
+            <Card sx={{ p: { xs: 2, md: 3 } }}>
               <Box
                 sx={{
                   rowGap: 3,

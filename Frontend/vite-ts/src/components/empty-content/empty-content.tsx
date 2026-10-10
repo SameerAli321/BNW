@@ -60,7 +60,7 @@ export function EmptyContent({
             {
               mt: 1,
               textAlign: 'center',
-              color: 'text.disabled',
+              color: 'text.primary',
             },
             ...(Array.isArray(slotProps?.title?.sx) ? slotProps.title.sx : [slotProps?.title?.sx]),
           ]}
@@ -77,7 +77,7 @@ export function EmptyContent({
             {
               mt: 1,
               textAlign: 'center',
-              color: 'text.disabled',
+              color: 'text.secondary',
             },
             ...(Array.isArray(slotProps?.description?.sx)
               ? slotProps.description.sx
@@ -106,8 +106,8 @@ const ContentRoot = styled('div', {
   justifyContent: 'center',
   padding: theme.spacing(0, 3),
   ...(filled && {
-    borderRadius: theme.shape.borderRadius * 2,
+    borderRadius: theme.shape.borderRadius * 1.5,
     backgroundColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.04),
-    border: `dashed 1px ${varAlpha(theme.vars.palette.grey['500Channel'], 0.08)}`,
+    border: `dashed 1px ${theme.vars.palette.divider}`,
   }),
 }));

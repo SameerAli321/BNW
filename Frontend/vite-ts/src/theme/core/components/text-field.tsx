@@ -48,9 +48,16 @@ const MuiOutlinedInput: Components<Theme>['MuiOutlinedInput'] = {
   // ▼▼▼▼▼▼▼▼ 🎨 STYLE ▼▼▼▼▼▼▼▼
   styleOverrides: {
     root: ({ theme }) => ({
+      borderRadius: theme.shape.borderRadius,
+      [`&:hover:not(.${outlinedInputClasses.disabled}):not(.${outlinedInputClasses.focused}):not(.${outlinedInputClasses.error})`]:
+        {
+          [`& .${outlinedInputClasses.notchedOutline}`]: {
+            borderColor: theme.vars.palette.grey[400],
+          },
+        },
       [`&.${outlinedInputClasses.focused}`]: {
         [`& .${outlinedInputClasses.notchedOutline}`]: {
-          borderColor: theme.vars.palette.text.primary,
+          borderColor: theme.vars.palette.primary.main,
         },
       },
       [`&.${outlinedInputClasses.error}`]: {
@@ -65,7 +72,10 @@ const MuiOutlinedInput: Components<Theme>['MuiOutlinedInput'] = {
       },
     }),
     notchedOutline: ({ theme }) => ({
-      borderColor: theme.vars.palette.shared.inputOutlined,
+      borderColor: theme.vars.palette.grey[300],
+      ...theme.applyStyles('dark', {
+        borderColor: theme.vars.palette.shared.inputOutlined,
+      }),
       transition: theme.transitions.create(['border-color'], {
         duration: theme.transitions.duration.shortest,
       }),

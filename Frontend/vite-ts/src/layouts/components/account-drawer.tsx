@@ -24,6 +24,8 @@ import { AnimateBorder } from 'src/components/animate';
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { userRoleLabel } from 'src/types/user';
+
 import { AccountButton } from './account-button';
 import { SignOutButton } from './sign-out-button';
 
@@ -120,7 +122,12 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
       <AccountButton
         onClick={onOpen}
         photoURL={avatarSrc(user?.avatarUrl) ?? ''}
-        displayName={displayName ?? ''} sx={sx} {...other} />
+        displayName={displayName ?? ''}
+        // Header account chip: name + role on md+ (see account-button.tsx).
+        caption={user?.role ? userRoleLabel(user.role) : ''}
+        sx={sx}
+        {...other}
+      />
 
       <Drawer
         open={open}

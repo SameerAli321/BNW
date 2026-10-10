@@ -1,3 +1,5 @@
+import type { DashboardSharedBlocks } from './dashboard-widgets';
+
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import { useTheme } from '@mui/material/styles';
@@ -26,8 +28,8 @@ const CANDIDATE_ORDER = ['NEW', 'SHORTLISTED', 'OFFERED', 'HIRED', 'REJECTED'];
 
 // BNW OMS: HR dashboard home — the HR work queue (leave to approve, complaints, attendance and
 // onboarding forms to record), request volume over time, who's away today, headcount and the
-// hiring pipeline.
-export function HrOverviewView() {
+// hiring pipeline — plus the shared announcement / quick-action blocks.
+export function HrOverviewView({ announcements, quickActions }: DashboardSharedBlocks) {
   const theme = useTheme();
   const { dashboard, dashboardLoading } = useGetDashboard();
 
@@ -84,7 +86,28 @@ export function HrOverviewView() {
       </Grid>
 
       <Grid container spacing={3}>
-        <Grid size={{ xs: 12, md: 5 }}>
+        <Grid size={{ xs: 12, md: 7 }}>
+          <MonthlyTrendCard
+            title="Requests received"
+            subheader="Forms submitted per month (last 6 months)"
+            data={company.requestsByMonth}
+            type="bar"
+            colors={[
+              theme.palette.primary.main,
+              theme.palette.secondary.main,
+              theme.palette.success.main,
+            ]}
+            height={340}
+            emptyLabel="No forms submitted in the last 6 months"
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 5 }}>{announcements}</Grid>
+      </Grid>
+
+      {quickActions}
+
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <PendingActionsCard
             title="HR work queue"
             subheader="Waiting on the HR department"
@@ -127,20 +150,6 @@ export function HrOverviewView() {
             ]}
           />
         </Grid>
-        <Grid size={{ xs: 12, md: 7 }}>
-          <MonthlyTrendCard
-            title="Requests received"
-            subheader="Forms submitted per month (last 6 months)"
-            data={company.requestsByMonth}
-            type="bar"
-            colors={[theme.palette.primary.main, theme.palette.error.main, theme.palette.info.main]}
-            height={340}
-            emptyLabel="No forms submitted in the last 6 months"
-          />
-        </Grid>
-      </Grid>
-
-      <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 4 }}>
           <DonutChartCard
             title="Headcount by department"
@@ -150,6 +159,15 @@ export function HrOverviewView() {
             action={<CardLink href={paths.dashboard.staffSummary} />}
           />
         </Grid>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <OnLeaveTodayCard
+            items={company.onLeaveToday}
+            action={<CardLink href={paths.dashboard.leaveRequests.root} />}
+          />
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 4 }}>
           <BarChartCard
             title="Leave taken this year"
@@ -163,15 +181,6 @@ export function HrOverviewView() {
             emptyLabel="No approved leave yet this year"
           />
         </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <OnLeaveTodayCard
-            items={company.onLeaveToday}
-            action={<CardLink href={paths.dashboard.leaveRequests.root} />}
-          />
-        </Grid>
-      </Grid>
-
-      <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 4 }}>
           <BarChartCard
             title="Hiring pipeline"
@@ -197,17 +206,16 @@ export function HrOverviewView() {
             emptyLabel="No complaints submitted"
           />
         </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <MonthlyTrendCard
-            title="New joiners"
-            subheader="By join date, last 12 months"
-            data={company.joinersByMonth}
-            colors={[theme.palette.success.main]}
-            height={280}
-            emptyLabel="No joiners in the last 12 months"
-          />
-        </Grid>
       </Grid>
+
+      <MonthlyTrendCard
+        title="New joiners"
+        subheader="By join date, last 12 months"
+        data={company.joinersByMonth}
+        colors={[theme.palette.success.main]}
+        height={280}
+        emptyLabel="No joiners in the last 12 months"
+      />
 
       {team && <DashboardTeamSection team={team} />}
     </Stack>

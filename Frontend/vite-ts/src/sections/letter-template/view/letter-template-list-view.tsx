@@ -61,6 +61,7 @@ export function LetterTemplateListView() {
                 component={RouterLink}
                 href={paths.dashboard.letterTemplates.new}
                 variant="contained"
+                color="primary"
                 startIcon={<Iconify icon="mingcute:add-line" />}
               >
                 New template

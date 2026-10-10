@@ -8,9 +8,9 @@ import { Label } from 'src/components/label';
 const STATUS_COLOR: Record<LetterStatus, LabelColor> = {
   DRAFT: 'default',
   PENDING_CEO: 'warning',
-  CHANGES_REQUESTED: 'error',
+  CHANGES_REQUESTED: 'warning',
   CEO_SIGNED: 'info',
-  SENT_TO_EMPLOYEE: 'info',
+  SENT_TO_EMPLOYEE: 'warning',
   SIGNED: 'success',
   ARCHIVED: 'default',
   CANCELLED: 'error',

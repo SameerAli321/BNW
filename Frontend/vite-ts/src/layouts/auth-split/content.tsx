@@ -37,13 +37,24 @@ export function AuthSplitContent({
       ]}
       {...other}
     >
+      {/*
+        BNW OMS: from `sm` up the form sits on a clean card; on phones it stays flat and
+        full-width so the fields get the whole screen.
+      */}
       <Box
-        sx={{
+        sx={(theme) => ({
           width: 1,
           display: 'flex',
           flexDirection: 'column',
           maxWidth: 'var(--layout-auth-content-width)',
-        }}
+          [theme.breakpoints.up('sm')]: {
+            p: 5,
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+            boxShadow: theme.vars.customShadows.card,
+            maxWidth: `calc(var(--layout-auth-content-width) + ${theme.spacing(10)})`,
+          },
+        })}
       >
         {children}
       </Box>

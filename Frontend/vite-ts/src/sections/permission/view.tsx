@@ -51,7 +51,7 @@ export function PermissionDeniedView() {
       </Box>
 
       <RoleBasedGuard hasContent currentRole={currentRole} allowedRoles={['admin']} sx={{ py: 10 }}>
-        <Box sx={{ gap: 3, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+        <Box sx={{ gap: 3, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
           {Array.from({ length: 8 }, (_, index) => (
             <Card key={index}>
               <CardHeader title={`Card ${index + 1}`} subheader="Proin viverra ligula" />

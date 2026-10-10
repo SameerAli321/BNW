@@ -4,10 +4,12 @@ import Stack from '@mui/material/Stack';
 import Dialog from '@mui/material/Dialog';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
+import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { paths } from 'src/routes/paths';
 import { useParams } from 'src/routes/hooks';
@@ -28,6 +30,7 @@ import {
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { EmptyContent } from 'src/components/empty-content';
 import { ConfirmDialog } from 'src/components/custom-dialog';
 import { LoadingScreen } from 'src/components/loading-screen';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
@@ -65,6 +68,8 @@ export function LeaveDetailView() {
   const [cancelDialog, setCancelDialog] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [decisionRemarks, setDecisionRemarks] = useState('');
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   if (requestLoading) {
     return (
@@ -86,10 +91,7 @@ export function LeaveDetailView() {
           ]}
           sx={{ mb: { xs: 3, md: 5 } }}
         />
-        <Stack sx={{ py: 10, textAlign: 'center', color: 'text.secondary' }}>
-          Unable to load this leave request — either it doesn&apos;t exist, or you don&apos;t have
-          permission to view it.
-        </Stack>
+        <EmptyContent filled title="Unable to load this leave request" description="Either it doesn't exist, or you don't have permission to view it." sx={{ py: 10 }} />
       </DashboardContent>
     );
   }
@@ -137,7 +139,7 @@ export function LeaveDetailView() {
           { name: `#${request.id}` },
         ]}
         action={
-          <Stack direction="row" spacing={1.5} alignItems="center">
+          <Stack direction="row" alignItems="center" flexWrap="wrap" sx={{ gap: 1.5 }}>
             <LeaveStatusLabel status={request.status} />
             {canCancel && (
               <Button
@@ -274,7 +276,11 @@ export function LeaveDetailView() {
                   fullWidth
                   slotProps={{ htmlInput: { maxLength: 2000 } }}
                 />
-                <Stack direction="row" spacing={1.5} justifyContent="flex-end">
+                <Stack
+                  direction={{ xs: 'column-reverse', sm: 'row' }}
+                  spacing={1.5}
+                  justifyContent="flex-end"
+                >
                   <Button
                     variant="outlined"
                     color="inherit"
@@ -366,7 +372,13 @@ export function LeaveDetailView() {
         }
       />
 
-      <Dialog open={cancelDialog} onClose={() => setCancelDialog(false)} fullWidth maxWidth="sm">
+      <Dialog
+        open={cancelDialog}
+        onClose={() => setCancelDialog(false)}
+        fullWidth
+        maxWidth="sm"
+        fullScreen={isMobile}
+      >
         <DialogTitle>Ask HR to cancel this approved leave</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>

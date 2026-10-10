@@ -160,6 +160,7 @@ const ItemRoot = styled(ButtonBase, { shouldForwardProp })<StyledState>(({
     color: 'var(--nav-item-color)',
     borderRadius: 'var(--nav-item-radius)',
     '&:hover': { backgroundColor: 'var(--nav-item-hover-bg)' },
+    ...navItemStyles.interaction(theme),
     variants: [
       { props: { variant: 'rootItem' }, style: rootItemStyles },
       { props: { variant: 'subItem' }, style: subItemStyles },
@@ -176,7 +177,12 @@ const ItemIcon = styled('span', { shouldForwardProp })<StyledState>(() => ({
   width: 'var(--nav-icon-size)',
   height: 'var(--nav-icon-size)',
   margin: 'var(--nav-icon-root-margin)',
-  variants: [{ props: { variant: 'subItem' }, style: { margin: 'var(--nav-icon-sub-margin)' } }],
+  // Idle icons can be tinted apart from the label; active ones follow the item's colour.
+  color: 'var(--nav-item-icon-color)',
+  variants: [
+    { props: { variant: 'subItem' }, style: { margin: 'var(--nav-icon-sub-margin)' } },
+    { props: { active: true }, style: { color: 'inherit' } },
+  ],
 }));
 
 /**

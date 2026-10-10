@@ -33,11 +33,14 @@ export function AuthSplitSection({
     <Box
       sx={[
         (theme) => ({
+          // Navy wash with a faint gold glow in the bottom corner (primary / secondary palette).
           ...theme.mixins.bgGradient({
             images: [
-              `linear-gradient(135deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.16)}, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.02)})`,
+              `radial-gradient(circle at 100% 100%, ${varAlpha(theme.vars.palette.secondary.mainChannel, 0.14)}, transparent 45%)`,
+              `linear-gradient(160deg, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.2)}, ${varAlpha(theme.vars.palette.primary.mainChannel, 0.04)})`,
             ],
           }),
+          borderRight: `solid 1px ${varAlpha(theme.vars.palette.primary.mainChannel, 0.12)}`,
           px: 3,
           pb: 3,
           width: 1,
@@ -64,7 +67,19 @@ export function AuthSplitSection({
           animate={{ y: [0, -10, 0] }}
           transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
         >
-          <Logo isSingle={false} sx={{ width: 260, height: 80 }} />
+          {/* Light plate so the blue wordmark line stays readable in dark mode too. */}
+          <Box
+            sx={(theme) => ({
+              px: 3,
+              py: 2,
+              borderRadius: 2,
+              display: 'flex',
+              bgcolor: 'common.white',
+              boxShadow: theme.vars.customShadows.z8,
+            })}
+          >
+            <Logo isSingle={false} sx={{ width: 260, height: 80 }} />
+          </Box>
         </m.div>
 
         <m.div variants={varFade('inUp')}>

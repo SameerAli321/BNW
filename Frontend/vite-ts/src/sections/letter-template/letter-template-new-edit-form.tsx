@@ -95,7 +95,7 @@ export function LetterTemplateNewEditForm({ currentTemplate, currentBodyHtml }: 
   return (
     <Grid container spacing={3}>
       <Grid size={{ xs: 12 }}>
-        <Card sx={{ p: 3 }}>
+        <Card sx={{ p: { xs: 2, md: 3 } }}>
           <Alert severity="info" sx={{ mb: 3 }}>
             The body is filled in when the letter PDF is generated: <code>{'{{date}}'}</code>{' '}
             becomes the date the CEO signs, <code>{'{{employee.fullName}}'}</code> (and other{' '}
@@ -128,7 +128,11 @@ export function LetterTemplateNewEditForm({ currentTemplate, currentBodyHtml }: 
               </TextField>
             </Stack>
 
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+            >
               <TextField
                 label="Role scope (informational only, not enforced)"
                 placeholder="e.g. All, or a specific role"

@@ -157,6 +157,7 @@ export function ActivityLogListView() {
         action={
           <Button
             variant="contained"
+            color="primary"
             startIcon={<Iconify icon="mingcute:add-line" />}
             onClick={openNew}
           >
@@ -169,6 +170,9 @@ export function ActivityLogListView() {
       <Card>
         {tabsList.length > 1 && (
           <Tabs
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             value={tabs.value}
             onChange={tabs.onChange}
             sx={{ px: 2.5, boxShadow: (theme) => `inset 0 -2px 0 0 ${theme.vars.palette.divider}` }}

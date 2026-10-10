@@ -7,6 +7,8 @@ import { merge } from 'es-toolkit';
 
 import Alert from '@mui/material/Alert';
 
+import { Logo } from 'src/components/logo';
+
 import { AuthSplitSection } from './section';
 import { AuthSplitContent } from './content';
 import { SettingsButton } from '../components/settings-button';
@@ -44,11 +46,21 @@ export function AuthSplitLayout({
           This is an info Alert.
         </Alert>
       ),
-      // BNW OMS: no logo here — the branded illustration panel (AuthSplitSection, left column on
-      // desktop) already shows a big animated version of the same logo directly below where this
-      // header sits, so having both was showing it twice stacked on top of each other. No
-      // help/FAQ page exists either (removed with the rest of the minimal-kit's marketing pages),
-      // so that dead link is gone too. Just the theme toggle remains in the header.
+      // BNW OMS: on desktop the branded panel (AuthSplitSection, left column) already shows a big
+      // animated logo right below this header, so the header logo only appears below
+      // `layoutQuery`, where that panel is hidden — otherwise phones would show no logo at all.
+      // No help/FAQ page exists (removed with the rest of the minimal-kit's marketing pages), so
+      // just the theme toggle sits on the right.
+      leftArea: (
+        <Logo
+          isSingle={false}
+          sx={(theme) => ({
+            width: { xs: 120, sm: 140 },
+            height: { xs: 37, sm: 44 },
+            [theme.breakpoints.up(layoutQuery)]: { display: 'none' },
+          })}
+        />
+      ),
       rightArea: <SettingsButton />,
     };
 

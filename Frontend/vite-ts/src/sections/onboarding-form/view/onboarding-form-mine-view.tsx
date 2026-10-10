@@ -138,7 +138,7 @@ function OnboardingFormEditor({ myForm, prefill }: EditorProps) {
         links={[{ name: 'Dashboard', href: paths.dashboard.root }, { name: 'Requests & Forms', href: paths.dashboard.requestsForms }, { name: 'Onboarding Form' }]}
         action={
           myForm && (
-            <Stack direction="row" spacing={1.5} alignItems="center">
+            <Stack direction="row" alignItems="center" sx={{ gap: 1.5, flexWrap: 'wrap' }}>
               <OnboardingFormStatusLabel status={myForm.status} />
               <Button
                 variant="outlined"

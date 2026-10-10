@@ -52,11 +52,13 @@ export function NavVertical({
           data={data}
           cssVars={cssVars}
           checkPermissions={checkPermissions}
-          sx={{ px: 2, flex: '1 1 auto' }}
+          sx={{ px: 2, pb: 2, flex: '1 1 auto' }}
         />
-
-        {slots?.bottomArea ?? <NavUpgrade />}
       </Scrollbar>
+
+      {/* BNW OMS: outside the scroll area so the sidebar footer (Settings / Log out) stays pinned
+          to the bottom however long the menu is. */}
+      {slots?.bottomArea ?? <NavUpgrade />}
     </>
   );
 
