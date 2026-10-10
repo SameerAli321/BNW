@@ -67,19 +67,8 @@ export function AuthSplitSection({
           animate={{ y: [0, -10, 0] }}
           transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
         >
-          {/* Light plate so the blue wordmark line stays readable in dark mode too. */}
-          <Box
-            sx={(theme) => ({
-              px: 3,
-              py: 2,
-              borderRadius: 2,
-              display: 'flex',
-              bgcolor: 'common.white',
-              boxShadow: theme.vars.customShadows.z8,
-            })}
-          >
-            <Logo isSingle={false} sx={{ width: 260, height: 80 }} />
-          </Box>
+          {/* Logo sits directly on the light panel — no white plate, per the client. */}
+          <Logo isSingle={false} sx={{ width: 260, height: 80 }} />
         </m.div>
 
         <m.div variants={varFade('inUp')}>
