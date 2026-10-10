@@ -32,6 +32,9 @@ export const baseTheme: ThemeOptions = {
   components,
   typography,
   shape: { borderRadius: 8 },
+  // BNW OMS: 90% of MUI's default 8px, paired with the 14.4px base font size (settings-config),
+  // so the whole UI matches the denser look the client approved at 90% browser zoom.
+  spacing: 7.2,
   direction: themeConfig.direction,
   cssVariables: themeConfig.cssVariables,
   defaultColorScheme: themeConfig.colorScheme,

@@ -17,7 +17,9 @@ export const defaultSettings: SettingsState = {
   // 'integrate') per the client's UI brief. Still user-adjustable via the settings drawer.
   navColor: 'integrate',
   compactLayout: true,
-  fontSize: 16,
+  // 90% of 16px — the client wanted the app to look like it does at 90% browser zoom (spacing is
+  // scaled to match in theme/create-theme.ts).
+  fontSize: 14.4,
   fontFamily: themeConfig.fontFamily.primary,
   version: CONFIG.appVersion,
 };

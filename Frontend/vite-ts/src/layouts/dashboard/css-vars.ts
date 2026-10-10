@@ -13,8 +13,9 @@ export function dashboardLayoutVars(theme: Theme) {
   return {
     '--layout-transition-easing': 'linear',
     '--layout-transition-duration': '120ms',
-    '--layout-nav-mini-width': '88px',
-    '--layout-nav-vertical-width': '300px',
+    // BNW OMS: 90% of the template's widths, matching the 90% type + spacing scale.
+    '--layout-nav-mini-width': '80px',
+    '--layout-nav-vertical-width': '270px',
     '--layout-nav-horizontal-height': '64px',
     '--layout-dashboard-content-pt': theme.spacing(1),
     '--layout-dashboard-content-pb': theme.spacing(8),
