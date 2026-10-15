@@ -79,6 +79,10 @@ export function StaffSummaryListView() {
     departmentId: currentFilters.departmentId ? Number(currentFilters.departmentId) : undefined,
     role: currentFilters.role || undefined,
     status: currentFilters.status !== 'all' ? currentFilters.status : undefined,
+    // Sorted on the server — rows are paginated there, so sorting the current page locally would
+    // only reorder those 25 rows.
+    sortBy: table.orderBy || undefined,
+    order: table.order,
   };
 
   // Contract's `page` query param — assumed 1-based (see docs/FRONTEND_STATUS.md Sprint 2 section

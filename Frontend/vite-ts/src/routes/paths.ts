@@ -189,6 +189,17 @@ export const paths = {
       root: `${ROOTS.DASHBOARD}/salary-slips`,
       new: `${ROOTS.DASHBOARD}/salary-slips/new`,
     },
+    // About us — company details, then the CEO's message with their photo.
+    aboutUs: `${ROOTS.DASHBOARD}/about-us`,
+    // Bookings — calendar, my bookings, book (meeting / room / pool table), rooms & tables.
+    bookings: {
+      root: `${ROOTS.DASHBOARD}/bookings`,
+      list: `${ROOTS.DASHBOARD}/bookings/list`,
+      new: `${ROOTS.DASHBOARD}/bookings/new`,
+      resources: `${ROOTS.DASHBOARD}/bookings/resources`,
+      details: (id: number | string) => `${ROOTS.DASHBOARD}/bookings/${id}`,
+      edit: (id: number | string) => `${ROOTS.DASHBOARD}/bookings/${id}/edit`,
+    },
     // Announcement board — CEO / ADMIN / HR post, everyone reads.
     announcements: `${ROOTS.DASHBOARD}/announcements`,
     // In-app notifications (also the header bell).

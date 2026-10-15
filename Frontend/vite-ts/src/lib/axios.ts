@@ -177,6 +177,21 @@ export const endpoints = {
     pdf: (id: number | string) => `/salary-slips/${id}/pdf`,
     send: (id: number | string) => `/salary-slips/${id}/send`,
   },
+  // About us — company details + CEO message (CEO / HR / ADMIN edit; photo upload is multipart 'file').
+  about: { root: '/about', ceoPhoto: '/about/ceo-photo' },
+  // Dashboard 'Team status' table — CEO / HR / ADMIN: everyone; Team Leads: direct reports.
+  teamStatus: '/dashboard/team-status',
+  // Bookings — meetings, meeting rooms, pool table (+ rooms & tables HR / ADMIN manage).
+  bookings: {
+    list: '/bookings',
+    upcomingMeetings: '/bookings/upcoming-meetings',
+    availability: '/bookings/availability',
+    people: '/bookings/people',
+    details: (id: number | string) => `/bookings/${id}`,
+    cancel: (id: number | string) => `/bookings/${id}/cancel`,
+    resources: '/booking-resources',
+    resource: (id: number | string) => `/booking-resources/${id}`,
+  },
   // In-app notifications (the bell in the header) — always the caller's own.
   notifications: {
     list: '/notifications',

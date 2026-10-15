@@ -31,6 +31,8 @@ const ICONS = {
   forms: solarIcon('solar:file-check-bold-duotone'),
   announcement: solarIcon('solar:bell-bing-bold-duotone'),
   activity: solarIcon('solar:notebook-bold-duotone'),
+  calendar: solarIcon('solar:calendar-date-bold'),
+  about: solarIcon('solar:info-circle-bold'),
 };
 
 // ----------------------------------------------------------------------
@@ -95,6 +97,24 @@ export const navData: NavSectionProps['data'] = [
         title: 'Requests & Forms',
         path: paths.dashboard.requestsForms,
         icon: ICONS.forms,
+      },
+      {
+        // Bookings — meetings, meeting rooms and the pool table. No `allowedRoles`: everyone books
+        // rooms / the pool table and sees meetings they're invited to; organising meetings (CEO,
+        // HR / ADMIN, Team Leads) and "Rooms & tables" (HR / ADMIN) are gated inside and by the API.
+        title: 'Bookings',
+        path: paths.dashboard.bookings.root,
+        icon: ICONS.calendar,
+        children: [
+          { title: 'Calendar', path: paths.dashboard.bookings.root },
+          { title: 'My bookings', path: paths.dashboard.bookings.list },
+          { title: 'New booking', path: paths.dashboard.bookings.new },
+          {
+            title: 'Rooms & tables',
+            path: paths.dashboard.bookings.resources,
+            allowedRoles: ['HR', 'ADMIN'],
+          },
+        ],
       },
       {
         // Announcement board. No `allowedRoles`: everyone reads it (it's also on every dashboard);
@@ -165,6 +185,13 @@ export const navData: NavSectionProps['data'] = [
         icon: ICONS.lock,
         allowedRoles: ['CEO', 'ADMIN'],
       },
+    ],
+  },
+  {
+    subheader: 'Company',
+    items: [
+      // Company details + the CEO's message — everyone reads it; CEO / HR / ADMIN edit it there.
+      { title: 'About us', path: paths.dashboard.aboutUs, icon: ICONS.about },
     ],
   },
 

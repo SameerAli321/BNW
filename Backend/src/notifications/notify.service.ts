@@ -5,7 +5,7 @@ import { User } from '../entities/user.entity';
 import { Notification } from '../entities/notification.entity';
 import { RoleName } from '../common/enums/role.enum';
 import { UserStatus } from '../common/enums/user-status.enum';
-import { MailService } from '../mail/mail.service';
+import { MailAttachment, MailMessage, MailService } from '../mail/mail.service';
 import { renderActionEmail } from '../mail/action-email';
 import { EmailDetailRow } from '../mail/email-layout';
 
@@ -24,6 +24,10 @@ export type NotifyOptions = {
   rows?: EmailDetailRow[];
   /** Set false for bell only. Default: bell + email. */
   email?: boolean;
+  /** Files attached to the email (e.g. a letter's PDF). */
+  attachments?: MailAttachment[];
+  /** A calendar invite (.ics) sent with the email, e.g. for meetings. */
+  icalEvent?: MailMessage['icalEvent'];
 };
 
 /**
@@ -69,7 +73,13 @@ export class NotifyService {
         link: this.mail.appUrl(options.link),
         buttonLabel: 'Open in BNW HR system',
       });
-      for (const user of recipients) void this.mail.send({ to: user.email, ...email });
+      for (const user of recipients)
+        void this.mail.send({
+          to: user.email,
+          ...email,
+          attachments: options.attachments,
+          icalEvent: options.icalEvent,
+        });
     } catch (error) {
       this.logger.error(`Notification failed (${options.link}): ${(error as Error).message}`);
     }

@@ -32,6 +32,9 @@ import { Interview } from '../entities/interview.entity';
 import { WorkOrder } from '../entities/work-order.entity';
 import { AppSetting } from '../entities/app-setting.entity';
 import { SalarySlip } from '../entities/salary-slip.entity';
+import { Booking } from '../entities/booking.entity';
+import { BookingParticipant } from '../entities/booking-participant.entity';
+import { BookingResource } from '../entities/booking-resource.entity';
 
 loadEnv();
 
@@ -79,6 +82,9 @@ export const typeOrmDataSourceOptions: DataSourceOptions = {
     WorkOrder,
     AppSetting,
     SalarySlip,
+    Booking,
+    BookingParticipant,
+    BookingResource,
   ],
   migrations: [__dirname + '/../migrations/*.{ts,js}'],
   synchronize: false,

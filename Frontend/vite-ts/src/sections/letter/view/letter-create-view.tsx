@@ -60,6 +60,18 @@ export function LetterCreateView() {
     if (match) setTemplateId(match.id);
   }, [prefillLetterType, templateId, templates]);
 
+  // Pre-fill manual fields that have a default (e.g. the contract's job description) once the
+  // template's fields load; anything HR has already typed is kept.
+  useEffect(() => {
+    setFieldValues((prev) => {
+      const defaults = fieldsSchema.filter(
+        (f) => !f.autoFilled && f.defaultValue && prev[f.key] === undefined
+      );
+      if (!defaults.length) return prev;
+      return { ...prev, ...Object.fromEntries(defaults.map((f) => [f.key, f.defaultValue!])) };
+    });
+  }, [fieldsSchema]);
+
   const autoFilledFields = useMemo(() => fieldsSchema.filter((f) => f.autoFilled), [fieldsSchema]);
 
   const handleFieldChange = (key: string, value: string) => {

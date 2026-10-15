@@ -60,6 +60,10 @@ export interface LetterFieldSchemaEntry {
   key: string;
   label: string;
   autoFilled: boolean;
+  /** Manual fields only: multi-line input (e.g. a list, one item per line). */
+  multiline?: boolean;
+  /** Manual fields only: pre-filled when a new letter is started. */
+  defaultValue?: string;
 }
 
 /**

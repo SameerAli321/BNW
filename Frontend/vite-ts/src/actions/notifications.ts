@@ -91,6 +91,10 @@ export function notificationVisual(type: string): {
       return { icon: 'solar:wad-of-money-bold', color: 'secondary' };
     case 'INTERVIEW':
       return { icon: 'solar:calendar-date-bold', color: 'info' };
+    case 'MEETING':
+      return { icon: 'solar:calendar-date-bold', color: 'primary' };
+    case 'BOOKING':
+      return { icon: 'solar:calendar-date-bold', color: 'success' };
     default:
       return { icon: 'solar:letter-bold', color: 'primary' };
   }

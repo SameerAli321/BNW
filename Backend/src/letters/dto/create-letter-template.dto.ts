@@ -22,6 +22,14 @@ export class LetterFieldSchemaEntryDto {
 
   @IsBoolean()
   autoFilled: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  multiline?: boolean;
+
+  @IsOptional()
+  @IsString()
+  defaultValue?: string;
 }
 
 export class CreateLetterTemplateDto {

@@ -34,6 +34,9 @@ import { Interview } from './entities/interview.entity';
 import { WorkOrder } from './entities/work-order.entity';
 import { AppSetting } from './entities/app-setting.entity';
 import { SalarySlip } from './entities/salary-slip.entity';
+import { Booking } from './entities/booking.entity';
+import { BookingParticipant } from './entities/booking-participant.entity';
+import { BookingResource } from './entities/booking-resource.entity';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
@@ -57,6 +60,8 @@ import { InterviewsModule } from './interviews/interviews.module';
 import { WorkOrdersModule } from './work-orders/work-orders.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { SalarySlipsModule } from './salary-slips/salary-slips.module';
+import { BookingsModule } from './bookings/bookings.module';
+import { AboutModule } from './about/about.module';
 import { RequestWatchersModule } from './notifications/request-watchers.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -107,6 +112,9 @@ import { RolesGuard } from './common/guards/roles.guard';
           WorkOrder,
           AppSetting,
           SalarySlip,
+          Booking,
+          BookingParticipant,
+          BookingResource,
         ],
         synchronize: false, // migrations only — never sync() against a real schema
         autoLoadEntities: true,
@@ -135,6 +143,8 @@ import { RolesGuard } from './common/guards/roles.guard';
     WorkOrdersModule,
     DashboardModule,
     SalarySlipsModule,
+    BookingsModule,
+    AboutModule,
     RequestWatchersModule,
   ],
   providers: [

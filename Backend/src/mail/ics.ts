@@ -73,13 +73,7 @@ export function buildIcs(event: IcsEvent): string {
     `STATUS:${event.method === 'CANCEL' ? 'CANCELLED' : 'CONFIRMED'}`,
     'TRANSP:OPAQUE',
     ...(event.method === 'REQUEST'
-      ? [
-          'BEGIN:VALARM',
-          'ACTION:DISPLAY',
-          'DESCRIPTION:Interview reminder',
-          'TRIGGER:-PT30M',
-          'END:VALARM',
-        ]
+      ? ['BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', 'TRIGGER:-PT30M', 'END:VALARM']
       : []),
     'END:VEVENT',
     'END:VCALENDAR',

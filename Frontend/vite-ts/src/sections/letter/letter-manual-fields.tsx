@@ -43,6 +43,9 @@ export function LetterManualFields({ fields, values, onChange, disabled }: Props
           onChange={(event) => onChange(field.key, event.target.value)}
           disabled={disabled}
           fullWidth
+          multiline={field.multiline}
+          minRows={field.multiline ? 6 : undefined}
+          sx={field.multiline ? { gridColumn: '1 / -1' } : undefined}
         />
       ))}
     </Box>

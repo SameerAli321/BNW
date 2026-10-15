@@ -37,6 +37,11 @@ import {
   WARNING_LETTER_FIELDS,
   WARNING_LETTER_NAME,
 } from '../letters/hr-letter-bodies';
+import {
+  CONTRACT_LETTER_BODY,
+  CONTRACT_LETTER_FIELDS,
+  CONTRACT_LETTER_NAME,
+} from '../letters/contract-letter-body';
 
 // The first four are what the user-creation form offers (client feedback); Finance / Engineering
 // are kept for existing data.
@@ -57,7 +62,8 @@ const DOCUMENT_TYPES = [
 ];
 
 // Letter templates. Offer / Experience / Redundancy / Warning carry the owner-provided wording
-// (letters/hr-letter-bodies.ts); Contract and Terms Change are still Sprint 3 placeholders.
+// (letters/hr-letter-bodies.ts) and the contract (letters/contract-letter-body.ts); Terms Change is
+// still a Sprint 3 placeholder.
 const LETTER_TEMPLATES: Array<{
   type: LetterTemplateType;
   name: string;
@@ -80,23 +86,14 @@ const LETTER_TEMPLATES: Array<{
     fieldsSchema: EXPERIENCE_LETTER_FIELDS,
   },
   // Gap-fix (docs/API_CONTRACT_GAPS_FIX.md, Gap 4) — 4 more templates so all 6 guide letter types
-  // share the one generic engine, same idempotent-by-`type` pattern. Contract and Terms Change
-  // still carry clearly marked placeholder bodies.
+  // share the one generic engine, same idempotent-by-`type` pattern. Terms Change still carries a
+  // clearly marked placeholder body.
   {
     type: LetterTemplateType.CONTRACT,
-    name: 'Employment Contract (placeholder)',
+    name: CONTRACT_LETTER_NAME,
     roleScope: null,
-    bodyHtml:
-      '<p><em>[PLACEHOLDER TEMPLATE — replace with real employment contract content]</em></p>' +
-      '<p>Dear {{employee.fullName}},</p>' +
-      '<p>This confirms your employment as {{employee.designation}} at a monthly salary of ' +
-      '{{salary}}, effective from {{startDate}}.</p>',
-    fieldsSchema: [
-      { key: 'employee.fullName', label: 'Employee name', autoFilled: true },
-      { key: 'employee.designation', label: 'Designation', autoFilled: true },
-      { key: 'salary', label: 'Monthly salary', autoFilled: false },
-      { key: 'startDate', label: 'Start date', autoFilled: false },
-    ],
+    bodyHtml: CONTRACT_LETTER_BODY,
+    fieldsSchema: CONTRACT_LETTER_FIELDS,
   },
   {
     type: LetterTemplateType.REDUNDANCY,
@@ -166,10 +163,7 @@ const LETTER_TEMPLATES: Array<{
 
 // The remaining placeholder templates are created hidden (inactive) — per the project owner only
 // the real letters are offered to HR. They can be re-activated from Letter Templates.
-const HIDDEN_TEMPLATE_TYPES: LetterTemplateType[] = [
-  LetterTemplateType.CONTRACT,
-  LetterTemplateType.TERMS_CHANGE,
-];
+const HIDDEN_TEMPLATE_TYPES: LetterTemplateType[] = [LetterTemplateType.TERMS_CHANGE];
 
 // Starter joining pack items (Sprint 5), per docs/API_CONTRACT_SPRINT5.md's "New tables" section.
 const JOINING_PACK_ITEMS: Array<{

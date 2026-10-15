@@ -49,7 +49,52 @@ export class StaffSummaryService {
       qb.andWhere('user.departmentId = :departmentId', { departmentId: query.departmentId });
     }
 
-    return qb.orderBy('user.createdAt', 'DESC');
+    return this.applySort(qb, query);
+  }
+
+  private applySort(
+    qb: SelectQueryBuilder<User>,
+    query: QueryStaffSummaryDto,
+  ): SelectQueryBuilder<User> {
+    const direction = query.order === 'desc' ? 'DESC' : 'ASC';
+    const nulls = 'NULLS LAST';
+
+    switch (query.sortBy) {
+      case 'name':
+        return qb.orderBy('user.firstName', direction).addOrderBy('user.lastName', direction);
+      case 'employeeCode':
+        return qb.orderBy('user.employeeCode', direction, nulls);
+      case 'department':
+        return qb.orderBy('department.name', direction, nulls);
+      case 'designation':
+        return qb.orderBy('user.designation', direction, nulls);
+      case 'manager':
+        return qb
+          .orderBy('manager.firstName', direction, nulls)
+          .addOrderBy('manager.lastName', direction, nulls);
+      // role/status are Postgres enums, which sort in declaration order — cast to sort A–Z.
+      case 'role':
+        return qb.addSelect('CAST(user.role AS text)', 'role_sort').orderBy('role_sort', direction);
+      case 'joinDate':
+        return qb.orderBy('user.joinDate', direction, nulls);
+      case 'status':
+        return qb
+          .addSelect('CAST(user.status AS text)', 'status_sort')
+          .orderBy('status_sort', direction);
+      case 'documentCount':
+        return qb
+          .addSelect(
+            (sub) =>
+              sub
+                .select('COUNT(*)')
+                .from(EmployeeDocument, 'doc')
+                .where('doc.user_id = user.id'),
+            'document_count',
+          )
+          .orderBy('document_count', direction);
+      default:
+        return qb.orderBy('user.createdAt', 'DESC');
+    }
   }
 
   private async getDocumentCounts(userIds: number[]): Promise<Map<number, number>> {
@@ -92,9 +137,11 @@ export class StaffSummaryService {
     const page = query.page && query.page > 0 ? query.page : 1;
     const limit = query.limit && query.limit > 0 ? query.limit : 20;
 
+    // offset/limit rather than skip/take: manager and department are many-to-one, so rows never
+    // duplicate, and skip/take's distinct-subquery path can't order by the document-count alias.
     const qb = this.buildFilteredQuery(query)
-      .skip((page - 1) * limit)
-      .take(limit);
+      .offset((page - 1) * limit)
+      .limit(limit);
 
     const [rows, total] = await qb.getManyAndCount();
     const counts = await this.getDocumentCounts(rows.map((r) => r.id));

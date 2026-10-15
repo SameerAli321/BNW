@@ -84,6 +84,15 @@ const WorkOrderDetailPage = lazy(() => import('src/pages/dashboard/work-orders/d
 // Salary slips (HR / ADMIN generate + email; everyone sees their own)
 const SalarySlipListPage = lazy(() => import('src/pages/dashboard/salary-slips/list'));
 const SalarySlipGeneratePage = lazy(() => import('src/pages/dashboard/salary-slips/new'));
+// About us (company details + CEO message)
+const AboutUsPage = lazy(() => import('src/pages/dashboard/about-us'));
+// Bookings (meetings, meeting rooms, pool table)
+const BookingCalendarPage = lazy(() => import('src/pages/dashboard/bookings/calendar'));
+const BookingListPage = lazy(() => import('src/pages/dashboard/bookings/list'));
+const BookingCreatePage = lazy(() => import('src/pages/dashboard/bookings/new'));
+const BookingDetailPage = lazy(() => import('src/pages/dashboard/bookings/detail'));
+const BookingEditPage = lazy(() => import('src/pages/dashboard/bookings/edit'));
+const BookingResourcesPage = lazy(() => import('src/pages/dashboard/bookings/resources'));
 // Announcement board
 const AnnouncementsPage = lazy(() => import('src/pages/dashboard/announcements'));
 // Notifications (full list behind the header bell)
@@ -212,6 +221,18 @@ export const dashboardRoutes: RouteObject[] = [
         children: [
           { index: true, element: <SalarySlipListPage /> },
           { path: 'new', element: <SalarySlipGeneratePage /> },
+        ],
+      },
+      { path: 'about-us', element: <AboutUsPage /> },
+      {
+        path: 'bookings',
+        children: [
+          { index: true, element: <BookingCalendarPage /> },
+          { path: 'list', element: <BookingListPage /> },
+          { path: 'new', element: <BookingCreatePage /> },
+          { path: 'resources', element: <BookingResourcesPage /> },
+          { path: ':id', element: <BookingDetailPage /> },
+          { path: ':id/edit', element: <BookingEditPage /> },
         ],
       },
       { path: 'announcements', element: <AnnouncementsPage /> },

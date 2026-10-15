@@ -32,6 +32,8 @@ export type StaffSummaryFilters = {
   departmentId?: number;
   role?: string;
   status?: string;
+  sortBy?: string;
+  order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 };

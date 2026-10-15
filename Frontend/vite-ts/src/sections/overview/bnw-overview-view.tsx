@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 
 import { DashboardContent } from 'src/layouts/dashboard';
+import { TEAM_STATUS_ROLES } from 'src/actions/team-status';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -8,9 +9,11 @@ import { HrOverviewView } from './hr-overview-view';
 import { CeoOverviewView } from './ceo-overview-view';
 import { DashboardWelcome } from './dashboard-welcome';
 import { AdminOverviewView } from './admin-overview-view';
+import { DashboardTeamStatus } from './dashboard-team-status';
 import { EmployeeOverviewView } from './employee-overview-view';
 import { DashboardAnnouncements } from './dashboard-announcements';
 import { DashboardQuickActionsRow } from './dashboard-quick-actions';
+import { DashboardUpcomingMeetings } from './dashboard-upcoming-meetings';
 
 // ----------------------------------------------------------------------
 
@@ -54,7 +57,13 @@ export function BnwOverviewView() {
         avatarUrl={user?.avatarUrl}
       />
 
-      <Box sx={{ mt: 3 }}>{renderRoleContent()}</Box>
+      <Box sx={{ mt: 3 }}>
+        {/* Highlighted on every dashboard: the user's own upcoming meetings and bookings. */}
+        <DashboardUpcomingMeetings />
+        {renderRoleContent()}
+        {/* End of the page: staff (CEO / HR / Admin) or direct reports (Team Leads). */}
+        {TEAM_STATUS_ROLES.includes(user?.role ?? '') && <DashboardTeamStatus />}
+      </Box>
     </DashboardContent>
   );
 }

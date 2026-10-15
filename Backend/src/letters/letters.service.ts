@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { join } from 'path';
-import { stat } from 'fs/promises';
+import { readFile, stat } from 'fs/promises';
 import {
   BadRequestException,
   ConflictException,
@@ -171,19 +171,41 @@ export class LettersService {
     title: string,
     letter: Letter,
     body?: string | null,
+    attachPdf = false,
   ): Promise<void> {
     await this.notifier.send(userIds, {
       type: 'LETTER',
       title,
       body: body ?? null,
       link: `/dashboard/letters/${letter.id}`,
+      attachments: attachPdf ? await this.pdfAttachment(letter) : undefined,
     });
+  }
+
+  /** The letter's current PDF as an email attachment (none if it can't be read). */
+  private async pdfAttachment(letter: Letter) {
+    if (!letter.pdfPath) return undefined;
+    try {
+      const content = await readFile(join(UPLOADS_ROOT_DIR, letter.pdfPath));
+      const filename = `${letter.template?.name ?? 'Letter'} - ${letterSubject(letter)}.pdf`
+        .replace(/[\\/:*?"<>|]/g, '-')
+        .slice(0, 150);
+      return [{ filename, content, contentType: 'application/pdf' }];
+    } catch {
+      return undefined;
+    }
   }
 
   private async loadLetterWithRelations(id: number): Promise<Letter> {
     const letter = await this.lettersRepo.findOne({
       where: { id },
-      relations: ['template', 'subjectUser', 'subjectUser.department', 'preparedByUser'],
+      relations: [
+        'template',
+        'subjectUser',
+        'subjectUser.department',
+        'subjectUser.manager',
+        'preparedByUser',
+      ],
     });
     if (!letter) {
       throw new NotFoundException('Letter not found');
@@ -463,11 +485,13 @@ export class LettersService {
     // addendum "Send to employee message".
     await this.logEvent(id, caller.sub, LetterEventAction.SENT_TO_EMPLOYEE, message);
 
+    // Email carries the CEO-signed PDF; the employee signs it in the portal.
     await this.notifyLetter(
       [letter.subjectUserId],
       `You have a letter to sign: ${letter.template.name}`,
       letter,
-      message,
+      message ?? 'A copy is attached. Please open it in the BNW HR system to sign it.',
+      true,
     );
 
     return toLetterDto(await this.loadLetterWithRelations(id));
@@ -531,16 +555,6 @@ export class LettersService {
     });
     await this.logEvent(id, caller.sub, LetterEventAction.EMPLOYEE_SIGNED);
 
-    await this.notifyLetter(
-      [
-        letter.preparedBy,
-        ...(await this.notifier.activeUserIds([RoleName.HR, RoleName.ADMIN], caller.sub)),
-      ],
-      `${letterSubject(letter)} signed ${letter.template.name}`,
-      letter,
-      'The signed copy has been filed in their E-record.',
-    );
-
     // File the rendered PDF into the subject's E-record (guide's U5 "auto-retained in E-record"),
     // reusing Sprint 2's EmployeeDocument entity/service rather than duplicating file-storage
     // logic. Re-rendered first so the filed copy includes the employee's acknowledgement.
@@ -558,6 +572,25 @@ export class LettersService {
       source: DocumentSource.LETTER,
       uploadedBy: caller.sub,
     });
+
+    // Fully signed copy (both signatures): to the employee, and HR / Admin, by email + bell.
+    await this.notifyLetter(
+      [letter.subjectUserId],
+      `Your signed ${letter.template.name}`,
+      letter,
+      'The fully signed copy is attached and saved in your documents in the BNW HR system.',
+      true,
+    );
+    await this.notifyLetter(
+      [
+        letter.preparedBy,
+        ...(await this.notifier.activeUserIds([RoleName.HR, RoleName.ADMIN], caller.sub)),
+      ],
+      `${letterSubject(letter)} signed ${letter.template.name}`,
+      letter,
+      'The signed copy is attached and has been filed in their E-record.',
+      true,
+    );
 
     return toLetterDto(await this.loadLetterWithRelations(id));
   }

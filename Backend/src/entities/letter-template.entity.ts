@@ -11,6 +11,10 @@ export interface LetterFieldSchemaEntry {
   key: string;
   label: string;
   autoFilled: boolean;
+  /** Manual fields only: a multi-line input (e.g. a list, one item per line). */
+  multiline?: boolean;
+  /** Manual fields only: pre-filled in the form, and used when a letter has no value for it. */
+  defaultValue?: string;
 }
 
 /**
