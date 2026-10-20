@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Candidate } from '../entities/candidate.entity';
 import { JoiningPackItem } from '../entities/joining-pack-item.entity';
 import { JoiningPackAck } from '../entities/joining-pack-ack.entity';
+import { Letter } from '../entities/letter.entity';
 import { UsersModule } from '../users/users.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { EmployeesModule } from '../employees/employees.module';
@@ -21,7 +22,7 @@ import { JoiningPackService } from './joining-pack.service';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Candidate, JoiningPackItem, JoiningPackAck]),
+    TypeOrmModule.forFeature([Candidate, JoiningPackItem, JoiningPackAck, Letter]),
     UsersModule,
     AuditLogModule,
     EmployeesModule,

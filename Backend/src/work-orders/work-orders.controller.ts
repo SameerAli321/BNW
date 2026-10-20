@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Put,
   Query,
@@ -22,6 +23,7 @@ import {
   CreateWorkOrderDto,
   ProcessWorkOrderDto,
   QueryWorkOrdersDto,
+  UpdateWorkOrderDto,
   UpdateWorkOrderSettingsDto,
   WorkOrderDecisionDto,
 } from './dto/work-order.dto';
@@ -92,6 +94,25 @@ export class WorkOrdersController {
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() caller: JwtUserPayload) {
     return this.service.getOne(id, caller);
+  }
+
+  // The requester, or HR / ADMIN on their behalf, until the first decision — enforced in the
+  // service. multipart/form-data; an optional new `receipt` file replaces the old one.
+  @Patch(':id')
+  @UseInterceptors(
+    FileInterceptor('receipt', {
+      storage: receiptStorage,
+      fileFilter: receiptFileFilter,
+      limits: { fileSize: MAX_RECEIPT_SIZE_BYTES },
+    }),
+  )
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateWorkOrderDto,
+    @UploadedFile() receipt: Express.Multer.File | undefined,
+    @CurrentUser() caller: JwtUserPayload,
+  ) {
+    return this.service.update(id, dto, receipt, caller);
   }
 
   @Get(':id/pdf')

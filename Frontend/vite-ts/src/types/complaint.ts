@@ -29,6 +29,8 @@ export interface ComplaintDto {
   hrSignedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Detail reads only: the caller may still edit it (HR hasn't responded yet).
+  canEdit?: boolean;
 }
 
 export interface ComplaintListMeta {

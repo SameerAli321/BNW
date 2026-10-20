@@ -20,6 +20,8 @@ import InputAdornment from '@mui/material/InputAdornment';
 import { Iconify } from 'src/components/iconify';
 import { CustomPopover } from 'src/components/custom-popover';
 
+import { userRoleLabel } from 'src/types/user';
+
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -27,6 +29,7 @@ type Props = {
   filters: UseSetStateReturn<IUserTableFilters>;
   options: {
     roles: readonly string[];
+    employmentTypes: readonly { value: string; label: string }[];
   };
 };
 
@@ -50,6 +53,14 @@ export function UserTableToolbar({ filters, options, onResetPage }: Props) {
 
       onResetPage();
       updateFilters({ role: newValue });
+    },
+    [onResetPage, updateFilters]
+  );
+
+  const handleFilterEmploymentType = useCallback(
+    (event: SelectChangeEvent<string>) => {
+      onResetPage();
+      updateFilters({ employmentType: event.target.value });
     },
     [onResetPage, updateFilters]
   );
@@ -99,7 +110,7 @@ export function UserTableToolbar({ filters, options, onResetPage }: Props) {
             value={currentFilters.role}
             onChange={handleFilterRole}
             input={<OutlinedInput label="Role" />}
-            renderValue={(selected) => selected.map((value) => value).join(', ')}
+            renderValue={(selected) => selected.map((value) => userRoleLabel(value)).join(', ')}
             inputProps={{ id: 'filter-role-select' }}
             MenuProps={{ PaperProps: { sx: { maxHeight: 240 } } }}
           >
@@ -110,7 +121,24 @@ export function UserTableToolbar({ filters, options, onResetPage }: Props) {
                   size="small"
                   checked={currentFilters.role.includes(option)}
                 />
-                {option}
+                {userRoleLabel(option)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl sx={{ flexShrink: 0, width: { xs: 1, md: 180 } }}>
+          <InputLabel htmlFor="filter-employment-type-select">Employment type</InputLabel>
+          <Select
+            value={currentFilters.employmentType}
+            onChange={handleFilterEmploymentType}
+            input={<OutlinedInput label="Employment type" />}
+            inputProps={{ id: 'filter-employment-type-select' }}
+          >
+            <MenuItem value="">All</MenuItem>
+            {options.employmentTypes.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
               </MenuItem>
             ))}
           </Select>

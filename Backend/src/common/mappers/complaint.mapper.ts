@@ -23,6 +23,8 @@ export interface ComplaintDto {
   hrSignedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Single-complaint reads only: whether the caller may still edit it (PATCH /complaints/:id).
+  canEdit?: boolean;
 }
 
 /** Requires `complainant`, `complainant.department` and `hrRepresentative` to be loaded. */

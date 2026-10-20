@@ -106,6 +106,35 @@ export type BookingPickerPerson = {
   department: string | null;
 };
 
+/** Who may view every employee's calendar. Mirrors CALENDAR_VIEW_ALL_ROLES. */
+export const CALENDAR_VIEW_ALL_ROLES = ['ADMIN', 'HR', 'CEO'];
+
+/** Someone whose calendar the viewer may open (GET /bookings/calendar-people). */
+export type CalendarPerson = BookingPickerPerson & { isSelf: boolean };
+
+export type CalendarLeaveStatus =
+  | 'APPROVED'
+  | 'CANCELLATION_REQUESTED'
+  | 'PENDING_MANAGER'
+  | 'PENDING_HR';
+
+/** Leave shown on the calendar (GET /bookings/calendar-leaves). Dates are inclusive. */
+export type CalendarLeave = {
+  id: number;
+  userId: number;
+  employeeName: string;
+  leaveTypeName: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  halfDay: boolean;
+  status: CalendarLeaveStatus;
+  /** Still waiting for the manager / HR. */
+  isPending: boolean;
+  /** The viewer may open the leave request (own, HR / Admin / CEO, or its approving manager). */
+  canOpen: boolean;
+};
+
 type ListResponse = { data: BookingDto[]; meta: { total: number; page: number; limit: number } };
 /** Single items / plain arrays come back wrapped by the API as { data }. */
 type Envelope<T> = { data: T };
@@ -200,6 +229,35 @@ export function useGetBookingPeople(enabled: boolean) {
   );
   return useMemo(
     () => ({ people: data?.data ?? [], peopleLoading: isLoading }),
+    [data, isLoading]
+  );
+}
+
+/** "Calendar of" picker — the viewer + whoever's calendar they may view (team / everyone). */
+export function useGetCalendarPeople(enabled = true) {
+  const { data, isLoading } = useSWR<Envelope<CalendarPerson[]>>(
+    enabled ? endpoints.bookings.calendarPeople : null,
+    fetcher,
+    { revalidateOnFocus: true }
+  );
+  return useMemo(
+    () => ({ calendarPeople: data?.data ?? [], calendarPeopleLoading: isLoading }),
+    [data, isLoading]
+  );
+}
+
+/** Leave in a calendar range (PKT days, inclusive), optionally for one person. */
+export function useGetCalendarLeaves(
+  params: { from?: string; to?: string; userId?: number | '' },
+  enabled = true
+) {
+  const key =
+    enabled && params.from && params.to
+      ? [endpoints.bookings.calendarLeaves, { params: clean(params) }]
+      : null;
+  const { data, isLoading } = useSWR<Envelope<CalendarLeave[]>>(key, fetcher, liveOptions);
+  return useMemo(
+    () => ({ leaves: data?.data ?? [], leavesLoading: isLoading }),
     [data, isLoading]
   );
 }

@@ -52,7 +52,15 @@ export interface BookingDto {
   updatedAt: string;
 }
 
-export type BookingViewer = { sub: number; role: string };
+export type BookingViewer = {
+  sub: number;
+  role: string;
+  /**
+   * Whose meetings the viewer may see in full — 'all' (HR / Admin / CEO) or their calendar scope
+   * (a Team Lead's own id + their team). Left out = only meetings they're part of.
+   */
+  visibleUserIds?: Set<number> | 'all';
+};
 
 /** Roles that may change or cancel anyone's room / pool-table booking. */
 export const BOOKING_ADMIN_ROLES: string[] = [RoleName.HR, RoleName.ADMIN];
@@ -82,13 +90,27 @@ export function isBookingInvolved(booking: Booking, viewer: BookingViewer): bool
   );
 }
 
+/** Not a meeting, the viewer is part of it, or it involves someone in the viewer's calendar scope. */
+export function canSeeBookingDetails(booking: Booking, viewer: BookingViewer): boolean {
+  if (booking.type !== BookingType.MEETING || isBookingInvolved(booking, viewer)) return true;
+  const scope = viewer.visibleUserIds;
+  if (!scope) return false;
+  if (scope === 'all') return true;
+  return (
+    scope.has(booking.organizerId) ||
+    (booking.createdById !== null && scope.has(booking.createdById)) ||
+    (booking.participants ?? []).some((p) => scope.has(p.userId))
+  );
+}
+
 /**
  * Needs `resource`, `organizer`, `createdBy`, `cancelledBy` and `participants.user` loaded. A
- * meeting the viewer isn't part of comes back with its details blanked out (`isPrivate`).
+ * meeting the viewer isn't part of (and can't see through their calendar scope — see
+ * `BookingViewer.visibleUserIds`) comes back with its details blanked out (`isPrivate`).
  */
 export function toBookingDto(booking: Booking, viewer: BookingViewer): BookingDto {
   const involved = isBookingInvolved(booking, viewer);
-  const isPrivate = booking.type === BookingType.MEETING && !involved;
+  const isPrivate = !canSeeBookingDetails(booking, viewer);
   const isPast = booking.endAt.getTime() < Date.now();
   const canManage =
     !isPrivate &&

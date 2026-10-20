@@ -5,6 +5,7 @@ import { RoleName } from '../common/enums/role.enum';
 import { BookingsService } from './bookings.service';
 import {
   AvailabilityQueryDto,
+  CalendarLeavesQueryDto,
   CancelBookingDto,
   CreateBookingDto,
   CreateBookingResourceDto,
@@ -43,6 +44,21 @@ export class BookingsController {
   @Get('people')
   async people() {
     return this.service.people();
+  }
+
+  // "Calendar of" picker — whose calendars the caller may view (everyone has at least their own).
+  @Get('calendar-people')
+  async calendarPeople(@CurrentUser() caller: JwtUserPayload) {
+    return this.service.calendarPeople(caller);
+  }
+
+  // Leave shown on the calendar, for the people in the caller's calendar scope.
+  @Get('calendar-leaves')
+  async calendarLeaves(
+    @Query() query: CalendarLeavesQueryDto,
+    @CurrentUser() caller: JwtUserPayload,
+  ) {
+    return this.service.calendarLeaves(query, caller);
   }
 
   // Busy times for the booking form (no meeting details).

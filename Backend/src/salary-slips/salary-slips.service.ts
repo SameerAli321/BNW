@@ -333,11 +333,11 @@ export class SalarySlipsService {
     };
     const totals = calculateSalary(inputs);
     if (totals.grossSalary <= 0) {
-      throw new BadRequestException('The gross salary must be more than zero');
+      throw new BadRequestException('Total earnings must be more than zero');
     }
     if (totals.netSalary < 0) {
       throw new BadRequestException(
-        `Deductions (${formatSalaryAmount(totals.totalDeductions)}) are more than the gross salary (${formatSalaryAmount(totals.grossSalary)})`,
+        `Deductions (${formatSalaryAmount(totals.totalDeductions)}) are more than the total earnings (${formatSalaryAmount(totals.grossSalary)})`,
       );
     }
 

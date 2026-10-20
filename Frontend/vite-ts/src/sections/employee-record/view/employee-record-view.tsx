@@ -18,6 +18,7 @@ import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 import { useAuthContext } from 'src/auth/hooks';
 import { RoleBasedGuard } from 'src/auth/guard';
 
+import { EmployeeLettersCard } from '../employee-letters-card';
 import { EmployeeDocumentTable } from '../employee-document-table';
 import { EmployeeRecordBasicInfo } from '../employee-record-basic-info';
 import { EmployeeDocumentRequestTable } from '../employee-document-request-table';
@@ -117,6 +118,10 @@ export function EmployeeRecordView() {
             <Grid size={{ xs: 12, md: 8 }}>
               <Stack spacing={3}>
                 <EmployeeDocumentTable documents={record.documents} />
+                {/* Not for a manager viewing a report: GET /letters would return the manager's own. */}
+                {(isPrivileged || isSelf) && (
+                  <EmployeeLettersCard userId={id} isPrivileged={isPrivileged} />
+                )}
                 <EmployeeDocumentRequestTable requests={record.documentRequests} />
               </Stack>
             </Grid>

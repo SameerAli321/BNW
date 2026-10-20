@@ -6,6 +6,7 @@ import { LetterEvent } from '../entities/letter-event.entity';
 import { Signature } from '../entities/signature.entity';
 import { DocumentType } from '../entities/document-type.entity';
 import { EmployeeProfile } from '../entities/employee-profile.entity';
+import { Candidate } from '../entities/candidate.entity';
 import { UsersModule } from '../users/users.module';
 import { EmployeesModule } from '../employees/employees.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
@@ -23,6 +24,7 @@ import { LetterPdfRendererService } from './letter-pdf-renderer.service';
       Signature,
       DocumentType,
       EmployeeProfile,
+      Candidate,
     ]),
     UsersModule,
     EmployeesModule,

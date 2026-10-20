@@ -1,5 +1,5 @@
-import type { UserRole } from 'src/types/user';
 import type { CandidateDto } from 'src/types/candidate';
+import type { UserRole, EmploymentType } from 'src/types/user';
 
 import dayjs from 'dayjs';
 import { z as zod } from 'zod';
@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import Box from '@mui/material/Box';
+import Alert from '@mui/material/Alert';
 import Dialog from '@mui/material/Dialog';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
@@ -23,10 +24,14 @@ import { useGetUsers, useGetDepartments } from 'src/actions/users';
 import { toast } from 'src/components/snackbar';
 import { Form, Field } from 'src/components/hook-form';
 
-import { USER_FORM_DEPARTMENTS, USER_FORM_ROLE_OPTIONS } from 'src/types/user';
+import {
+  USER_FORM_DEPARTMENTS,
+  USER_FORM_ROLE_OPTIONS,
+  EMPLOYMENT_TYPE_OPTIONS,
+} from 'src/types/user';
 
 // ----------------------------------------------------------------------
-// `POST /candidates/:id/convert` — HR, ADMIN. Body is `ConvertCandidateDto`: same shape as
+// `POST /candidates/:id/convert` — ADMIN only. Body is `ConvertCandidateDto`: same shape as
 // `CreateUserDto` minus `email`/`firstName`/`lastName` (defaulted from the candidate's own
 // `name`/`email`, HR can override), including the mandatory min-8 `password` field — identical
 // requirement to `UserNewEditForm`'s create mode (see docs/API_CONTRACT_SPRINT5.md).
@@ -43,6 +48,7 @@ export const ConvertCandidateSchema = zod.object({
   designation: zod.string().optional(),
   joinDate: zod.string().optional(),
   employeeCode: zod.string().optional(),
+  employmentType: zod.string().min(1, { message: 'Employment type is required!' }),
   password: zod
     .string()
     .min(8, { message: 'Password is required and must be at least 8 characters!' }),
@@ -83,6 +89,7 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
       designation: '',
       joinDate: '',
       employeeCode: '',
+      employmentType: 'PERMANENT',
       password: '',
     },
   });
@@ -100,7 +107,7 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
 
   const onSubmit = handleSubmit(async (data) => {
     try {
-      const { user, welcomeEmail } = await convertCandidate(candidate.id, {
+      const { user, welcomeEmail, movedLetters } = await convertCandidate(candidate.id, {
         role: data.role as UserRole,
         password: data.password,
         managerId: data.managerId === '' ? null : data.managerId,
@@ -108,6 +115,7 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
         designation: data.designation || null,
         joinDate: data.joinDate ? dayjs(data.joinDate).format('YYYY-MM-DD') : null,
         employeeCode: data.employeeCode || null,
+        employmentType: data.employmentType as EmploymentType,
         ...(data.firstName ? { firstName: data.firstName } : {}),
         ...(data.lastName ? { lastName: data.lastName } : {}),
         ...(data.email ? { email: data.email } : {}),
@@ -121,6 +129,11 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
         toast.warning(
           `Converted to employee — but the welcome email could not be sent${welcomeEmail?.error ? `: ${welcomeEmail.error}` : ''}. Share ${name}'s sign-in details with them directly.`,
           { duration: 10000 }
+        );
+      }
+      if (movedLetters) {
+        toast.info(
+          `${movedLetters} letter${movedLetters === 1 ? '' : 's'} moved to ${name}'s account.`
         );
       }
       handleClose();
@@ -141,6 +154,13 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
             Leave name/email blank to use the candidate&apos;s own values.
           </DialogContentText>
 
+          {candidate.letterCount > 0 && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              {candidate.letterCount} letter{candidate.letterCount === 1 ? '' : 's'} prepared for
+              this candidate will move to the new account.
+            </Alert>
+          )}
+
           <Box
             sx={{
               rowGap: 3,
@@ -160,6 +180,14 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
 
             <Field.Select name="role" label="Role">
               {USER_FORM_ROLE_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Field.Select>
+
+            <Field.Select name="employmentType" label="Employment type">
+              {EMPLOYMENT_TYPE_OPTIONS.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
                   {option.label}
                 </MenuItem>

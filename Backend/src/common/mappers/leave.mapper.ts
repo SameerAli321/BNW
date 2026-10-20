@@ -64,6 +64,8 @@ export interface LeaveRequestDto {
   cancellationDecidedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Single-request reads only: whether the caller may still edit it (PATCH /leave-requests/:id).
+  canEdit?: boolean;
 }
 
 const fullName = (user: User | null | undefined) =>

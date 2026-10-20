@@ -16,18 +16,26 @@ export const USER_ROLE_OPTIONS: UserRole[] = [
 ];
 
 /**
- * The Role dropdown when creating / editing a user — the four roles agreed with the client, each
- * stored as an existing system role. HR/Admin is ADMIN: it can do everything HR and Payroll do.
+ * Every role HR / Admin can pick for an existing user (Edit User, Hiring → Convert), each stored as
+ * an existing system role. Team Member is EMPLOYEE, Team Lead is MANAGER.
  */
 export const USER_FORM_ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'CEO', label: 'CEO' },
+  { value: 'HR', label: 'HR' },
+  { value: 'ADMIN', label: 'Admin' },
   { value: 'MANAGER', label: 'Team Lead' },
   { value: 'EMPLOYEE', label: 'Team Member' },
-  { value: 'ADMIN', label: 'HR/Admin' },
 ];
 
+/**
+ * The Role dropdown on Create User (Admin only). No Team Member — regular employees and interns
+ * come in through Hiring → Convert.
+ */
+export const USER_CREATE_ROLE_OPTIONS = USER_FORM_ROLE_OPTIONS.filter(
+  (option) => option.value !== 'EMPLOYEE'
+);
+
 const OLDER_ROLE_LABELS: Partial<Record<UserRole, string>> = {
-  HR: 'HR (older role)',
   PAYROLL: 'Payroll (older role)',
 };
 
@@ -38,6 +46,40 @@ export function userRoleLabel(role: string): string {
     OLDER_ROLE_LABELS[role as UserRole] ??
     role
   );
+}
+
+// How the person is employed — interns are users with INTERN here.
+export type EmploymentType = 'PERMANENT' | 'CONTRACT' | 'PROBATION' | 'INTERN';
+
+export const EMPLOYMENT_TYPE_OPTIONS: { value: EmploymentType; label: string }[] = [
+  { value: 'PERMANENT', label: 'Permanent' },
+  { value: 'CONTRACT', label: 'Contract' },
+  { value: 'PROBATION', label: 'Probation' },
+  { value: 'INTERN', label: 'Intern' },
+];
+
+/** 'INTERN' → 'Intern' etc. */
+export function employmentTypeLabel(type?: string | null): string {
+  if (!type) return '';
+  return EMPLOYMENT_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? type;
+}
+
+/**
+ * Which company the person works for — the bands on the Team Hierarchy chart. HR / Administration
+ * is one team shared across BNW and Hayes.
+ */
+export type Company = 'BNW' | 'HAYES' | 'SHARED';
+
+export const COMPANY_OPTIONS: { value: Company; label: string }[] = [
+  { value: 'BNW', label: 'BNW' },
+  { value: 'HAYES', label: 'Hayes' },
+  { value: 'SHARED', label: 'HR / Administration (shared BNW & Hayes)' },
+];
+
+/** 'SHARED' → 'HR / Administration (shared BNW & Hayes)' etc. */
+export function companyLabel(company?: string | null): string {
+  if (!company) return '';
+  return COMPANY_OPTIONS.find((option) => option.value === company)?.label ?? company;
 }
 
 /** The Department dropdown when creating / editing a user (client's list, in this order). */
@@ -69,6 +111,8 @@ export interface UserDto {
   departmentName?: string | null;
   designation: string | null;
   status: UserAccountStatus;
+  employmentType: EmploymentType;
+  company: Company;
   joinDate: string | null; // ISO date
   leavingDate: string | null; // ISO date
   /** Profile picture, relative to the API base — use `avatarSrc()` from actions/users. */
@@ -103,6 +147,8 @@ export type CreateUserDto = {
   joinDate?: string | null;
   employeeCode?: string | null;
   status?: UserAccountStatus;
+  employmentType?: EmploymentType;
+  company?: Company;
   leavingDate?: string | null;
   contactNumber?: string | null;
   cnic?: string | null;
@@ -131,6 +177,20 @@ export type IUserTableFilters = {
   name: string;
   role: string[];
   status: string;
+  employmentType: string;
+};
+
+/** GET /users/hierarchy — one person on the Team Hierarchy page (no email / salary / CNIC). */
+export type IHierarchyNode = {
+  id: number;
+  name: string;
+  designation: string | null;
+  role: UserRole;
+  departmentName: string | null;
+  managerId: number | null;
+  avatarUrl: string | null;
+  employmentType: EmploymentType;
+  company: Company;
 };
 
 /**

@@ -6,11 +6,14 @@ import { varAlpha } from 'minimal-shared/utils';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
+import Badge from '@mui/material/Badge';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
+
+import { useGetMyFormAssignments } from 'src/actions/form-assignments';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -100,6 +103,9 @@ export function DashboardQuickActions({ role }: { role?: string }) {
   const actions = QUICK_ACTIONS.filter(
     (a) => !a.roles || (!!role && a.roles.includes(role))
   ).slice(0, 4);
+  // Forms HR / Admin sent the caller that are still waiting — shown as a badge on "Requests".
+  const { myFormAssignments } = useGetMyFormAssignments('PENDING');
+  const pendingForms = myFormAssignments.length;
 
   return (
     <Card
@@ -176,20 +182,25 @@ export function DashboardQuickActions({ role }: { role?: string }) {
               ...reducedMotionSx,
             })}
           >
-            <Box
-              sx={(theme) => ({
-                width: 40,
-                height: 40,
-                display: 'flex',
-                borderRadius: '50%',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: `${action.color}.main`,
-                bgcolor: varAlpha(theme.vars.palette[action.color].mainChannel, 0.12),
-              })}
+            <Badge
+              color="error"
+              badgeContent={action.href === paths.dashboard.requestsForms ? pendingForms : 0}
             >
-              <Iconify icon={action.icon} width={22} />
-            </Box>
+              <Box
+                sx={(theme) => ({
+                  width: 40,
+                  height: 40,
+                  display: 'flex',
+                  borderRadius: '50%',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: `${action.color}.main`,
+                  bgcolor: varAlpha(theme.vars.palette[action.color].mainChannel, 0.12),
+                })}
+              >
+                <Iconify icon={action.icon} width={22} />
+              </Box>
+            </Badge>
             <Typography variant="subtitle2" sx={{ lineHeight: 1.3 }}>
               {action.label}
             </Typography>

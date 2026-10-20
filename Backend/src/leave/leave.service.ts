@@ -31,6 +31,7 @@ import {
 import { EmailDetailRow } from '../mail/email-layout';
 import { QueryLeaveRequestsDto } from './dto/query-leave-requests.dto';
 import { UpdateLeaveTypeDto } from './dto/update-leave-type.dto';
+import { UpdateLeaveRequestDto } from './dto/update-leave-request.dto';
 import { RequestWatchersService } from '../notifications/request-watchers.service';
 import { NotifyService } from '../notifications/notify.service';
 
@@ -67,17 +68,32 @@ const leaveDates = (row: Pick<LeaveRequest, 'startDate' | 'endDate'>) =>
 
 type ListScope = { employeeId: number } | { managerId: number } | 'all';
 
-/** Mon–Fri days between two 'YYYY-MM-DD' dates, inclusive. */
-export function countWorkingDays(startDate: string, endDate: string): number {
-  const current = new Date(`${startDate}T00:00:00Z`);
-  const end = new Date(`${endDate}T00:00:00Z`);
-  let days = 0;
-  while (current <= end) {
-    const weekday = current.getUTCDay();
-    if (weekday !== 0 && weekday !== 6) days += 1;
-    current.setUTCDate(current.getUTCDate() + 1);
-  }
-  return days;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const parseDay = (date: string) => new Date(`${date}T00:00:00Z`);
+const isWeekend = (day: Date) => day.getUTCDay() === 0 || day.getUTCDay() === 6;
+
+/** 'YYYY-MM-DD' shifted by a number of days. */
+export function addDays(date: string, days: number): string {
+  return new Date(parseDay(date).getTime() + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** 0 = Sunday … 6 = Saturday. */
+export const weekdayOf = (date: string) => parseDay(date).getUTCDay();
+
+/**
+ * Days of leave a request from `startDate` to `endDate` (inclusive) costs, with the "sandwich"
+ * rule: a weekend between two leave days of the same request counts as leave, so Fri → Mon is 4
+ * days and Thu → Tue is 6. Weekend days at either edge are free (Sat → Mon is 1), and a range of
+ * only weekend days is 0. In other words: every day from the first working day to the last.
+ */
+export function countLeaveDays(startDate: string, endDate: string): number {
+  const first = parseDay(startDate);
+  const last = parseDay(endDate);
+  while (first <= last && isWeekend(first)) first.setUTCDate(first.getUTCDate() + 1);
+  while (last >= first && isWeekend(last)) last.setUTCDate(last.getUTCDate() - 1);
+  if (first > last) return 0;
+  return Math.round((last.getTime() - first.getTime()) / DAY_MS) + 1;
 }
 
 /** Today as YYYY-MM-DD in the server's local time. */
@@ -134,7 +150,12 @@ export class LeaveService {
     return this.computeBalances(userId, year);
   }
 
-  private async computeBalances(userId: number, year: number): Promise<LeaveBalanceDto[]> {
+  /** `excludeRequestId` leaves one request out — the one being edited. */
+  private async computeBalances(
+    userId: number,
+    year: number,
+    excludeRequestId?: number,
+  ): Promise<LeaveBalanceDto[]> {
     const types = await this.typesRepo.find({
       where: { isActive: true },
       order: { sortOrder: 'ASC' },
@@ -152,6 +173,8 @@ export class LeaveService {
       )
       .where('request.employeeId = :userId', { userId })
       .andWhere('EXTRACT(YEAR FROM request.startDate) = :year', { year })
+      // Ids start at 1, so 0 excludes nothing.
+      .andWhere('request.id <> :excludeRequestId', { excludeRequestId: excludeRequestId ?? 0 })
       .setParameters({ approved: APPROVED_LIKE, pending: PENDING })
       .groupBy('request.leaveTypeId')
       .getRawMany<{ leaveTypeId: number; used: string; pending: string }>();
@@ -236,47 +259,134 @@ export class LeaveService {
     return hrUsers.map((user) => user.id).filter((id) => id !== excludeId);
   }
 
-  async create(dto: CreateLeaveRequestDto, caller: JwtUserPayload): Promise<LeaveRequestDto> {
-    const type = await this.typesRepo.findOne({ where: { id: dto.leaveTypeId, isActive: true } });
+  /**
+   * Weekend days to add because this request sits right next to another active one across a
+   * weekend (the "sandwich" rule across requests): it starts on a Monday and another leave ends
+   * on the Friday before, and/or it ends on a Friday and another leave starts the Monday after.
+   * Half days never sandwich. When editing (`requestId`), only requests made *before* this one are
+   * considered, so the weekend is always charged to the later of the two — never to both.
+   */
+  private async sandwichedWeekendDays(
+    employeeId: number,
+    startDate: string,
+    endDate: string,
+    requestId?: number,
+  ): Promise<number> {
+    const adjacent = async (column: 'endDate' | 'startDate', date: string) => {
+      const qb = this.requestsRepo
+        .createQueryBuilder('request')
+        .where('request.employeeId = :employeeId', { employeeId })
+        .andWhere('request.status IN (:...active)', { active: ACTIVE })
+        .andWhere('request.halfDay = false')
+        .andWhere(`request.${column} = :date`, { date });
+      if (requestId) qb.andWhere('request.id < :requestId', { requestId });
+      return (await qb.getCount()) > 0;
+    };
+    let extra = 0;
+    if (weekdayOf(startDate) === 1 && (await adjacent('endDate', addDays(startDate, -3)))) {
+      extra += 2;
+    }
+    if (weekdayOf(endDate) === 5 && (await adjacent('startDate', addDays(endDate, 3)))) {
+      extra += 2;
+    }
+    return extra;
+  }
+
+  /**
+   * The checks every new or edited request must pass — dates, half day, overlap with the
+   * employee's other active requests, and the yearly balance. `requestId` is the request being
+   * edited: it's left out of the overlap and balance checks. Returns the days the request costs.
+   */
+  private async validateRequest(
+    input: { leaveTypeId: number; startDate: string; endDate: string; halfDay: boolean },
+    employeeId: number,
+    requestId?: number,
+  ): Promise<{ type: LeaveType; days: number }> {
+    const type = await this.typesRepo.findOne({
+      where: { id: input.leaveTypeId, isActive: true },
+    });
     if (!type) throw new BadRequestException('Choose a valid leave type');
-    if (dto.endDate < dto.startDate) {
+    if (input.endDate < input.startDate) {
       throw new BadRequestException('The end date must be on or after the start date');
     }
-    if (dto.halfDay && dto.startDate !== dto.endDate) {
+    if (input.halfDay && input.startDate !== input.endDate) {
       throw new BadRequestException('A half day must start and end on the same date');
     }
-    const workingDays = countWorkingDays(dto.startDate, dto.endDate);
-    if (workingDays === 0) {
+    const leaveDays = countLeaveDays(input.startDate, input.endDate);
+    if (leaveDays === 0) {
       throw new BadRequestException('Those dates are all weekend days — no leave is needed');
     }
-    const days = dto.halfDay ? 0.5 : workingDays;
+    const days = input.halfDay
+      ? 0.5
+      : leaveDays +
+        (await this.sandwichedWeekendDays(employeeId, input.startDate, input.endDate, requestId));
 
-    const overlapping = await this.requestsRepo
+    const overlapping = this.requestsRepo
       .createQueryBuilder('request')
-      .where('request.employeeId = :employeeId', { employeeId: caller.sub })
+      .where('request.employeeId = :employeeId', { employeeId })
       .andWhere('request.status IN (:...active)', { active: ACTIVE })
       .andWhere('request.startDate <= :endDate AND request.endDate >= :startDate', {
-        startDate: dto.startDate,
-        endDate: dto.endDate,
-      })
-      .getCount();
-    if (overlapping) {
-      throw new ConflictException('You already have a leave request covering some of those dates');
+        startDate: input.startDate,
+        endDate: input.endDate,
+      });
+    if (requestId) overlapping.andWhere('request.id <> :requestId', { requestId });
+    if (await overlapping.getCount()) {
+      throw new ConflictException('There is already a leave request covering some of those dates');
     }
 
     if (type.annualQuota !== null) {
-      const year = Number(dto.startDate.slice(0, 4));
-      const balance = (await this.computeBalances(caller.sub, year)).find(
+      const year = Number(input.startDate.slice(0, 4));
+      const balance = (await this.computeBalances(employeeId, year, requestId)).find(
         (b) => b.leaveTypeId === type.id,
       );
       const remaining = balance?.remaining ?? type.annualQuota;
       if (days > remaining) {
         throw new BadRequestException(
           `Not enough ${type.name} left for ${year}: ${remaining} day(s) remaining ` +
-            `(including requests still pending), ${days} requested`,
+            `(including requests still pending), ${days} requested ` +
+            `(weekends between leave days count as leave)`,
         );
       }
     }
+    return { type, days };
+  }
+
+  /**
+   * Why a request can't be edited any more, or null while it still can: it's waiting on the
+   * manager, or on HR when there's no manager (nobody has made a decision yet).
+   */
+  private editBlocker(row: LeaveRequest): string | null {
+    if (row.status === LeaveRequestStatus.PENDING_MANAGER) return null;
+    if (
+      row.status === LeaveRequestStatus.PENDING_HR &&
+      row.managerApproved === null &&
+      !row.managerSignedAt
+    ) {
+      return null;
+    }
+    return PENDING.includes(row.status)
+      ? 'Your manager has already approved this request — it can no longer be edited'
+      : `This request is already ${row.status.toLowerCase().replace(/_/g, ' ')} — it can no longer be edited`;
+  }
+
+  /** The employee, or HR / Admin on their behalf, while nobody has acted on it yet. */
+  private canEdit(row: LeaveRequest, caller: JwtUserPayload): boolean {
+    const allowed =
+      row.employeeId === caller.sub ||
+      [RoleName.HR, RoleName.ADMIN].includes(caller.role as RoleName);
+    return allowed && this.editBlocker(row) === null;
+  }
+
+  async create(dto: CreateLeaveRequestDto, caller: JwtUserPayload): Promise<LeaveRequestDto> {
+    const { type, days } = await this.validateRequest(
+      {
+        leaveTypeId: dto.leaveTypeId,
+        startDate: dto.startDate,
+        endDate: dto.endDate,
+        halfDay: !!dto.halfDay,
+      },
+      caller.sub,
+    );
 
     const employee = await this.usersRepo.findOne({ where: { id: caller.sub } });
     if (!employee) throw new NotFoundException('User not found');
@@ -319,6 +429,67 @@ export class LeaveService {
       link: `/dashboard/leave-requests/${saved.id}`,
     });
     return this.getOne(saved.id, caller);
+  }
+
+  /**
+   * The employee (or HR / Admin on their behalf) changes a request nobody has acted on yet. Runs
+   * every create check again, then tells whoever it's waiting on that the details changed.
+   */
+  async update(
+    id: number,
+    dto: UpdateLeaveRequestDto,
+    caller: JwtUserPayload,
+  ): Promise<LeaveRequestDto> {
+    const row = await this.findEntityForViewer(id, caller);
+    if (
+      row.employeeId !== caller.sub &&
+      ![RoleName.HR, RoleName.ADMIN].includes(caller.role as RoleName)
+    ) {
+      throw new ForbiddenException('Only the employee (or HR) can edit this leave request');
+    }
+    const blocker = this.editBlocker(row);
+    if (blocker) throw new ConflictException(blocker);
+
+    const startDate = dto.startDate ?? row.startDate;
+    const endDate = dto.endDate ?? row.endDate;
+    const halfDay = dto.halfDay ?? (row.halfDay && startDate === endDate);
+    const { type, days } = await this.validateRequest(
+      { leaveTypeId: dto.leaveTypeId ?? row.leaveTypeId, startDate, endDate, halfDay },
+      row.employeeId,
+      row.id,
+    );
+    await this.transition(id, row.status, {
+      leaveTypeId: type.id,
+      startDate,
+      endDate,
+      halfDay,
+      days,
+      reason: dto.reason !== undefined ? dto.reason.trim() : row.reason,
+      contactDuringLeave:
+        dto.contactDuringLeave !== undefined
+          ? dto.contactDuringLeave.trim() || null
+          : row.contactDuringLeave,
+    });
+
+    const updated = await this.findEntityForViewer(id, caller);
+    const name = fullName(updated.employee);
+    const approverIds = (
+      updated.status === LeaveRequestStatus.PENDING_MANAGER
+        ? [updated.managerId]
+        : await this.activeHrUserIds(updated.employeeId)
+    ).filter((userId) => userId !== caller.sub);
+    await this.notify(
+      approverIds,
+      `${name} edited their ${type.name} request — please review the updated details`,
+      id,
+      { row: updated },
+    );
+    if (updated.employeeId !== caller.sub) {
+      await this.notify([updated.employeeId], `HR updated your ${type.name} request`, id, {
+        row: updated,
+      });
+    }
+    return this.getOne(id, caller);
   }
 
   private async list(query: QueryLeaveRequestsDto, scope: ListScope) {
@@ -367,7 +538,8 @@ export class LeaveService {
   }
 
   async getOne(id: number, caller: JwtUserPayload): Promise<LeaveRequestDto> {
-    return toLeaveRequestDto(await this.findEntityForViewer(id, caller));
+    const row = await this.findEntityForViewer(id, caller);
+    return { ...toLeaveRequestDto(row), canEdit: this.canEdit(row, caller) };
   }
 
   async managerDecision(

@@ -3,6 +3,7 @@ import type { LetterDto } from 'src/types/letter';
 import { useState, useCallback } from 'react';
 import { useBoolean } from 'minimal-shared/hooks';
 
+import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
@@ -77,8 +78,11 @@ export function LetterTableRow({ row, detailsHref, currentRole, currentUserId }:
   const handleSendToEmployee = useCallback(async () => {
     setBusy(true);
     try {
-      await sendLetterToEmployee(row.id);
-      toast.success('Sent to employee!');
+      const delivery = await sendLetterToEmployee(row.id);
+      if (delivery?.warning) toast.warning(`Sent, but: ${delivery.warning}`);
+      else if (delivery?.emailedTo)
+        toast.success(`Sent — the signed PDF was emailed to ${delivery.emailedTo}.`);
+      else toast.success('Sent!');
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : 'Send failed!');
@@ -105,6 +109,11 @@ export function LetterTableRow({ row, detailsHref, currentRole, currentUserId }:
         <Link component={RouterLink} href={detailsHref} color="inherit" sx={{ cursor: 'pointer' }}>
           {row.subjectName}
         </Link>
+        {row.isCandidate && (
+          <Box component="span" sx={{ ml: 0.5, color: 'text.secondary', typography: 'caption' }}>
+            (candidate)
+          </Box>
+        )}
       </TableCell>
 
       <TableCell sx={{ minWidth: 180 }}>{row.templateName}</TableCell>
@@ -159,7 +168,7 @@ export function LetterTableRow({ row, detailsHref, currentRole, currentUserId }:
 
         {canSendToEmployee && (
           <Button size="small" variant="outlined" onClick={handleSendToEmployee} disabled={busy}>
-            Send to employee
+            {row.isCandidate ? 'Email to candidate' : 'Send to employee'}
           </Button>
         )}
 
@@ -200,7 +209,7 @@ export function LetterTableRow({ row, detailsHref, currentRole, currentUserId }:
           title="Sign your letter"
           description="Typing your name below confirms you've read and accept this letter."
           onConfirm={(signatureText) =>
-            employeeSignLetter(row.id, signatureText, row.subjectUserId)
+            employeeSignLetter(row.id, signatureText, row.subjectUserId ?? undefined)
           }
         />
       )}

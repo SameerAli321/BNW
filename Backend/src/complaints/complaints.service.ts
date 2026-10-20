@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -17,6 +18,7 @@ import { ComplaintDto, toComplaintDto } from '../common/mappers/complaint.mapper
 import { CreateComplaintDto } from './dto/create-complaint.dto';
 import { HrResponseDto } from './dto/hr-response.dto';
 import { QueryComplaintsDto } from './dto/query-complaints.dto';
+import { UpdateComplaintDto } from './dto/update-complaint.dto';
 import { RequestWatchersService } from '../notifications/request-watchers.service';
 import { NotifyService } from '../notifications/notify.service';
 
@@ -104,6 +106,93 @@ export class ComplaintsService {
     return toComplaintDto(complaint);
   }
 
+  /** Why it can't be edited any more, or null until HR has responded in any way. */
+  private editBlocker(complaint: Complaint): string | null {
+    const hrResponded =
+      complaint.status !== ComplaintStatus.SUBMITTED ||
+      !!complaint.hrComments ||
+      !!complaint.hrActionRequested ||
+      !!complaint.hrAcknowledgement ||
+      !!complaint.hrSignedAt;
+    return hrResponded
+      ? 'HR has already responded to this complaint — it can no longer be edited'
+      : null;
+  }
+
+  /** The complainant, or HR / Admin on their behalf, until HR has responded. */
+  private canEdit(complaint: Complaint, caller: JwtUserPayload): boolean {
+    const allowed =
+      complaint.complainantId === caller.sub ||
+      [RoleName.HR, RoleName.ADMIN].includes(caller.role as RoleName);
+    return allowed && this.editBlocker(complaint) === null;
+  }
+
+  async update(id: number, dto: UpdateComplaintDto, caller: JwtUserPayload): Promise<ComplaintDto> {
+    const complaint = await this.findEntityForViewer(id, caller);
+    if (
+      complaint.complainantId !== caller.sub &&
+      ![RoleName.HR, RoleName.ADMIN].includes(caller.role as RoleName)
+    ) {
+      throw new ForbiddenException('Only the person who raised this complaint can edit it');
+    }
+    const blocker = this.editBlocker(complaint);
+    if (blocker) throw new ConflictException(blocker);
+
+    // Same rules as create: only the fields sent change, and at least one section must be filled.
+    const pick = (value: string | undefined, current: string | null) => {
+      const cleaned = clean(value);
+      return cleaned === undefined ? current : cleaned;
+    };
+    const values = {
+      description: pick(dto.description, complaint.description),
+      accessoryType: pick(dto.accessoryType, complaint.accessoryType),
+      accessoryDescription: pick(dto.accessoryDescription, complaint.accessoryDescription),
+      accessoryIssue: pick(dto.accessoryIssue, complaint.accessoryIssue),
+      maintenanceArea: pick(dto.maintenanceArea, complaint.maintenanceArea),
+      maintenanceDescription: pick(dto.maintenanceDescription, complaint.maintenanceDescription),
+    };
+    if (!Object.values(values).some(Boolean)) {
+      throw new BadRequestException(
+        'Fill in at least one section: complaint details, office accessories or maintenance issue',
+      );
+    }
+    let contactNumber = pick(dto.contactNumber, complaint.contactNumber);
+    if (!contactNumber) {
+      const profile = await this.profilesRepo.findOne({
+        where: { userId: complaint.complainantId },
+      });
+      contactNumber = profile?.phone ?? null;
+    }
+
+    // Only while still untouched by HR — a response landing at the same moment wins.
+    const result = await this.complaintsRepo.update(
+      { id, status: ComplaintStatus.SUBMITTED },
+      { ...values, contactNumber },
+    );
+    if (!result.affected) {
+      throw new ConflictException('This complaint was just updated by HR — refresh');
+    }
+
+    const name = `${complaint.complainant.firstName} ${complaint.complainant.lastName}`;
+    await this.notifier.send(
+      await this.notifier.activeUserIds([RoleName.HR, RoleName.ADMIN], caller.sub),
+      {
+        type: 'COMPLAINT_SUBMITTED',
+        title: `${name} edited their complaint — please review the updated details`,
+        body: values.description ?? values.accessoryType ?? values.maintenanceArea,
+        link: `/dashboard/complaints/${id}`,
+      },
+    );
+    if (complaint.complainantId !== caller.sub) {
+      await this.notifier.send([complaint.complainantId], {
+        type: 'COMPLAINT_RESPONSE',
+        title: 'HR updated the details of your complaint',
+        link: `/dashboard/complaints/${id}`,
+      });
+    }
+    return this.getOne(id, caller);
+  }
+
   /** Bell + email to every active HR / Admin user. */
   private async notifyHr(complaint: Complaint): Promise<void> {
     const name = `${complaint.complainant.firstName} ${complaint.complainant.lastName}`;
@@ -157,7 +246,8 @@ export class ComplaintsService {
   }
 
   async getOne(id: number, caller: JwtUserPayload): Promise<ComplaintDto> {
-    return toComplaintDto(await this.findEntityForViewer(id, caller));
+    const complaint = await this.findEntityForViewer(id, caller);
+    return { ...toComplaintDto(complaint), canEdit: this.canEdit(complaint, caller) };
   }
 
   async hrResponse(id: number, dto: HrResponseDto, caller: JwtUserPayload): Promise<ComplaintDto> {

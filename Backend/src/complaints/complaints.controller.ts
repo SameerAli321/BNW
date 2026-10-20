@@ -18,6 +18,7 @@ import { RoleName } from '../common/enums/role.enum';
 import { CreateComplaintDto } from './dto/create-complaint.dto';
 import { HrResponseDto } from './dto/hr-response.dto';
 import { QueryComplaintsDto } from './dto/query-complaints.dto';
+import { UpdateComplaintDto } from './dto/update-complaint.dto';
 
 @Controller('complaints')
 export class ComplaintsController {
@@ -47,6 +48,16 @@ export class ComplaintsController {
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() caller: JwtUserPayload) {
     return this.complaintsService.getOne(id, caller);
+  }
+
+  // The complainant, or HR / ADMIN on their behalf, until HR responds — enforced in the service.
+  @Patch(':id')
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateComplaintDto,
+    @CurrentUser() caller: JwtUserPayload,
+  ) {
+    return this.complaintsService.update(id, dto, caller);
   }
 
   @Get(':id/pdf')

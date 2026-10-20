@@ -182,6 +182,21 @@ export class AvailabilityQueryDto {
   excludeBookingId?: number;
 }
 
+/** GET /bookings/calendar-leaves — leave overlapping a calendar range (Pakistan days, inclusive). */
+export class CalendarLeavesQueryDto {
+  @Matches(DATE, { message: 'from must be YYYY-MM-DD' })
+  from: string;
+
+  @Matches(DATE, { message: 'to must be YYYY-MM-DD' })
+  to: string;
+
+  /** One person's leave (must be in the caller's calendar scope). */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  userId?: number;
+}
+
 export class UpcomingMeetingsQueryDto {
   @IsOptional()
   @Type(() => Number)

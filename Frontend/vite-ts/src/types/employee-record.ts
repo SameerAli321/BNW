@@ -1,4 +1,4 @@
-import type { UserDto, UserRole, UserAccountStatus } from './user';
+import type { UserDto, UserRole, EmploymentType, UserAccountStatus } from './user';
 
 // ----------------------------------------------------------------------
 // BNW OMS — Sprint 2 types, mirroring docs/API_CONTRACT_SPRINT2.md exactly (E-record & Staff
@@ -56,6 +56,9 @@ export interface StaffSummaryRowDto {
   designation: string | null;
   managerName: string | null;
   status: UserAccountStatus;
+  employmentType: EmploymentType;
+  /** From the employee profile — null when not filled in. */
+  contactNumber: string | null;
   joinDate: string | null;
   documentCount: number;
 }
@@ -74,4 +77,5 @@ export type IStaffSummaryTableFilters = {
   departmentId: string;
   role: string;
   status: string;
+  employmentType: string;
 };

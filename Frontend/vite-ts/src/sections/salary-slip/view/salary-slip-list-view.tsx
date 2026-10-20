@@ -106,7 +106,7 @@ export function SalarySlipListView() {
     () => [
       ...(isAll ? [{ id: 'employee', label: 'Employee' }] : []),
       { id: 'month', label: 'Salary month', width: 170 },
-      { id: 'gross', label: 'Gross salary', align: 'right' as const, width: 140 },
+      { id: 'gross', label: 'Total earnings', align: 'right' as const, width: 140 },
       { id: 'deductions', label: 'Deductions', align: 'right' as const, width: 130 },
       { id: 'net', label: 'Net salary', align: 'right' as const, width: 140 },
       { id: 'generated', label: 'Generated', width: 140 },

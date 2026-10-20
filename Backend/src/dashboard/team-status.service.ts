@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { RoleName } from '../common/enums/role.enum';
+import { FORM_ASSIGNMENT_FORMS, FormAssignmentType } from '../common/enums/form-assignment.enum';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { dateToPkt } from '../bookings/booking-time';
 import { QueryTeamStatusDto, TodayStatus } from './dto/team-status.dto';
@@ -36,9 +37,62 @@ export interface TeamStatusRowDto {
     workOrders: number;
     appraisals: number;
     lettersToSign: number;
+    /** Forms HR / Admin sent them that they haven't filled in yet. */
+    forms: number;
     total: number;
   };
 }
+
+export type StaffActivityKind =
+  | 'LEAVE'
+  | 'ATTENDANCE'
+  | 'WORK_ORDER'
+  | 'APPRAISAL'
+  | 'LETTER'
+  | 'COMPLAINT'
+  | 'FORM'
+  | 'MEETING'
+  | 'DAILY_LOG'
+  | 'DOCUMENT';
+
+/** One line of a person's activity feed (GET /dashboard/team-status/:userId/activity). */
+export interface StaffActivityItemDto {
+  kind: StaffActivityKind;
+  id: number;
+  title: string;
+  /** The record's own status code (null for log entries and documents). */
+  status: string | null;
+  /** When it happened — submitted / created, or the start time for meetings. */
+  at: string;
+  detail: string | null;
+  /** Still waiting on someone (pending approval, to sign, upcoming meeting…). */
+  inProgress: boolean;
+  /** App path to open it. */
+  link: string;
+}
+
+type ActivityRow = {
+  kind: StaffActivityKind;
+  id: number;
+  title: string | null;
+  status: string | null;
+  at: Date;
+  detail: string | null;
+  in_progress: boolean;
+};
+
+const ACTIVITY_LINK: Record<StaffActivityKind, (id: number, userId: number) => string> = {
+  LEAVE: (id) => `/dashboard/leave-requests/${id}`,
+  ATTENDANCE: (id) => `/dashboard/attendance-regularizations/${id}`,
+  WORK_ORDER: (id) => `/dashboard/work-orders/${id}`,
+  APPRAISAL: (id) => `/dashboard/appraisals/${id}`,
+  LETTER: (id) => `/dashboard/letters/${id}`,
+  COMPLAINT: (id) => `/dashboard/complaints/${id}`,
+  FORM: () => '/dashboard/requests-forms',
+  MEETING: (id) => `/dashboard/bookings/${id}`,
+  DAILY_LOG: () => '/dashboard/activity',
+  DOCUMENT: (_id, userId) => `/dashboard/employees/${userId}/record`,
+};
 
 export interface TeamStatusSummaryDto {
   total: number;
@@ -101,6 +155,104 @@ export class TeamStatusService {
       meta: { total: filtered.length, page, limit },
       summary,
       scope: ALL_STAFF_ROLES.includes(caller.role) ? 'all' : 'team',
+    };
+  }
+
+  /**
+   * GET /dashboard/team-status/:userId/activity — everything a person has going on, newest first:
+   * leave, attendance regularizations, work orders, appraisals, letters, forms sent to them,
+   * meetings, daily activity log entries and E-record documents. Same people as the table (CEO /
+   * HR / Admin: anyone; Team Leads: their direct reports). Complaints and letters still being
+   * drafted are only shown to CEO / HR / Admin — a complaint can be about the person's own manager.
+   */
+  async activity(
+    userId: number,
+    caller: JwtUserPayload,
+    limit = 200,
+  ): Promise<{ data: StaffActivityItemDto[] }> {
+    const [target] = (await this.dataSource.query(
+      `SELECT id, manager_id FROM users WHERE id = $1 AND deleted_at IS NULL`,
+      [userId],
+    )) as Array<{ id: number; manager_id: number | null }>;
+    if (!target) throw new NotFoundException('Employee not found');
+    const seesAll = ALL_STAFF_ROLES.includes(caller.role);
+    if (!seesAll && target.manager_id !== caller.sub) {
+      throw new ForbiddenException("You can only view your own team members' activity");
+    }
+
+    // $1 user, $2 "sees everything" (CEO / HR / Admin), $3 limit.
+    const rows = (await this.dataSource.query(
+      `SELECT * FROM (
+         SELECT 'LEAVE' AS kind, lr.id, lt.name AS title, lr.status::text AS status,
+                lr.created_at::timestamptz AS at,
+                lr.start_date::text || ' to ' || lr.end_date::text || ' · ' || lr.days::text || ' day(s)' AS detail,
+                lr.status::text IN ('PENDING_MANAGER', 'PENDING_HR', 'CANCELLATION_REQUESTED') AS in_progress
+           FROM leave_requests lr JOIN leave_types lt ON lt.id = lr.leave_type_id
+           WHERE lr.employee_id = $1
+         UNION ALL
+         SELECT 'ATTENDANCE', ar.id, 'Attendance regularization', ar.status::text,
+                ar.created_at::timestamptz, 'For ' || ar.attendance_date::text,
+                ar.status::text IN ('PENDING_HOD', 'PENDING_HR')
+           FROM attendance_regularizations ar WHERE ar.employee_id = $1
+         UNION ALL
+         SELECT 'WORK_ORDER', wo.id, wo.title, wo.status::text, wo.created_at::timestamptz,
+                initcap(wo.type::text) || ' · ' || wo.category,
+                wo.status::text IN ('PENDING_MANAGER', 'PENDING_CEO', 'PENDING_PROCESSING')
+           FROM work_orders wo WHERE wo.employee_id = $1
+         UNION ALL
+         SELECT 'APPRAISAL', ap.id, 'Appraisal request', ap.status::text,
+                ap.submitted_at::timestamptz, NULL,
+                ap.status::text IN ('PENDING_MANAGER', 'PENDING_CEO')
+           FROM appraisal_requests ap WHERE ap.employee_id = $1
+         UNION ALL
+         SELECT 'LETTER', l.id, t.name, l.status::text, l.created_at::timestamptz, NULL,
+                l.status::text IN ('DRAFT', 'PENDING_CEO', 'CHANGES_REQUESTED', 'CEO_SIGNED', 'SENT_TO_EMPLOYEE')
+           FROM letters l JOIN letter_templates t ON t.id = l.template_id
+           WHERE l.subject_user_id = $1 AND ($2 OR l.status::text IN ('SENT_TO_EMPLOYEE', 'SIGNED'))
+         UNION ALL
+         SELECT 'COMPLAINT', c.id, 'Complaint', c.status::text, c.created_at::timestamptz,
+                left(c.description, 140), c.status::text <> 'RESOLVED'
+           FROM complaints c WHERE c.complainant_id = $1 AND $2
+         UNION ALL
+         SELECT 'FORM', fa.id, fa.form_type::text, fa.status::text, fa.created_at::timestamptz,
+                fa.message, fa.status::text = 'PENDING'
+           FROM form_assignments fa WHERE fa.user_id = $1
+         UNION ALL
+         SELECT 'MEETING', b.id, b.title, b.status::text, b.start_at::timestamptz, NULL,
+                b.status::text = 'CONFIRMED' AND b.end_at > now()
+           FROM bookings b
+           WHERE b.type = 'MEETING' AND (b.organizer_id = $1 OR EXISTS (
+             SELECT 1 FROM booking_participants bp WHERE bp.booking_id = b.id AND bp.user_id = $1))
+         UNION ALL
+         SELECT 'DAILY_LOG', dl.id, initcap(replace(dl.category::text, '_', ' ')), NULL,
+                dl.created_at::timestamptz,
+                dl.activity_date::text || ' · ' || dl.hours::text || ' h · ' || left(dl.description, 140),
+                false
+           FROM daily_activity_logs dl WHERE dl.user_id = $1
+         UNION ALL
+         SELECT 'DOCUMENT', d.id, dt.name, NULL, d.created_at::timestamptz, d.original_name, false
+           FROM employee_documents d JOIN document_types dt ON dt.id = d.document_type_id
+           WHERE d.user_id = $1
+       ) feed
+       ORDER BY at DESC, id DESC
+       LIMIT $3`,
+      [userId, seesAll, limit],
+    )) as ActivityRow[];
+
+    return {
+      data: rows.map((row) => ({
+        kind: row.kind,
+        id: row.id,
+        title:
+          row.kind === 'FORM'
+            ? `Form sent: ${FORM_ASSIGNMENT_FORMS[row.title as FormAssignmentType]?.label ?? row.title}`
+            : (row.title ?? ''),
+        status: row.status,
+        at: new Date(row.at).toISOString(),
+        detail: row.detail,
+        inProgress: row.in_progress,
+        link: ACTIVITY_LINK[row.kind](row.id, userId),
+      })),
     };
   }
 
@@ -203,7 +355,11 @@ export class TeamStatusService {
          UNION ALL
          SELECT 'lettersToSign', subject_user_id, count(*)::int FROM letters
            WHERE subject_user_id = ANY($1) AND status = 'SENT_TO_EMPLOYEE'
-           GROUP BY subject_user_id`,
+           GROUP BY subject_user_id
+         UNION ALL
+         SELECT 'forms', user_id, count(*)::int FROM form_assignments
+           WHERE user_id = ANY($1) AND status = 'PENDING'
+           GROUP BY user_id`,
         [ids],
       ),
     ]);
@@ -256,6 +412,7 @@ export class TeamStatusService {
         workOrders: count('workOrders'),
         appraisals: count('appraisals'),
         lettersToSign: count('lettersToSign'),
+        forms: count('forms'),
       };
 
       return {

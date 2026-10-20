@@ -196,7 +196,12 @@ export type CeoDecisionDto = {
   decision: AppraisalCeoDecision;
 };
 
-export type MyAppraisalsMeta = { canRequestNext: boolean; nextEligibleDate: string | null };
+/** `canRequestNext` is false only while an appraisal is in progress (`openRequestId`); `nextEligibleDate` is always null now. */
+export type MyAppraisalsMeta = {
+  canRequestNext: boolean;
+  nextEligibleDate: string | null;
+  openRequestId: number | null;
+};
 
 /** `MyAppraisalsResponseDto` — contract §DTOs, the shape of `GET /appraisal-requests/mine`. */
 export interface MyAppraisalsResponseDto {

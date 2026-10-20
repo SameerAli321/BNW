@@ -5,6 +5,7 @@ import { useBoolean, usePopover } from 'minimal-shared/hooks';
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
 import MenuList from '@mui/material/MenuList';
 import MenuItem from '@mui/material/MenuItem';
 import TableRow from '@mui/material/TableRow';
@@ -12,16 +13,23 @@ import TableCell from '@mui/material/TableCell';
 import IconButton from '@mui/material/IconButton';
 import ButtonBase from '@mui/material/ButtonBase';
 
+import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
+
 import { fDate } from 'src/utils/format-time';
 
-import { downloadCandidateCv } from 'src/actions/candidates';
+import { downloadCandidateCv, fetchCandidateCvBlob } from 'src/actions/candidates';
 
 import { Label } from 'src/components/label';
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { PdfViewerDialog } from 'src/components/pdf-viewer';
 import { CustomPopover } from 'src/components/custom-popover';
 
+import { useAuthContext } from 'src/auth/hooks';
+
 import { CandidateEditDialog } from './candidate-edit-dialog';
+import { CandidateLettersDialog } from './candidate-letters-dialog';
 import { CandidateConvertDialog } from './candidate-convert-dialog';
 import { InterviewScheduleDialog } from './interview-schedule-dialog';
 import { interviewWhen, CandidateInterviewsDialog } from './candidate-interviews-dialog';
@@ -40,6 +48,12 @@ export function CandidateTableRow({ row, nextInterview }: Props) {
   const convertDialog = useBoolean();
   const scheduleDialog = useBoolean();
   const interviewsDialog = useBoolean();
+  const lettersDialog = useBoolean();
+  const cvViewer = useBoolean();
+
+  const router = useRouter();
+  const { user: currentAuthUser } = useAuthContext();
+  const isAdmin = currentAuthUser?.role === 'ADMIN';
 
   const isHired = row.status === 'HIRED';
 
@@ -83,9 +97,29 @@ export function CandidateTableRow({ row, nextInterview }: Props) {
           Interviews
         </MenuItem>
 
+        <MenuItem
+          onClick={() => {
+            menuActions.onClose();
+            cvViewer.onTrue();
+          }}
+        >
+          <Iconify icon="solar:eye-bold" />
+          View CV
+        </MenuItem>
+
         <MenuItem onClick={handleDownloadCv}>
           <Iconify icon="solar:download-bold" />
           Download CV
+        </MenuItem>
+
+        <MenuItem
+          onClick={() => {
+            lettersDialog.onTrue();
+            menuActions.onClose();
+          }}
+        >
+          <Iconify icon="solar:file-text-bold" />
+          Letters ({row.letterCount ?? 0})
         </MenuItem>
 
         {!isHired && (
@@ -103,13 +137,34 @@ export function CandidateTableRow({ row, nextInterview }: Props) {
         {!isHired && (
           <MenuItem
             onClick={() => {
-              convertDialog.onTrue();
               menuActions.onClose();
+              router.push(`${paths.dashboard.letters.new}?candidateId=${row.id}`);
             }}
           >
-            <Iconify icon="solar:user-plus-bold" />
-            Convert to employee
+            <Iconify icon="solar:letter-bold" />
+            Prepare letter / contract
           </MenuItem>
+        )}
+
+        {!isHired && (
+          // Only Admin creates user accounts (backend enforces it too).
+          <Tooltip
+            title={isAdmin ? '' : 'Only Admin can create employee accounts'}
+            placement="left"
+          >
+            <span>
+              <MenuItem
+                disabled={!isAdmin}
+                onClick={() => {
+                  convertDialog.onTrue();
+                  menuActions.onClose();
+                }}
+              >
+                <Iconify icon="solar:user-plus-bold" />
+                Convert to employee
+              </MenuItem>
+            </span>
+          </Tooltip>
         )}
       </MenuList>
     </CustomPopover>
@@ -135,6 +190,22 @@ export function CandidateTableRow({ row, nextInterview }: Props) {
             >
               {row.email}
             </Box>
+            {row.letterCount > 0 && (
+              <ButtonBase
+                onClick={lettersDialog.onTrue}
+                sx={{
+                  mt: 0.5,
+                  gap: 0.5,
+                  alignSelf: 'flex-start',
+                  borderRadius: 0.5,
+                  typography: 'caption',
+                  color: 'primary.main',
+                }}
+              >
+                <Iconify icon="solar:file-text-bold" width={14} />
+                Letters ({row.letterCount})
+              </ButtonBase>
+            )}
           </Stack>
         </TableCell>
 
@@ -201,6 +272,18 @@ export function CandidateTableRow({ row, nextInterview }: Props) {
       {interviewsDialog.value && (
         <CandidateInterviewsDialog open onClose={interviewsDialog.onFalse} candidate={row} />
       )}
+
+      {lettersDialog.value && (
+        <CandidateLettersDialog open onClose={lettersDialog.onFalse} candidate={row} />
+      )}
+
+      <PdfViewerDialog
+        open={cvViewer.value}
+        onClose={cvViewer.onFalse}
+        title={`CV — ${row.name}`}
+        filename={row.cvOriginalName}
+        load={() => fetchCandidateCvBlob(row.id)}
+      />
 
       {convertDialog.value && (
         <CandidateConvertDialog

@@ -29,6 +29,7 @@ import {
   CreateWorkOrderDto,
   ProcessWorkOrderDto,
   QueryWorkOrdersDto,
+  UpdateWorkOrderDto,
   WorkOrderDecisionDto,
 } from './dto/work-order.dto';
 import { WORK_ORDER_RECEIPTS_DIR } from './receipt.storage';
@@ -102,6 +103,8 @@ export interface WorkOrderDto {
   processedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Single work-order reads only: whether the caller may still edit it (PATCH /work-orders/:id).
+  canEdit?: boolean;
 }
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -213,7 +216,8 @@ export class WorkOrdersService {
   }
 
   async getOne(id: number, caller: JwtUserPayload): Promise<WorkOrderDto> {
-    return toWorkOrderDto(await this.findEntityForViewer(id, caller));
+    const row = await this.findEntityForViewer(id, caller);
+    return { ...toWorkOrderDto(row), canEdit: this.canEdit(row, caller) };
   }
 
   async list(query: QueryWorkOrdersDto, scope: ListScope) {
@@ -344,6 +348,139 @@ export class WorkOrdersService {
       return toWorkOrderDto(row);
     } catch (error) {
       // Don't leave an orphaned upload behind if validation failed.
+      if (receipt) this.removeFile(join('work-order-receipts', receipt.filename));
+      throw error;
+    }
+  }
+
+  // --------------------------------------------------------------------------------------------
+  // Edit
+
+  /** Why it can't be edited any more, or null while it's pending and nobody has decided yet. */
+  private editBlocker(row: WorkOrder): string | null {
+    if (!PENDING.includes(row.status)) {
+      return `This work order is already ${row.status.toLowerCase().replace(/_/g, ' ')} — it can no longer be edited`;
+    }
+    if (row.managerSignedAt || row.ceoSignedAt || row.processedAt) {
+      return 'An approver has already acted on this work order — it can no longer be edited';
+    }
+    return null;
+  }
+
+  /** The requester, or HR / Admin on their behalf, until the first decision. */
+  private canEdit(row: WorkOrder, caller: JwtUserPayload): boolean {
+    const allowed =
+      row.employeeId === caller.sub ||
+      [RoleName.HR, RoleName.ADMIN].includes(caller.role as RoleName);
+    return allowed && this.editBlocker(row) === null;
+  }
+
+  async update(
+    id: number,
+    dto: UpdateWorkOrderDto,
+    receipt: Express.Multer.File | undefined,
+    caller: JwtUserPayload,
+  ): Promise<WorkOrderDto> {
+    try {
+      const row = await this.findEntityForViewer(id, caller);
+      if (
+        row.employeeId !== caller.sub &&
+        ![RoleName.HR, RoleName.ADMIN].includes(caller.role as RoleName)
+      ) {
+        throw new ForbiddenException('Only the requester (or HR) can edit this work order');
+      }
+      const blocker = this.editBlocker(row);
+      if (blocker) throw new ConflictException(blocker);
+
+      // Same checks as create, on the merged values. The type is fixed once submitted.
+      const isReimbursement = row.type === WorkOrderType.REIMBURSEMENT;
+      const merged = {
+        title: dto.title !== undefined ? dto.title.trim() : row.title,
+        category: dto.category ?? row.category,
+        description: dto.description !== undefined ? dto.description.trim() : row.description,
+        amount: dto.amount !== undefined ? dto.amount : row.amount,
+        expenseDate: isReimbursement
+          ? dto.expenseDate !== undefined
+            ? dto.expenseDate
+            : row.expenseDate
+          : null,
+        quantity: isReimbursement
+          ? null
+          : dto.quantity !== undefined
+            ? (dto.quantity ?? 1)
+            : (row.quantity ?? 1),
+        neededBy: isReimbursement ? null : dto.neededBy !== undefined ? dto.neededBy : row.neededBy,
+      };
+      const categories: readonly string[] = isReimbursement
+        ? REIMBURSEMENT_CATEGORIES
+        : EQUIPMENT_CATEGORIES;
+      if (!categories.includes(merged.category)) throw new BadRequestException('Choose a category');
+      if (merged.title.length < 3) throw new BadRequestException('Give it a title');
+      if (!merged.description) throw new BadRequestException('Add some details');
+      if (isReimbursement) {
+        if (merged.amount === null) throw new BadRequestException('Enter the amount in rupees');
+        if (!merged.expenseDate)
+          throw new BadRequestException('Enter the date you spent the money');
+        if (merged.expenseDate > new Date().toISOString().slice(0, 10)) {
+          throw new BadRequestException('The expense date cannot be in the future');
+        }
+      }
+
+      // The amount decides whether the CEO step is needed. With a line manager it stays with the
+      // manager; without one it moves between the CEO and the final step to match.
+      const { ceoApprovalLimit } = await this.getSettings();
+      const ceoRequired =
+        merged.amount !== null &&
+        merged.amount > ceoApprovalLimit &&
+        row.employee.role !== RoleName.CEO;
+      const status =
+        row.status === WorkOrderStatus.PENDING_MANAGER
+          ? row.status
+          : ceoRequired
+            ? WorkOrderStatus.PENDING_CEO
+            : WorkOrderStatus.PENDING_PROCESSING;
+
+      const receiptPatch: Partial<WorkOrder> = receipt
+        ? {
+            receiptPath: join('work-order-receipts', receipt.filename),
+            receiptOriginalName: receipt.originalname,
+            receiptMime: receipt.mimetype,
+          }
+        : dto.removeReceipt
+          ? { receiptPath: null, receiptOriginalName: null, receiptMime: null }
+          : {};
+
+      // Only while it's still in the same status — a decision landing at the same moment wins.
+      const result = await this.repo.update(
+        { id, status: row.status },
+        { ...merged, ceoRequired, status, ...receiptPatch },
+      );
+      if (!result.affected) {
+        throw new ConflictException('This work order was just updated by someone else — refresh');
+      }
+      if ((receipt || dto.removeReceipt) && row.receiptPath) this.removeFile(row.receiptPath);
+
+      const updated = await this.findEntityForViewer(id, caller);
+      const ids = (await this.nextApproverIds(updated)).filter((uid) => uid !== caller.sub);
+      if (ids.length) {
+        await this.notify(
+          ids,
+          `${fullName(updated.employee)} edited their ${TYPE_LABEL[updated.type]} "${updated.title}" — please review the updated details`,
+          updated,
+          { heading: 'Request updated — needs your approval', emailToo: true },
+        );
+      }
+      if (updated.employeeId !== caller.sub) {
+        await this.notify(
+          [updated.employeeId],
+          `HR updated your ${TYPE_LABEL[updated.type]} "${updated.title}"`,
+          updated,
+          { heading: 'Request updated', emailToo: false },
+        );
+      }
+      return this.getOne(id, caller);
+    } catch (error) {
+      // Don't leave an orphaned upload behind if the edit was refused.
       if (receipt) this.removeFile(join('work-order-receipts', receipt.filename));
       throw error;
     }
@@ -526,17 +663,22 @@ export class WorkOrdersService {
     return users.map((u) => u.id).filter((uid) => uid !== excludeId);
   }
 
-  private async notifyNextApprovers(row: WorkOrder): Promise<void> {
-    let ids: number[] = [];
-    if (row.status === WorkOrderStatus.PENDING_MANAGER && row.managerId) ids = [row.managerId];
+  /** Whoever the work order is waiting on right now. */
+  private async nextApproverIds(row: WorkOrder): Promise<number[]> {
+    if (row.status === WorkOrderStatus.PENDING_MANAGER && row.managerId) return [row.managerId];
     if (row.status === WorkOrderStatus.PENDING_CEO)
-      ids = await this.activeUserIds([RoleName.CEO], row.employeeId);
+      return this.activeUserIds([RoleName.CEO], row.employeeId);
     if (row.status === WorkOrderStatus.PENDING_PROCESSING) {
       // New staff who do HR / Payroll are created as "HR/Admin" (ADMIN), so they're always
       // included alongside any older Payroll / HR accounts.
       const role = row.type === WorkOrderType.REIMBURSEMENT ? RoleName.PAYROLL : RoleName.HR;
-      ids = await this.activeUserIds([role, RoleName.ADMIN], row.employeeId);
+      return this.activeUserIds([role, RoleName.ADMIN], row.employeeId);
     }
+    return [];
+  }
+
+  private async notifyNextApprovers(row: WorkOrder): Promise<void> {
+    const ids = await this.nextApproverIds(row);
     if (!ids.length) return;
     const name = fullName(row.employee);
     await this.notify(

@@ -78,6 +78,8 @@ export interface WorkOrderDto {
   processedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Detail reads only: the caller may still edit it (no decision recorded yet).
+  canEdit?: boolean;
 }
 
 export type WorkOrderSettings = {
@@ -183,6 +185,30 @@ export async function createWorkOrder(
   const res = await axiosInstance.post(endpoints.workOrders.list, form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+  await revalidateWorkOrders();
+  return res.data.data;
+}
+
+/**
+ * PATCH /work-orders/:id — multipart, until the first decision (409 after that). '' clears an
+ * optional field; a new `receipt` replaces the old one, `removeReceipt` drops it.
+ */
+export async function updateWorkOrder(
+  id: number | string,
+  fields: Record<string, string | number | undefined>,
+  receipt?: File | null,
+  removeReceipt = false
+): Promise<WorkOrderDto> {
+  const form = new FormData();
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value !== undefined) form.append(key, String(value));
+  });
+  if (receipt) form.append('receipt', receipt);
+  else if (removeReceipt) form.append('removeReceipt', 'true');
+  const res = await axiosInstance.patch(endpoints.workOrders.details(id), form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  await mutate(endpoints.workOrders.details(id), { data: res.data.data }, false);
   await revalidateWorkOrders();
   return res.data.data;
 }

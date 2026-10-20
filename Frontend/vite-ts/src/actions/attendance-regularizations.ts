@@ -109,6 +109,19 @@ export async function createAttendanceRegularization(
   return res.data.data;
 }
 
+/**
+ * PATCH /attendance-regularizations/:id — the employee (or HR / Admin) until the HOD recommends
+ * it; 409 after that. Send '' for a time to clear it.
+ */
+export async function updateAttendanceRegularization(
+  id: number | string,
+  payload: Partial<CreateAttendanceRegularizationDto>
+): Promise<AttendanceRegularizationDto> {
+  const res = await axiosInstance.patch(endpoints.attendanceRegularizations.details(id), payload);
+  await revalidate(id, res.data.data);
+  return res.data.data;
+}
+
 /** POST /attendance-regularizations/:id/hod-recommendation — the employee's HOD only. */
 export async function submitHodRecommendation(
   id: number | string,

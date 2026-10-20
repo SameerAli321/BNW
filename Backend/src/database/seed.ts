@@ -194,7 +194,7 @@ const SEED_USERS: Array<{ email: string; role: RoleName; firstName: string; last
   { email: 'hr@bnw.local', role: RoleName.HR, firstName: 'HR', lastName: 'User' },
   { email: 'manager@bnw.local', role: RoleName.MANAGER, firstName: 'Manager', lastName: 'User' },
   { email: 'employee@bnw.local', role: RoleName.EMPLOYEE, firstName: 'Employee', lastName: 'User' },
-  { email: 'ceo@bnw.local', role: RoleName.CEO, firstName: 'CEO', lastName: 'User' },
+  { email: 'ceo@bnw.local', role: RoleName.CEO, firstName: 'Shahzada H', lastName: 'Israr' },
   { email: 'payroll@bnw.local', role: RoleName.PAYROLL, firstName: 'Payroll', lastName: 'User' },
 ];
 

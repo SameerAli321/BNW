@@ -25,9 +25,6 @@ import LinearProgress from '@mui/material/LinearProgress';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
 
-import { paths } from 'src/routes/paths';
-import { RouterLink } from 'src/routes/components';
-
 import { useGetDepartments } from 'src/actions/users';
 import { useGetTeamStatus } from 'src/actions/team-status';
 
@@ -37,6 +34,7 @@ import { Scrollbar } from 'src/components/scrollbar';
 import { EmptyContent } from 'src/components/empty-content';
 
 import { DashboardCardHeader } from './dashboard-widgets';
+import { DashboardStaffActivityDrawer } from './dashboard-staff-activity-drawer';
 
 // ----------------------------------------------------------------------
 
@@ -77,6 +75,7 @@ function pendingBreakdown(row: TeamStatusRow): string[] {
     p.workOrders ? `${p.workOrders} work order${p.workOrders > 1 ? 's' : ''}` : null,
     p.appraisals ? `${p.appraisals} appraisal${p.appraisals > 1 ? 's' : ''}` : null,
     p.lettersToSign ? `${p.lettersToSign} letter${p.lettersToSign > 1 ? 's' : ''} to sign` : null,
+    p.forms ? `${p.forms} form${p.forms > 1 ? 's' : ''} to fill in` : null,
   ].filter((x): x is string => !!x);
 }
 
@@ -92,6 +91,8 @@ export function DashboardTeamStatus() {
   const [departmentId, setDepartmentId] = useState<number | ''>('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  // The person whose full activity feed is open in the side drawer.
+  const [activityFor, setActivityFor] = useState<TeamStatusRow | null>(null);
   const debounced = useDebounce(search.trim(), 300);
   const { departments } = useGetDepartments();
 
@@ -122,7 +123,7 @@ export function DashboardTeamStatus() {
       )}
       <DashboardCardHeader
         title={isTeam ? 'My team status' : 'Staff status'}
-        subheader="Where everyone is today, their leave this year and requests still in progress"
+        subheader="Where everyone is today, their leave this year and requests in progress — click a person to see all their activity"
         icon="solar:users-group-rounded-bold"
       />
 
@@ -294,7 +295,12 @@ export function DashboardTeamStatus() {
                   const today = TODAY_META[row.today.status];
                   const breakdown = pendingBreakdown(row);
                   return (
-                    <TableRow key={row.id} hover sx={{ opacity: row.today.status === 'INACTIVE' ? 0.6 : 1 }}>
+                    <TableRow
+                      key={row.id}
+                      hover
+                      onClick={() => setActivityFor(row)}
+                      sx={{ cursor: 'pointer', opacity: row.today.status === 'INACTIVE' ? 0.6 : 1 }}
+                    >
                       <TableCell>
                         <Stack direction="row" spacing={1.5} alignItems="center">
                           <Avatar sx={{ width: 34, height: 34, fontSize: 13 }}>{initials(row.name)}</Avatar>
@@ -373,11 +379,13 @@ export function DashboardTeamStatus() {
                         )}
                       </TableCell>
                       <TableCell align="right">
-                        <Tooltip title="Open E-record">
+                        <Tooltip title="View all activity">
                           <IconButton
-                            component={RouterLink}
-                            href={paths.dashboard.employees.record(row.id)}
-                            aria-label={`Open ${row.name}'s E-record`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActivityFor(row);
+                            }}
+                            aria-label={`View ${row.name}'s activity`}
                           >
                             <Iconify icon="eva:arrow-ios-forward-fill" />
                           </IconButton>
@@ -391,6 +399,8 @@ export function DashboardTeamStatus() {
           </Table>
         </Scrollbar>
       </TableContainer>
+
+      <DashboardStaffActivityDrawer person={activityFor} onClose={() => setActivityFor(null)} />
 
       <TablePagination
         component="div"

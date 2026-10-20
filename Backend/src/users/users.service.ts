@@ -14,6 +14,8 @@ import { User } from '../entities/user.entity';
 import { EmployeeProfile } from '../entities/employee-profile.entity';
 import { UserStatus } from '../common/enums/user-status.enum';
 import { RoleName } from '../common/enums/role.enum';
+import { EmploymentType } from '../common/enums/employment-type.enum';
+import { Company } from '../common/enums/company.enum';
 import { COMPENSATION_VIEWER_ROLES, toUserDto, UserDto } from '../common/mappers/user.mapper';
 import {
   EmployeeProfileDto,
@@ -35,6 +37,19 @@ export type WelcomeEmailResult = {
   status: 'SENT' | 'FAILED' | 'NOT_CONFIGURED';
   sentTo: string;
   error?: string;
+};
+
+/** One person on the Team Hierarchy page — deliberately no email / salary / CNIC. */
+export type HierarchyNodeDto = {
+  id: number;
+  name: string;
+  designation: string | null;
+  role: string;
+  departmentName: string | null;
+  managerId: number | null;
+  avatarUrl: string | null;
+  employmentType: string;
+  company: string;
 };
 
 /** Today as YYYY-MM-DD (server local time). */
@@ -76,6 +91,11 @@ export class UsersService {
     if (query.status) {
       qb.andWhere('user.status = :status', { status: query.status });
     }
+    if (query.employmentType) {
+      qb.andWhere('user.employmentType = :employmentType', {
+        employmentType: query.employmentType,
+      });
+    }
     if (query.departmentId) {
       qb.andWhere('user.departmentId = :departmentId', { departmentId: query.departmentId });
     }
@@ -94,6 +114,26 @@ export class UsersService {
       ),
       meta: { total, page, limit },
     };
+  }
+
+  /** GET /users/hierarchy — every active user, for the org chart (any signed-in user). */
+  async findHierarchy(): Promise<HierarchyNodeDto[]> {
+    const users = await this.usersRepo.find({
+      where: { status: UserStatus.ACTIVE },
+      relations: ['department'],
+      order: { firstName: 'ASC', lastName: 'ASC' },
+    });
+    return users.map((user) => ({
+      id: user.id,
+      name: `${user.firstName} ${user.lastName}`.trim(),
+      designation: user.designation,
+      role: user.role,
+      departmentName: user.department ? user.department.name : null,
+      managerId: user.managerId,
+      avatarUrl: user.avatarPath ? `/users/avatars/${user.avatarPath}` : null,
+      employmentType: user.employmentType,
+      company: user.company,
+    }));
   }
 
   private async profilesFor(userIds: number[]): Promise<Map<number, EmployeeProfile>> {
@@ -204,6 +244,8 @@ export class UsersService {
       leavingDate: dto.leavingDate ?? null,
       employeeCode: dto.employeeCode?.trim() || null,
       status: dto.status ?? UserStatus.ACTIVE,
+      employmentType: dto.employmentType ?? EmploymentType.PERMANENT,
+      company: dto.company ?? Company.BNW,
       currentSalary,
       previousSalary: dto.previousSalary ?? null,
       deductionPolicy: dto.deductionPolicy?.trim() || null,
@@ -338,6 +380,8 @@ export class UsersService {
     if (dto.joinDate !== undefined) user.joinDate = dto.joinDate;
     if (dto.employeeCode !== undefined) user.employeeCode = dto.employeeCode?.trim() || null;
     if (dto.status !== undefined) user.status = dto.status;
+    if (dto.employmentType !== undefined) user.employmentType = dto.employmentType;
+    if (dto.company !== undefined) user.company = dto.company;
     if (dto.leavingDate !== undefined) user.leavingDate = dto.leavingDate;
     if (dto.deductionPolicy !== undefined) {
       user.deductionPolicy = dto.deductionPolicy?.trim() || null;

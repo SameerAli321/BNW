@@ -53,13 +53,19 @@ export class LettersController {
     return this.lettersService.getLetter(id, caller);
   }
 
-  @Roles(RoleName.HR, RoleName.ADMIN)
+  // Editable until the employee signs; editing after the CEO signed sends it back to DRAFT.
+  @Roles(RoleName.HR, RoleName.CEO, RoleName.ADMIN)
   @Patch(':id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateLetterDto) {
-    return this.lettersService.updateLetter(id, dto);
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateLetterDto,
+    @CurrentUser() caller: JwtUserPayload,
+  ) {
+    return this.lettersService.updateLetter(id, dto, caller);
   }
 
-  @Roles(RoleName.HR, RoleName.ADMIN)
+  // CEO too: render / re-render the PDF from the letter page at any status.
+  @Roles(RoleName.HR, RoleName.CEO, RoleName.ADMIN)
   @Post(':id/preview')
   async preview(@Param('id', ParseIntPipe) id: number) {
     const data = await this.lettersService.preview(id);
@@ -93,6 +99,7 @@ export class LettersController {
     return this.lettersService.ceoSign(id, dto.signatureText, caller, requestMeta(req));
   }
 
+  // A candidate-only letter (no account yet) is emailed to the candidate instead — see the service.
   @Roles(RoleName.HR, RoleName.ADMIN)
   @Post(':id/send-to-employee')
   async sendToEmployee(

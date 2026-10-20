@@ -14,6 +14,10 @@ export interface UserDto {
   departmentName?: string | null;
   designation: string | null;
   status: string;
+  /** PERMANENT | CONTRACT | PROBATION | INTERN. */
+  employmentType: string;
+  /** BNW | HAYES | SHARED (HR / Administration across both). */
+  company: string;
   joinDate: string | null;
   leavingDate: string | null;
   /** Relative to the API base, e.g. '/users/avatars/<uuid>.jpg' — null when no picture. */
@@ -63,6 +67,8 @@ export function toUserDto(user: User, options: UserDtoOptions = {}): UserDto {
     departmentName: user.department ? user.department.name : null,
     designation: user.designation,
     status: user.status,
+    employmentType: user.employmentType,
+    company: user.company,
     joinDate: user.joinDate,
     leavingDate: user.leavingDate ?? null,
     avatarUrl: user.avatarPath ? `/users/avatars/${user.avatarPath}` : null,

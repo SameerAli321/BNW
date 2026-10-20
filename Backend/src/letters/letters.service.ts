@@ -16,13 +16,18 @@ import { LetterEvent } from '../entities/letter-event.entity';
 import { Signature } from '../entities/signature.entity';
 import { DocumentType } from '../entities/document-type.entity';
 import { EmployeeProfile } from '../entities/employee-profile.entity';
+import { Candidate } from '../entities/candidate.entity';
+import { User } from '../entities/user.entity';
 import { LetterStatus } from '../common/enums/letter-status.enum';
 import { LetterEventAction } from '../common/enums/letter-event-action.enum';
 import { LetterTemplateType } from '../common/enums/letter-template-type.enum';
 import { DocumentSource } from '../common/enums/document-source.enum';
 import { RoleName } from '../common/enums/role.enum';
+import { UserStatus } from '../common/enums/user-status.enum';
+import { CandidateStatus } from '../common/enums/candidate-status.enum';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
 import {
+  LetterDeliveryDto,
   LetterDto,
   LetterTemplateDto,
   toLetterDto,
@@ -42,6 +47,8 @@ import { QueryLettersDto } from './dto/query-letters.dto';
 import { LetterPdfRendererService, resolveLetterFieldValues } from './letter-pdf-renderer.service';
 import { UPLOADS_ROOT_DIR } from '../employees/employee-documents.storage';
 import { NotifyService } from '../notifications/notify.service';
+import { MailService } from '../mail/mail.service';
+import { renderActionEmail } from '../mail/action-email';
 
 // Maps a letter template type to the E-record document type it should be filed under once the
 // employee signs. Falls back to 'Other' for template types with no dedicated document type yet.
@@ -50,10 +57,45 @@ const DOCUMENT_TYPE_NAME_BY_LETTER_TYPE: Partial<Record<LetterTemplateType, stri
   [LetterTemplateType.CONTRACT]: 'Signed Contract',
 };
 
+/** Everything up to the employee's signature can still be edited (see updateLetter). */
+const EDITABLE_LETTER_STATUSES: LetterStatus[] = [
+  LetterStatus.DRAFT,
+  LetterStatus.CHANGES_REQUESTED,
+  LetterStatus.PENDING_CEO,
+  LetterStatus.CEO_SIGNED,
+  LetterStatus.SENT_TO_EMPLOYEE,
+];
+
 const letterSubject = (letter: Letter) =>
   letter.subjectUser
     ? `${letter.subjectUser.firstName} ${letter.subjectUser.lastName}`
-    : 'the employee';
+    : (letter.subjectCandidate?.name ?? 'the employee');
+
+/** Candidates uploaded without an email get a placeholder address — never send to those. */
+const isPlaceholderEmail = (email: string | null | undefined) =>
+  !email || email.toLowerCase().endsWith('@pending.local');
+
+/**
+ * The User the PDF renderer / field resolution reads from. For a letter that still belongs to a
+ * candidate (no account yet) this is a stand-in built from the candidate: name split into
+ * first/last, email, everything else empty.
+ */
+function letterSubjectForRender(letter: Letter): User {
+  if (letter.subjectUser) return letter.subjectUser;
+  const candidate = letter.subjectCandidate;
+  const [firstName, ...rest] = (candidate?.name ?? '').trim().split(/\s+/);
+  return Object.assign(new User(), {
+    firstName: firstName ?? '',
+    lastName: rest.join(' '),
+    email: candidate && !isPlaceholderEmail(candidate.email) ? candidate.email : '',
+    employeeCode: null,
+    designation: null,
+    department: null,
+    manager: null,
+    joinDate: null,
+    currentSalary: null,
+  });
+}
 
 @Injectable()
 export class LettersService {
@@ -65,11 +107,13 @@ export class LettersService {
     @InjectRepository(DocumentType) private readonly documentTypesRepo: Repository<DocumentType>,
     @InjectRepository(EmployeeProfile)
     private readonly profilesRepo: Repository<EmployeeProfile>,
+    @InjectRepository(Candidate) private readonly candidatesRepo: Repository<Candidate>,
     private readonly usersService: UsersService,
     private readonly employeesService: EmployeesService,
     private readonly pdfRenderer: LetterPdfRendererService,
     private readonly auditLogService: AuditLogService,
     private readonly notifier: NotifyService,
+    private readonly mail: MailService,
   ) {}
 
   // ---------------------------------------------------------------------------------------------
@@ -148,7 +192,7 @@ export class LettersService {
    * there's no "manager-of" case here — letters are between HR/CEO and the named subject only, per
    * API_CONTRACT_SPRINT3.md.
    */
-  assertCanView(caller: JwtUserPayload, subjectUserId: number, status: LetterStatus): void {
+  assertCanView(caller: JwtUserPayload, subjectUserId: number | null, status: LetterStatus): void {
     if (
       caller.role === RoleName.HR ||
       caller.role === RoleName.CEO ||
@@ -204,6 +248,7 @@ export class LettersService {
         'subjectUser',
         'subjectUser.department',
         'subjectUser.manager',
+        'subjectCandidate',
         'preparedByUser',
       ],
     });
@@ -224,6 +269,7 @@ export class LettersService {
       .createQueryBuilder('letter')
       .leftJoinAndSelect('letter.template', 'template')
       .leftJoinAndSelect('letter.subjectUser', 'subjectUser')
+      .leftJoinAndSelect('letter.subjectCandidate', 'subjectCandidate')
       .leftJoinAndSelect('letter.preparedByUser', 'preparedByUser');
 
     const isPrivileged =
@@ -238,6 +284,16 @@ export class LettersService {
         'letter.status IN (:...visibleStatuses)',
         { visibleStatuses: [LetterStatus.SENT_TO_EMPLOYEE, LetterStatus.SIGNED] },
       );
+    } else {
+      // Per-person filters (E-record "Letters" card, Hiring "Letters (n)") — privileged roles only.
+      if (query.subjectUserId) {
+        qb.andWhere('letter.subjectUserId = :subjectUserId', {
+          subjectUserId: query.subjectUserId,
+        });
+      }
+      if (query.candidateId) {
+        qb.andWhere('letter.subjectCandidateId = :candidateId', { candidateId: query.candidateId });
+      }
     }
 
     if (query.type) {
@@ -281,13 +337,33 @@ export class LettersService {
   // ---------------------------------------------------------------------------------------------
 
   async createLetter(dto: CreateLetterDto, preparedBy: number): Promise<LetterDto> {
+    const hasUser = dto.subjectUserId != null;
+    const hasCandidate = dto.subjectCandidateId != null;
+    if (hasUser === hasCandidate) {
+      throw new BadRequestException('Choose exactly one subject: an employee or a candidate');
+    }
     const template = await this.findTemplateEntityOrThrow(dto.templateId);
-    await this.usersService.findOneEntity(dto.subjectUserId); // 404s if the subject doesn't exist
+    if (dto.subjectUserId != null) {
+      await this.usersService.findOneEntity(dto.subjectUserId); // 404s if the subject doesn't exist
+    } else {
+      const candidate = await this.candidatesRepo.findOne({
+        where: { id: dto.subjectCandidateId },
+      });
+      if (!candidate) {
+        throw new NotFoundException('Candidate not found');
+      }
+      if (candidate.status === CandidateStatus.HIRED) {
+        throw new BadRequestException(
+          'This candidate has already been converted to an employee — prepare the letter for their employee account instead',
+        );
+      }
+    }
 
     const letter = this.lettersRepo.create({
       templateId: template.id,
       type: template.type,
-      subjectUserId: dto.subjectUserId,
+      subjectUserId: dto.subjectUserId ?? null,
+      subjectCandidateId: dto.subjectCandidateId ?? null,
       preparedBy,
       fieldValues: dto.fieldValues ?? {},
       status: LetterStatus.DRAFT,
@@ -324,15 +400,53 @@ export class LettersService {
     });
   }
 
-  async updateLetter(id: number, dto: UpdateLetterDto): Promise<LetterDto> {
-    const letter = await this.findLetterOrThrow(id);
-    if (letter.status !== LetterStatus.DRAFT && letter.status !== LetterStatus.CHANGES_REQUESTED) {
+  /**
+   * PATCH /letters/:id — HR / Admin / CEO can change a letter's fields at any point until the
+   * employee signs it. Editing a letter the CEO already signed (CEO_SIGNED / SENT_TO_EMPLOYEE)
+   * removes that signature and returns it to DRAFT, so the changed version is signed again; if it
+   * had already been sent, the employee is told it was withdrawn for changes.
+   */
+  async updateLetter(id: number, dto: UpdateLetterDto, caller: JwtUserPayload): Promise<LetterDto> {
+    const letter = await this.loadLetterWithRelations(id);
+    if (!EDITABLE_LETTER_STATUSES.includes(letter.status)) {
       throw new ConflictException(
-        `Cannot edit a letter in status ${letter.status} — only DRAFT or CHANGES_REQUESTED`,
+        letter.status === LetterStatus.SIGNED
+          ? 'This letter is already signed by the employee — create a new letter instead'
+          : `A ${letter.status.toLowerCase()} letter can't be edited`,
       );
     }
+    const changed = JSON.stringify(letter.fieldValues ?? {}) !== JSON.stringify(dto.fieldValues);
+    if (!changed) return toLetterDto(letter);
+
+    const wasSentToEmployee = letter.status === LetterStatus.SENT_TO_EMPLOYEE;
+    const ceoSigned = letter.status === LetterStatus.CEO_SIGNED || wasSentToEmployee;
     letter.fieldValues = dto.fieldValues;
+    if (ceoSigned) {
+      await this.signaturesRepo.delete({ letterId: id, signerRole: RoleName.CEO });
+      letter.status = LetterStatus.DRAFT;
+    }
     await this.lettersRepo.save(letter);
+
+    // Drafts are saved often — only edits made after the letter left HR show on its timeline.
+    if (letter.status !== LetterStatus.DRAFT || ceoSigned) {
+      await this.logEvent(
+        id,
+        caller.sub,
+        LetterEventAction.EDITED,
+        ceoSigned ? "The CEO's signature was removed — submit it to the CEO again" : null,
+      );
+    }
+    // Keep the PDF in step with the fields, so "View PDF" shows the edited version.
+    if (letter.pdfPath) await this.renderAndStorePdf(letter);
+
+    if (wasSentToEmployee) {
+      await this.notifyLetter(
+        [letter.subjectUserId],
+        `${letter.template.name} was withdrawn for changes`,
+        letter,
+        'HR is updating this letter. You will get the new version to sign once it is ready.',
+      );
+    }
     return toLetterDto(await this.loadLetterWithRelations(id));
   }
 
@@ -346,7 +460,7 @@ export class LettersService {
     const pdfPath = await this.pdfRenderer.render(
       letter,
       letter.template,
-      letter.subjectUser,
+      letterSubjectForRender(letter),
       signatures,
       await this.findSubjectProfile(letter),
     );
@@ -401,7 +515,9 @@ export class LettersService {
     return toLetterDto(returned);
   }
 
-  private findSubjectProfile(letter: Letter): Promise<EmployeeProfile | null> {
+  /** Candidates have no E-record profile yet. */
+  private async findSubjectProfile(letter: Letter): Promise<EmployeeProfile | null> {
+    if (letter.subjectUserId == null) return null;
     return this.profilesRepo.findOne({ where: { userId: letter.subjectUserId } });
   }
 
@@ -409,7 +525,7 @@ export class LettersService {
     const resolved = resolveLetterFieldValues(
       template.fieldsSchema,
       letter.fieldValues ?? {},
-      letter.subjectUser,
+      letterSubjectForRender(letter),
       await this.findSubjectProfile(letter),
     );
     const payload = JSON.stringify({
@@ -461,7 +577,7 @@ export class LettersService {
 
     await this.notifyLetter(
       [letter.preparedBy],
-      `The CEO signed ${letter.template.name} for ${letterSubject(letter)} — ready to send to the employee`,
+      `The CEO signed ${letter.template.name} for ${letterSubject(letter)} — ready to send to the ${letter.subjectUserId == null ? 'candidate' : 'employee'}`,
       letter,
     );
     return toLetterDto(await this.loadLetterWithRelations(id));
@@ -471,13 +587,17 @@ export class LettersService {
     id: number,
     message: string | null,
     caller: JwtUserPayload,
-  ): Promise<LetterDto> {
+  ): Promise<LetterDto & { delivery: LetterDeliveryDto }> {
     const letter = await this.loadLetterWithRelations(id);
     if (letter.status !== LetterStatus.CEO_SIGNED) {
       throw new ConflictException(
         `Cannot send a letter in status ${letter.status} to the employee — must be CEO_SIGNED`,
       );
     }
+    if (letter.subjectUserId == null) {
+      return this.sendToCandidate(letter, message, caller);
+    }
+
     letter.status = LetterStatus.SENT_TO_EMPLOYEE;
     await this.lettersRepo.save(letter);
     // Optional HR note, shown to the employee on the letter's timeline (same event.comment
@@ -485,7 +605,8 @@ export class LettersService {
     // addendum "Send to employee message".
     await this.logEvent(id, caller.sub, LetterEventAction.SENT_TO_EMPLOYEE, message);
 
-    // Email carries the CEO-signed PDF; the employee signs it in the portal.
+    // Email carries the CEO-signed PDF; the employee signs it in the portal. NotifyService only
+    // emails ACTIVE users, so a removed (INACTIVE) employee gets the bell row but no email.
     await this.notifyLetter(
       [letter.subjectUserId],
       `You have a letter to sign: ${letter.template.name}`,
@@ -493,8 +614,92 @@ export class LettersService {
       message ?? 'A copy is attached. Please open it in the BNW HR system to sign it.',
       true,
     );
+    const subject = letter.subjectUser;
+    const inactive = subject?.status === UserStatus.INACTIVE;
+    const delivery: LetterDeliveryDto = {
+      recipientType: 'EMPLOYEE',
+      emailedTo: inactive ? null : (subject?.email ?? null),
+      emailStatus: inactive ? 'SKIPPED' : 'QUEUED',
+      warning: inactive
+        ? `${letterSubject(letter)}'s account is inactive, so no email was sent — download the PDF and share it another way.`
+        : letter.pdfPath
+          ? null
+          : 'The letter has no rendered PDF, so the email went out without an attachment.',
+    };
 
-    return toLetterDto(await this.loadLetterWithRelations(id));
+    return { ...toLetterDto(await this.loadLetterWithRelations(id)), delivery };
+  }
+
+  /**
+   * send-to-employee for a letter that still belongs to a candidate (no account yet): the
+   * CEO-signed PDF is emailed straight to the candidate's address (no bell — there's no user).
+   * They sign it in the portal once their account is created; the letter moves onto that account
+   * on conversion. The SMTP outcome is returned and written to the audit log.
+   */
+  private async sendToCandidate(
+    letter: Letter,
+    message: string | null,
+    caller: JwtUserPayload,
+  ): Promise<LetterDto & { delivery: LetterDeliveryDto }> {
+    const candidate = letter.subjectCandidate;
+    if (!candidate) {
+      throw new NotFoundException('Candidate not found');
+    }
+    if (isPlaceholderEmail(candidate.email)) {
+      throw new BadRequestException(
+        "Add the candidate's real email first (Hiring → edit candidate) — they have no email address on file",
+      );
+    }
+
+    letter.status = LetterStatus.SENT_TO_EMPLOYEE;
+    await this.lettersRepo.save(letter);
+    await this.logEvent(letter.id, caller.sub, LetterEventAction.SENT_TO_EMPLOYEE, message);
+
+    const attachments = await this.pdfAttachment(letter);
+    const intro =
+      `BNW has sent you your ${letter.template.name}. A copy is attached. ` +
+      "You'll be able to sign it in the BNW HR system once your employee account has been created — we'll email you when it's ready.";
+    const email = renderActionEmail({
+      subject: `Your ${letter.template.name} from BNW`,
+      heading: `Your ${letter.template.name}`,
+      intro: message ? `${intro} ${message}` : intro,
+      rows: [
+        { label: 'Letter', value: letter.template.name },
+        { label: 'For', value: candidate.name },
+      ],
+      link: this.mail.appUrl('/'),
+      buttonLabel: 'Open BNW HR system',
+    });
+    const result = await this.mail.send({ to: candidate.email, ...email, attachments });
+
+    this.auditLogService.log({
+      actorId: caller.sub,
+      action: 'LETTER_CANDIDATE_EMAIL',
+      entity: 'Letter',
+      entityId: letter.id,
+      after: {
+        candidateId: candidate.id,
+        to: candidate.email,
+        status: result.status,
+        ...(result.status === 'FAILED' ? { error: result.error } : {}),
+        attachedPdf: !!attachments,
+      },
+    });
+
+    const delivery: LetterDeliveryDto = {
+      recipientType: 'CANDIDATE',
+      emailedTo: candidate.email,
+      emailStatus: result.status,
+      warning:
+        result.status === 'FAILED'
+          ? `The email to ${candidate.email} could not be sent (${result.error}) — download the PDF and share it another way.`
+          : result.status === 'NOT_CONFIGURED'
+            ? 'Email is not set up on the server, so nothing was actually delivered.'
+            : attachments
+              ? null
+              : 'The letter has no rendered PDF, so the email went out without an attachment.',
+    };
+    return { ...toLetterDto(await this.loadLetterWithRelations(letter.id)), delivery };
   }
 
   private async resolveLetterDocumentTypeId(type: LetterTemplateType): Promise<number> {

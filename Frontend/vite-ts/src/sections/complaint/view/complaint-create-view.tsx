@@ -1,4 +1,4 @@
-import type { CreateComplaintDto } from 'src/types/complaint';
+import type { ComplaintDto, CreateComplaintDto } from 'src/types/complaint';
 
 import { useState } from 'react';
 
@@ -16,7 +16,7 @@ import { RouterLink } from 'src/routes/components';
 import { fDate } from 'src/utils/format-time';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { createComplaint } from 'src/actions/complaints';
+import { createComplaint, updateComplaint } from 'src/actions/complaints';
 
 import { toast } from 'src/components/snackbar';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
@@ -39,15 +39,32 @@ const EMPTY: FormState = {
   maintenanceDescription: '',
 };
 
+type Props = {
+  // Editing an existing complaint (until HR responds) instead of raising a new one.
+  current?: ComplaintDto;
+};
+
 /**
  * The digital Complaint Form — same sections as BNW's paper form. Name, department, email and date
- * come from the logged-in user; the "Human Resource Department Only" section is filled in by HR
- * afterwards on the complaint's detail page.
+ * come from the logged-in user (or the complaint, when editing); the "Human Resource Department
+ * Only" section is filled in by HR afterwards on the complaint's detail page.
  */
-export function ComplaintCreateView() {
+export function ComplaintCreateView({ current }: Props) {
   const router = useRouter();
   const { user } = useAuthContext();
-  const [form, setForm] = useState<FormState>(EMPTY);
+  const [form, setForm] = useState<FormState>(() =>
+    current
+      ? {
+          contactNumber: current.contactNumber ?? '',
+          description: current.description ?? '',
+          accessoryType: current.accessoryType ?? '',
+          accessoryDescription: current.accessoryDescription ?? '',
+          accessoryIssue: current.accessoryIssue ?? '',
+          maintenanceArea: current.maintenanceArea ?? '',
+          maintenanceDescription: current.maintenanceDescription ?? '',
+        }
+      : EMPTY
+  );
   const [submitting, setSubmitting] = useState(false);
 
   const field = (key: keyof FormState) => ({
@@ -68,9 +85,9 @@ export function ComplaintCreateView() {
     }
     setSubmitting(true);
     try {
-      const created = await createComplaint(form);
-      toast.success('Complaint submitted to HR!');
-      router.push(paths.dashboard.complaints.details(created.id));
+      const saved = current ? await updateComplaint(current.id, form) : await createComplaint(form);
+      toast.success(current ? 'Complaint updated — HR has been told' : 'Complaint submitted to HR!');
+      router.push(paths.dashboard.complaints.details(saved.id));
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : 'Submit failed!');
@@ -82,11 +99,16 @@ export function ComplaintCreateView() {
   return (
     <DashboardContent maxWidth="md">
       <CustomBreadcrumbs
-        heading="Complaint form"
+        heading={current ? `Edit complaint #${current.id}` : 'Complaint form'}
         links={[
           { name: 'Dashboard', href: paths.dashboard.root }, { name: 'Requests & Forms', href: paths.dashboard.requestsForms },
           { name: 'Complaints', href: paths.dashboard.complaints.root },
-          { name: 'New' },
+          ...(current
+            ? [
+                { name: `#${current.id}`, href: paths.dashboard.complaints.details(current.id) },
+                { name: 'Edit' },
+              ]
+            : [{ name: 'New' }]),
         ]}
         sx={{ mb: 3 }}
       />
@@ -103,13 +125,20 @@ export function ComplaintCreateView() {
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 label="Name"
-                value={user ? `${user.firstName} ${user.lastName}` : ''}
+                value={
+                  current ? current.complainantName : user ? `${user.firstName} ${user.lastName}` : ''
+                }
                 fullWidth
                 disabled
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField label="Department" value={user?.departmentName ?? '—'} fullWidth disabled />
+              <TextField
+                label="Department"
+                value={(current ? current.complainantDepartment : user?.departmentName) ?? '—'}
+                fullWidth
+                disabled
+              />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
@@ -120,10 +149,20 @@ export function ComplaintCreateView() {
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField label="Email" value={user?.email ?? ''} fullWidth disabled />
+              <TextField
+                label="Email"
+                value={current ? current.complainantEmail : (user?.email ?? '')}
+                fullWidth
+                disabled
+              />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField label="Date" value={fDate(new Date())} fullWidth disabled />
+              <TextField
+                label="Date"
+                value={fDate(current ? current.createdAt : new Date())}
+                fullWidth
+                disabled
+              />
             </Grid>
           </Grid>
         </HrFormSection>
@@ -163,11 +202,19 @@ export function ComplaintCreateView() {
         </Typography>
 
         <Stack direction="row" spacing={1.5} justifyContent="flex-end">
-          <Button component={RouterLink} href={paths.dashboard.complaints.root} variant="outlined">
+          <Button
+            component={RouterLink}
+            href={
+              current
+                ? paths.dashboard.complaints.details(current.id)
+                : paths.dashboard.complaints.root
+            }
+            variant="outlined"
+          >
             Cancel
           </Button>
           <Button variant="contained" loading={submitting} onClick={onSubmit}>
-            Submit to HR
+            {current ? 'Save changes' : 'Submit to HR'}
           </Button>
         </Stack>
       </Stack>

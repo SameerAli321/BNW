@@ -35,6 +35,8 @@ import { SalarySlip } from '../entities/salary-slip.entity';
 import { Booking } from '../entities/booking.entity';
 import { BookingParticipant } from '../entities/booking-participant.entity';
 import { BookingResource } from '../entities/booking-resource.entity';
+import { FormAssignment } from '../entities/form-assignment.entity';
+import { PolicyAcknowledgement } from '../entities/policy-acknowledgement.entity';
 
 loadEnv();
 
@@ -85,6 +87,8 @@ export const typeOrmDataSourceOptions: DataSourceOptions = {
     Booking,
     BookingParticipant,
     BookingResource,
+    FormAssignment,
+    PolicyAcknowledgement,
   ],
   migrations: [__dirname + '/../migrations/*.{ts,js}'],
   synchronize: false,

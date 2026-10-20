@@ -277,7 +277,7 @@ export function SalarySlipPreviewDialog({ slip: initial, canSend, onClose }: Pre
           )}
         </Stack>
         <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-          {slip.reference} · Gross {fSalary(slip.grossSalary)} · Deductions{' '}
+          {slip.reference} · Total earnings {fSalary(slip.grossSalary)} · Deductions{' '}
           {fSalary(slip.totalDeductions)} · <strong>Net {fSalary(slip.netSalary)}</strong>
         </Typography>
       </DialogTitle>

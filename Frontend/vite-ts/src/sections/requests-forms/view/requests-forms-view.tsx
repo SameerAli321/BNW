@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { LetterType, LetterTemplateDto } from 'src/types/letter';
 
 import { varAlpha } from 'minimal-shared/utils';
+import { useBoolean } from 'minimal-shared/hooks';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -14,8 +15,6 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
-import { fDate } from 'src/utils/format-time';
-
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useGetLetterTemplates } from 'src/actions/letters';
 import { useGetMyAppraisals } from 'src/actions/appraisals';
@@ -25,6 +24,10 @@ import { Iconify } from 'src/components/iconify';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
 import { useAuthContext } from 'src/auth/hooks';
+
+import { SentFormsCard } from '../sent-forms-card';
+import { SendFormDialog } from '../send-form-dialog';
+import { FormsSentToYouCard } from '../forms-sent-to-you-card';
 
 // ----------------------------------------------------------------------
 
@@ -206,13 +209,15 @@ export function RequestsFormsView() {
   const canCreateLetters = ['HR', 'ADMIN'].includes(role);
   const canEditTemplates = role === 'ADMIN';
   const seesAllForms = ['HR', 'ADMIN', 'CEO'].includes(role);
+  // "HR sends a form" — HR / ADMIN send any of these forms to employees.
+  const canSendForms = ['HR', 'ADMIN'].includes(role);
+  const sendFormDialog = useBoolean();
 
-  // Appraisal requests: everyone except the CEO (nobody reviews the owner), once every 3 months —
-  // the backend enforces the window; this only shows when the next one opens.
+  // Appraisal requests: everyone except the CEO (nobody reviews the owner), whenever none of theirs
+  // is still in progress — the backend enforces it; this only shows whether one is open.
   const canRequestAppraisal = role !== 'CEO';
   const { appraisalsMeta, appraisalsLoading } = useGetMyAppraisals();
   const canRequestNext = appraisalsMeta?.canRequestNext ?? true;
-  const nextEligibleDate = appraisalsMeta?.nextEligibleDate ?? null;
 
   const { templates } = useGetLetterTemplates({ isActive: true }, seesLetters);
   const templateOf = (type: LetterType) => templates.find((t) => t.type === type);
@@ -223,15 +228,28 @@ export function RequestsFormsView() {
         heading="Requests & Forms"
         links={[{ name: 'Dashboard', href: paths.dashboard.root }, { name: 'Requests & Forms' }]}
         action={
-          seesLetters && (
-            <Button
-              component={RouterLink}
-              href={paths.dashboard.letterTemplates.root}
-              variant="outlined"
-              startIcon={<Iconify icon="solar:list-bold" />}
-            >
-              Manage letter templates
-            </Button>
+          (seesLetters || canSendForms) && (
+            <Stack direction="row" flexWrap="wrap" sx={{ gap: 1 }}>
+              {seesLetters && (
+                <Button
+                  component={RouterLink}
+                  href={paths.dashboard.letterTemplates.root}
+                  variant="outlined"
+                  startIcon={<Iconify icon="solar:list-bold" />}
+                >
+                  Manage letter templates
+                </Button>
+              )}
+              {canSendForms && (
+                <Button
+                  variant="contained"
+                  startIcon={<Iconify icon="solar:share-bold" />}
+                  onClick={sendFormDialog.onTrue}
+                >
+                  Send a form
+                </Button>
+              )}
+            </Stack>
           )
         }
         sx={{ mb: 2 }}
@@ -240,6 +258,10 @@ export function RequestsFormsView() {
         Submit a request to HR, or prepare a letter for the CEO to sign. Every form and letter can
         be downloaded as a PDF laid out like the BNW paper original.
       </Typography>
+
+      <FormsSentToYouCard />
+
+      {canSendForms && <SentFormsCard onSendForm={sendFormDialog.onTrue} />}
 
       <Typography variant="overline" sx={{ display: 'block', mb: 2, color: 'text.disabled' }}>
         Forms
@@ -315,7 +337,7 @@ export function RequestsFormsView() {
             <ItemCard
               kind="Form"
               title="Appraisal Request"
-              description="Fill in the Self Evaluation Form to request your performance appraisal. You can request one every 3 months."
+              description="Fill in the Self Evaluation Form to request your performance appraisal. You can request a new one once your previous request has been decided."
               icon="solar:cup-star-bold"
               color="success"
               flow={['You', 'Your manager', 'CEO']}
@@ -326,9 +348,7 @@ export function RequestsFormsView() {
             >
               {!appraisalsLoading && (
                 <Label color={canRequestNext ? 'success' : 'warning'} sx={{ alignSelf: 'flex-start' }}>
-                  {canRequestNext
-                    ? 'Available now'
-                    : `Next request on ${fDate(nextEligibleDate)}`}
+                  {canRequestNext ? 'Available now' : 'Your request is in progress'}
                 </Label>
               )}
             </ItemCard>
@@ -381,7 +401,7 @@ export function RequestsFormsView() {
             <Grid size={{ xs: 12, md: 6 }}>
               <ItemCard
                 kind="Letter"
-                title="Appraisal Letter"
+                title="Misc Letters"
                 description="Sent after the CEO's appraisal decision — an appreciation letter with the appraisal amount, or a review-outcome letter with feedback."
                 icon="solar:cup-star-bold"
                 color="primary"
@@ -426,6 +446,10 @@ export function RequestsFormsView() {
             </Grid>
           </Grid>
         </>
+      )}
+
+      {canSendForms && (
+        <SendFormDialog open={sendFormDialog.value} onClose={sendFormDialog.onFalse} />
       )}
     </DashboardContent>
   );

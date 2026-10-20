@@ -8,6 +8,8 @@ import Chip from '@mui/material/Chip';
 
 import { chipProps, FiltersBlock, FiltersResult } from 'src/components/filters-result';
 
+import { userRoleLabel, userStatusLabel, employmentTypeLabel } from 'src/types/user';
+
 // ----------------------------------------------------------------------
 
 type Props = FiltersResultProps & {
@@ -26,6 +28,11 @@ export function UserTableFiltersResult({ filters, onResetPage, totalResults, sx 
   const handleRemoveStatus = useCallback(() => {
     onResetPage();
     updateFilters({ status: 'all' });
+  }, [onResetPage, updateFilters]);
+
+  const handleRemoveEmploymentType = useCallback(() => {
+    onResetPage();
+    updateFilters({ employmentType: '' });
   }, [onResetPage, updateFilters]);
 
   const handleRemoveRole = useCallback(
@@ -48,16 +55,28 @@ export function UserTableFiltersResult({ filters, onResetPage, totalResults, sx 
       <FiltersBlock label="Status:" isShow={currentFilters.status !== 'all'}>
         <Chip
           {...chipProps}
-          label={currentFilters.status}
+          label={userStatusLabel(currentFilters.status)}
           onDelete={handleRemoveStatus}
-          sx={{ textTransform: 'capitalize' }}
         />
       </FiltersBlock>
 
       <FiltersBlock label="Role:" isShow={!!currentFilters.role.length}>
         {currentFilters.role.map((item) => (
-          <Chip {...chipProps} key={item} label={item} onDelete={() => handleRemoveRole(item)} />
+          <Chip
+            {...chipProps}
+            key={item}
+            label={userRoleLabel(item)}
+            onDelete={() => handleRemoveRole(item)}
+          />
         ))}
+      </FiltersBlock>
+
+      <FiltersBlock label="Employment type:" isShow={!!currentFilters.employmentType}>
+        <Chip
+          {...chipProps}
+          label={employmentTypeLabel(currentFilters.employmentType)}
+          onDelete={handleRemoveEmploymentType}
+        />
       </FiltersBlock>
 
       <FiltersBlock label="Keyword:" isShow={!!currentFilters.name}>

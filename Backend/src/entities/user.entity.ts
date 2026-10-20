@@ -12,6 +12,8 @@ import {
 } from 'typeorm';
 import { RoleName } from '../common/enums/role.enum';
 import { UserStatus } from '../common/enums/user-status.enum';
+import { EmploymentType } from '../common/enums/employment-type.enum';
+import { Company } from '../common/enums/company.enum';
 import { Department } from './department.entity';
 
 const money = {
@@ -65,6 +67,19 @@ export class User {
 
   @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
   status: UserStatus;
+
+  /** Permanent / Contract / Probation / Intern — interns are just users with INTERN here. */
+  @Column({
+    name: 'employment_type',
+    type: 'enum',
+    enum: EmploymentType,
+    default: EmploymentType.PERMANENT,
+  })
+  employmentType: EmploymentType;
+
+  /** BNW / Hayes / the shared HR & Administration team — the bands on the Team Hierarchy chart. */
+  @Column({ type: 'enum', enum: Company, default: Company.BNW })
+  company: Company;
 
   @Column({ name: 'join_date', type: 'date', nullable: true })
   joinDate: string | null;

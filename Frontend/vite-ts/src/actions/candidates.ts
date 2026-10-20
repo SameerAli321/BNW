@@ -135,17 +135,29 @@ export async function downloadCandidateCv(
 }
 
 /**
- * POST /candidates/:id/convert — HR, ADMIN. Body is `ConvertCandidateDto` (same shape as
- * `CreateUserDto` minus `email`/`firstName`/`lastName`, defaulted from the candidate). 409 if
- * `candidate.status === 'HIRED'` already, or the email collides with an existing user. On
- * success: creates the `User`, sets `candidate.status = 'HIRED'` + `convertedUserId`. Returns
- * `{ candidate, user }`.
+ * POST /candidates/:id/convert — ADMIN only (only Admin creates user accounts). Body is
+ * `ConvertCandidateDto` (same shape as `CreateUserDto` minus `email`/`firstName`/`lastName`,
+ * defaulted from the candidate). 409 if `candidate.status === 'HIRED'` already, or the email
+ * collides with an existing user. On success: creates the `User`, sets `candidate.status =
+ * 'HIRED'` + `convertedUserId`, and moves the candidate's letters onto the new account. Returns
+ * `{ candidate, user, welcomeEmail, movedLetters }`.
  */
 export async function convertCandidate(
   id: number | string,
   payload: ConvertCandidateDto
 ): Promise<ConvertCandidateResponse> {
   const res = await axiosInstance.post(endpoints.candidates.convert(id), payload);
-  await Promise.all([revalidateCandidatesList(), mutate(endpoints.candidates.details(id))]);
+  await Promise.all([
+    revalidateCandidatesList(),
+    mutate(endpoints.candidates.details(id)),
+    // The candidate's letters now belong to the new employee.
+    mutate((key) => Array.isArray(key) && key[0] === endpoints.letters.list),
+  ]);
   return res.data.data;
+}
+
+/** GET /candidates/:id/cv as a Blob — for the in-app viewer (PdfViewerDialog `load`). */
+export async function fetchCandidateCvBlob(id: number | string): Promise<Blob> {
+  const res = await axiosInstance.get(endpoints.candidates.cv(id), { responseType: 'blob' });
+  return res.data;
 }

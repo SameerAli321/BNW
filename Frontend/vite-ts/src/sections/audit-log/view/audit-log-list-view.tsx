@@ -48,13 +48,20 @@ export function AuditLogListView() {
   const { user: currentAuthUser } = useAuthContext();
   const currentRole = currentAuthUser?.role ?? '';
 
-  const filters = useSetState<IAuditLogTableFilters>({ entity: '', action: '' });
+  const filters = useSetState<IAuditLogTableFilters>({
+    entity: '',
+    action: '',
+    from: '',
+    to: '',
+  });
   const { state: currentFilters } = filters;
 
   // `page` sent 1-based, same assumption as Staff Summary/Letters — see docs/FRONTEND_STATUS.md.
   const { auditLogs, auditLogsMeta, auditLogsLoading } = useGetAuditLogs({
     entity: currentFilters.entity || undefined,
     action: currentFilters.action || undefined,
+    from: currentFilters.from || undefined,
+    to: currentFilters.to || undefined,
     page: table.page + 1,
     limit: table.rowsPerPage,
   });

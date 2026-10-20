@@ -134,7 +134,7 @@ export class SalarySlipPdfService {
 
     // --- Earnings / deductions ----------------------------------------------------------------
     const earnings: [string, number][] = [
-      ['Basic Salary', slip.basicSalary],
+      ['Gross Salary', slip.basicSalary],
       ...slip.allowances.map((item): [string, number] => [item.label, item.amount]),
       ['Bonus', slip.bonus],
       ['Overtime', slip.overtime],
@@ -150,7 +150,7 @@ export class SalarySlipPdfService {
       'Earnings',
       earnings,
       rows,
-      ['Gross Salary', slip.grossSalary],
+      ['Total Earnings', slip.grossSalary],
       MARGIN,
       y,
       columnWidth,
@@ -179,7 +179,7 @@ export class SalarySlipPdfService {
       borderWidth: 1,
     });
     draw.text('NET SALARY', MARGIN + 16, y - 24, { size: 11, font: fonts.bold });
-    draw.text('(Gross Salary - Total Deductions)', MARGIN + 92, y - 24, {
+    draw.text('(Total Earnings - Total Deductions)', MARGIN + 92, y - 24, {
       size: 8,
       color: COLORS.muted,
     });

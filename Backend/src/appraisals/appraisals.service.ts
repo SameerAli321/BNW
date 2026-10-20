@@ -35,16 +35,14 @@ import { QueryTeamAppraisalsDto } from './dto/query-team-appraisals.dto';
 import { RequestWatchersService } from '../notifications/request-watchers.service';
 import { SELF_EVALUATION_COMPETENCIES, SelfEvaluationFormDefaults } from './self-evaluation-form';
 
-const ELIGIBILITY_MONTHS = 3;
+type AppraisalEligibility = {
+  canRequestNext: boolean;
+  nextEligibleDate: string | null;
+  openRequestId: number | null;
+};
 
 const employeeName = (request: AppraisalRequest) =>
   request.employee ? `${request.employee.firstName} ${request.employee.lastName}` : 'An employee';
-
-function addMonths(date: Date, months: number): Date {
-  const result = new Date(date.getTime());
-  result.setMonth(result.getMonth() + months);
-  return result;
-}
 
 @Injectable()
 export class AppraisalsService {
@@ -165,25 +163,20 @@ export class AppraisalsService {
   }
 
   /**
-   * Computes canRequestNext/nextEligibleDate the same way for GET /appraisal-requests/mine's
-   * `meta` and the 409 check on POST /appraisal-requests, from the most recent submittedAt for
-   * that employee (per docs/API_CONTRACT_SPRINT4.md's eligibility check).
+   * Computes the eligibility `meta` the same way for GET /appraisal-requests/mine and the 409 check
+   * on POST /appraisal-requests: an employee can request a new appraisal whenever none of theirs is
+   * still in progress (PENDING_MANAGER / PENDING_CEO). There's no time window any more, so
+   * nextEligibleDate is always null — kept so the response shape doesn't change.
    */
-  private async computeEligibility(
-    employeeId: number,
-  ): Promise<{ canRequestNext: boolean; nextEligibleDate: string | null }> {
-    const last = await this.requestsRepo.findOne({
-      where: { employeeId },
+  private async computeEligibility(employeeId: number): Promise<AppraisalEligibility> {
+    const open = await this.requestsRepo.findOne({
+      where: {
+        employeeId,
+        status: In([AppraisalStatus.PENDING_MANAGER, AppraisalStatus.PENDING_CEO]),
+      },
       order: { submittedAt: 'DESC' },
     });
-    if (!last) {
-      return { canRequestNext: true, nextEligibleDate: null };
-    }
-    const nextEligibleDate = addMonths(last.submittedAt, ELIGIBILITY_MONTHS);
-    return {
-      canRequestNext: Date.now() >= nextEligibleDate.getTime(),
-      nextEligibleDate: nextEligibleDate.toISOString(),
-    };
+    return { canRequestNext: !open, nextEligibleDate: null, openRequestId: open?.id ?? null };
   }
 
   /** Exactly one assessment per competency, and a date range that runs forwards. */
@@ -249,8 +242,7 @@ export class AppraisalsService {
     const eligibility = await this.computeEligibility(caller.sub);
     if (!eligibility.canRequestNext) {
       throw new ConflictException(
-        `You already submitted an appraisal request in the last ${ELIGIBILITY_MONTHS} months. ` +
-          `Next eligible date: ${eligibility.nextEligibleDate}`,
+        'You already have an appraisal in progress — wait for its decision before requesting another',
       );
     }
 
@@ -312,7 +304,7 @@ export class AppraisalsService {
 
   async mine(caller: JwtUserPayload): Promise<{
     data: AppraisalRequestDto[];
-    meta: { canRequestNext: boolean; nextEligibleDate: string | null };
+    meta: AppraisalEligibility;
   }> {
     const rows = await this.requestsRepo.find({
       where: { employeeId: caller.sub },

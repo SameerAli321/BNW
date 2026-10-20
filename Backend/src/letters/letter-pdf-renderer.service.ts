@@ -120,7 +120,9 @@ function resolveAutoFieldValue(
 
 /**
  * Resolves the full set of field values (auto-filled + manual) for a letter, in the template's
- * fieldsSchema order. Used both by rendering and by the signature's documentHash.
+ * fieldsSchema order. Used both by rendering and by the signature's documentHash. HR can type over
+ * an auto-filled field (e.g. a candidate's job title, which has no employee record yet) — a
+ * non-blank value in `manualValues` wins; blank keeps the value from the employee record.
  */
 export function resolveLetterFieldValues(
   fieldsSchema: LetterFieldSchemaEntry[],
@@ -128,13 +130,15 @@ export function resolveLetterFieldValues(
   subject: User,
   profile: EmployeeProfile | null = null,
 ): Array<{ key: string; label: string; value: string }> {
-  return fieldsSchema.map((entry) => ({
-    key: entry.key,
-    label: entry.label,
-    value: entry.autoFilled
-      ? resolveAutoFieldValue(entry.key, subject, profile)
-      : (manualValues[entry.key] ?? entry.defaultValue ?? ''),
-  }));
+  return fieldsSchema.map((entry) => {
+    const typed = manualValues[entry.key];
+    const value = entry.autoFilled
+      ? typed?.trim()
+        ? typed
+        : resolveAutoFieldValue(entry.key, subject, profile)
+      : (typed ?? entry.defaultValue ?? '');
+    return { key: entry.key, label: entry.label, value };
+  });
 }
 
 function formatLetterDate(date: Date): string {

@@ -13,7 +13,7 @@ import { fDate } from 'src/utils/format-time';
 
 import { Label } from 'src/components/label';
 
-import { userStatusLabel } from 'src/types/user';
+import { userRoleLabel, userStatusLabel, employmentTypeLabel } from 'src/types/user';
 
 // ----------------------------------------------------------------------
 
@@ -40,23 +40,15 @@ export function StaffSummaryTableRow({ row, recordHref }: Props) {
             >
               {row.fullName}
             </Link>
-            <Box
-              component="span"
-              sx={{
-                color: 'text.secondary',
-                maxWidth: 260,
-                overflow: 'hidden',
-                whiteSpace: 'nowrap',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {row.email}
-            </Box>
           </Stack>
         </Box>
       </TableCell>
 
       <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.employeeCode || '—'}</TableCell>
+
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.email}</TableCell>
+
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.contactNumber || '—'}</TableCell>
 
       <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.departmentName || '—'}</TableCell>
 
@@ -66,7 +58,13 @@ export function StaffSummaryTableRow({ row, recordHref }: Props) {
 
       <TableCell sx={{ whiteSpace: 'nowrap' }}>
         <Label variant="soft" color="default">
-          {row.role}
+          {userRoleLabel(row.role)}
+        </Label>
+      </TableCell>
+
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+        <Label variant="soft" color={row.employmentType === 'INTERN' ? 'info' : 'default'}>
+          {employmentTypeLabel(row.employmentType) || '—'}
         </Label>
       </TableCell>
 

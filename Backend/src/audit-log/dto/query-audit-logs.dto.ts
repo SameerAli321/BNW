@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Matches, Min } from 'class-validator';
+
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export class QueryAuditLogsDto {
   @IsOptional()
@@ -14,6 +16,16 @@ export class QueryAuditLogsDto {
   @IsOptional()
   @IsString()
   action?: string;
+
+  /** Inclusive start day (Pakistan time), YYYY-MM-DD. */
+  @IsOptional()
+  @Matches(DATE_ONLY_PATTERN, { message: 'from must be a date in YYYY-MM-DD format' })
+  from?: string;
+
+  /** Inclusive end day (Pakistan time), YYYY-MM-DD — runs to the end of that day. */
+  @IsOptional()
+  @Matches(DATE_ONLY_PATTERN, { message: 'to must be a date in YYYY-MM-DD format' })
+  to?: string;
 
   @IsOptional()
   @Type(() => Number)

@@ -31,6 +31,7 @@ export interface SalarySlipDto {
   salaryMonthLabel: string;
   revision: number;
   isCurrent: boolean;
+  /** Shown as "Gross salary" in the UI (the field name is unchanged). */
   basicSalary: number;
   allowances: SalaryLineItem[];
   bonus: number;
@@ -38,6 +39,7 @@ export interface SalarySlipDto {
   deductions: SalaryLineItem[];
   tax: number;
   totalAllowances: number;
+  /** Shown as "Total earnings" in the UI. */
   grossSalary: number;
   totalDeductions: number;
   netSalary: number;
@@ -142,7 +144,8 @@ export function previousSalaryMonth(): string {
 
 /**
  * Same rule as the backend (in paisa, so no float drift):
- * Gross = Basic + Allowances + Bonus + Overtime; Net = Gross − (Deductions + Tax).
+ * Total earnings (`grossSalary`) = Gross salary (`basicSalary`) + Allowances + Bonus + Overtime;
+ * Net = Total earnings − (Deductions + Tax).
  */
 export function calculateSalary(input: {
   basicSalary: number;

@@ -5,9 +5,11 @@ import Button from '@mui/material/Button';
 
 import { paths } from 'src/routes/paths';
 import { useParams } from 'src/routes/hooks';
+import { RouterLink } from 'src/routes/components';
 
 import { fDate } from 'src/utils/format-time';
 
+import { endpoints } from 'src/lib/axios';
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
   useGetAttendanceRegularization,
@@ -16,6 +18,7 @@ import {
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { PdfViewerDialog } from 'src/components/pdf-viewer';
 import { EmptyContent } from 'src/components/empty-content';
 import { LoadingScreen } from 'src/components/loading-screen';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
@@ -46,6 +49,7 @@ export function AttendanceRegularizationDetailView() {
   const { user } = useAuthContext();
   const { form, formLoading, formError } = useGetAttendanceRegularization(id);
   const [downloading, setDownloading] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   if (formLoading) {
     return (
@@ -111,6 +115,23 @@ export function AttendanceRegularizationDetailView() {
         action={
           <Stack direction="row" alignItems="center" flexWrap="wrap" sx={{ gap: 1.5 }}>
             <AttendanceRegularizationStatusLabel status={form.status} />
+            {form.canEdit && (
+              <Button
+                component={RouterLink}
+                href={paths.dashboard.attendanceRegularizations.edit(form.id)}
+                variant="outlined"
+                startIcon={<Iconify icon="solar:pen-bold" />}
+              >
+                Edit
+              </Button>
+            )}
+            <Button
+              variant="outlined"
+              startIcon={<Iconify icon="solar:eye-bold" />}
+              onClick={() => setViewerOpen(true)}
+            >
+              View PDF
+            </Button>
             <Button
               variant="outlined"
               loading={downloading}
@@ -177,6 +198,14 @@ export function AttendanceRegularizationDetailView() {
           )}
         </HrFormSection>
       </Stack>
+
+      <PdfViewerDialog
+        open={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+        title="Attendance regularization form"
+        url={endpoints.attendanceRegularizations.pdf(form.id)}
+        filename={`attendance-regularization-${form.id}.pdf`}
+      />
     </DashboardContent>
   );
 }

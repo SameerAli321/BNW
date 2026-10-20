@@ -43,7 +43,8 @@ function TreeList<T>({ data, depth, nodeItem }: OrgChartListProps<T>) {
 
   return (
     <TreeNode label={label}>
-      {childs && <TreeSubList data={childs} depth={depth} nodeItem={nodeItem} />}
+      {/* An empty `children: []` would still draw a connector line hanging below a leaf. */}
+      {childs?.length ? <TreeSubList data={childs} depth={depth} nodeItem={nodeItem} /> : null}
     </TreeNode>
   );
 }

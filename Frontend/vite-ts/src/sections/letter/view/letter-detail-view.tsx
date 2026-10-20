@@ -19,6 +19,7 @@ import {
   previewLetter,
   downloadLetterPdf,
   submitLetterToCeo,
+  fetchLetterPdfBlob,
   employeeSignLetter,
   sendLetterToEmployee,
   requestLetterChanges,
@@ -28,6 +29,8 @@ import {
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 import { EmptyContent } from 'src/components/empty-content';
+import { PdfViewerDialog } from 'src/components/pdf-viewer';
+import { ConfirmDialog } from 'src/components/custom-dialog';
 import { LoadingScreen } from 'src/components/loading-screen';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
@@ -50,6 +53,15 @@ import { LetterSendToEmployeeDialog } from '../letter-send-to-employee-dialog';
  * backend is the real gate; a fetch error here just shows an inline message, same pattern as the
  * Sprint 2 E-record page.
  */
+/** Everything up to the employee's signature can still be edited (same rule as the backend). */
+const EDITABLE_STATUSES: string[] = [
+  'DRAFT',
+  'CHANGES_REQUESTED',
+  'PENDING_CEO',
+  'CEO_SIGNED',
+  'SENT_TO_EMPLOYEE',
+];
+
 export function LetterDetailView() {
   const { id = '' } = useParams();
   const { user: currentAuthUser } = useAuthContext();
@@ -66,6 +78,8 @@ export function LetterDetailView() {
   const signDialog = useBoolean();
   const requestChangesDialog = useBoolean();
   const sendToEmployeeDialog = useBoolean();
+  const pdfViewer = useBoolean();
+  const confirmResign = useBoolean();
 
   if (letterLoading) {
     return (
@@ -96,10 +110,15 @@ export function LetterDetailView() {
   const isCeo = currentRole === 'CEO';
   const isSelfSubject = !!currentUserId && currentUserId === letter.subjectUserId;
 
-  const canEditFields =
+  // Fields stay editable until the employee signs; after the CEO has signed, saving removes the
+  // signature and sends the letter back to Draft (confirmed first — see handleSaveFields).
+  const canEditFields = (isHrAdmin || isCeo) && EDITABLE_STATUSES.includes(letter.status);
+  const editRemovesCeoSignature =
+    letter.status === 'CEO_SIGNED' || letter.status === 'SENT_TO_EMPLOYEE';
+  const canSubmitToCeo =
     isHrAdmin && (letter.status === 'DRAFT' || letter.status === 'CHANGES_REQUESTED');
-  const canSubmitToCeo = canEditFields;
-  const canPreview = isHrAdmin;
+  // The CEO can render / download at any status too, same as HR/Admin.
+  const canPreview = isHrAdmin || isCeo;
   const canCeoAct = isCeo && letter.status === 'PENDING_CEO';
   const canSendToEmployee = isHrAdmin && letter.status === 'CEO_SIGNED';
   const canEmployeeSign = isSelfSubject && letter.status === 'SENT_TO_EMPLOYEE';
@@ -121,8 +140,11 @@ export function LetterDetailView() {
       case 'PENDING_CEO':
         return 'Waiting for the CEO to review and sign.';
       case 'CEO_SIGNED':
-        return 'Signed by the CEO — waiting for HR/Admin to send it to the employee.';
+        return `Signed by the CEO — waiting for HR/Admin to send it to the ${letter.isCandidate ? 'candidate' : 'employee'}.`;
       case 'SENT_TO_EMPLOYEE':
+        if (letter.isCandidate) {
+          return `Emailed to ${letter.subjectName} — they can sign once their employee account is created.`;
+        }
         return isSelfSubject ? null : `Waiting for ${letter.subjectName} to sign.`;
       case 'SIGNED':
         return 'Fully signed by both the CEO and the employee.';
@@ -139,10 +161,19 @@ export function LetterDetailView() {
 
   const handleSaveFields = async () => {
     if (!editValues) return;
+    if (editRemovesCeoSignature && !confirmResign.value) {
+      confirmResign.onTrue();
+      return;
+    }
+    confirmResign.onFalse();
     setSaving(true);
     try {
       await updateLetter(letter.id, { fieldValues: editValues });
-      toast.success('Saved!');
+      toast.success(
+        editRemovesCeoSignature
+          ? 'Saved — the letter is back in Draft. Submit it to the CEO to sign again.'
+          : 'Saved!'
+      );
       setEditValues(null);
     } catch (error) {
       console.error(error);
@@ -156,7 +187,7 @@ export function LetterDetailView() {
     setBusy(true);
     try {
       await previewLetter(letter.id);
-      toast.success('PDF rendered — download it below.');
+      toast.success('PDF rendered — view or download it below.');
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : 'Preview failed!');
@@ -168,7 +199,7 @@ export function LetterDetailView() {
   const handleDownload = async () => {
     setBusy(true);
     try {
-      await downloadLetterPdf(letter.id, `${letter.type.toLowerCase()}-letter-${letter.id}.pdf`);
+      await downloadLetterPdf(letter.id, pdfFilename);
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : 'Download failed!');
@@ -190,9 +221,11 @@ export function LetterDetailView() {
     }
   };
 
-  const handleSendToEmployee = async (message: string | undefined) => {
-    await sendLetterToEmployee(letter.id, message);
-  };
+  const handleSendToEmployee = (message: string | undefined) =>
+    sendLetterToEmployee(letter.id, message);
+
+  const pdfFilename = `${letter.type.toLowerCase()}-letter-${letter.id}.pdf`;
+  const subjectLabel = letter.isCandidate ? `${letter.subjectName} (candidate)` : letter.subjectName;
 
   return (
     <DashboardContent>
@@ -201,7 +234,7 @@ export function LetterDetailView() {
         links={[
           { name: 'Dashboard', href: paths.dashboard.root },
           { name: 'Letters', href: paths.dashboard.letters.root },
-          { name: letter.subjectName },
+          { name: subjectLabel },
         ]}
         sx={{ mb: { xs: 3, md: 5 } }}
       />
@@ -219,7 +252,7 @@ export function LetterDetailView() {
                 <Stack spacing={0.5} sx={{ minWidth: 0 }}>
                   <Typography variant="h6">{letter.templateName}</Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    {letter.type} · for {letter.subjectName} · prepared by {letter.preparedByName}
+                    {letter.type} · for {subjectLabel} · prepared by {letter.preparedByName}
                   </Typography>
                 </Stack>
                 <LetterStatusLabel status={letter.status} />
@@ -255,14 +288,25 @@ export function LetterDetailView() {
                 )}
 
                 {canDownload && (
-                  <Button
-                    variant="outlined"
-                    startIcon={<Iconify icon="solar:download-bold" />}
-                    onClick={handleDownload}
-                    disabled={busy}
-                  >
-                    Download PDF
-                  </Button>
+                  <>
+                    <Button
+                      variant="contained"
+                      color="inherit"
+                      startIcon={<Iconify icon="solar:eye-bold" />}
+                      onClick={pdfViewer.onTrue}
+                      disabled={busy}
+                    >
+                      View PDF
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<Iconify icon="solar:download-bold" />}
+                      onClick={handleDownload}
+                      disabled={busy}
+                    >
+                      Download PDF
+                    </Button>
+                  </>
                 )}
 
                 {canSubmitToCeo && (
@@ -288,7 +332,7 @@ export function LetterDetailView() {
 
                 {canSendToEmployee && (
                   <Button variant="contained" onClick={sendToEmployeeDialog.onTrue} disabled={busy}>
-                    Send to employee
+                    {letter.isCandidate ? 'Send to candidate by email' : 'Send to employee'}
                   </Button>
                 )}
 
@@ -363,7 +407,7 @@ export function LetterDetailView() {
           title="Sign your letter"
           description="Typing your name below confirms you've read and accept this letter."
           onConfirm={(signatureText) =>
-            employeeSignLetter(letter.id, signatureText, letter.subjectUserId)
+            employeeSignLetter(letter.id, signatureText, letter.subjectUserId ?? undefined)
           }
         />
       )}
@@ -373,6 +417,33 @@ export function LetterDetailView() {
           open={sendToEmployeeDialog.value}
           onClose={sendToEmployeeDialog.onFalse}
           onConfirm={handleSendToEmployee}
+          isCandidate={letter.isCandidate}
+        />
+      )}
+
+      <ConfirmDialog
+          open={confirmResign.value}
+          onClose={confirmResign.onFalse}
+          title="Edit a signed letter?"
+          content={
+            letter.status === 'SENT_TO_EMPLOYEE'
+              ? `This letter was already sent to ${letter.subjectName}. Saving your changes withdraws it, removes the CEO's signature and moves it back to Draft — submit it to the CEO again, then send the new version.`
+              : "Saving your changes removes the CEO's signature and moves the letter back to Draft — submit it to the CEO to sign the new version."
+          }
+          action={
+            <Button variant="contained" color="warning" loading={saving} onClick={handleSaveFields}>
+              Save and send back to Draft
+            </Button>
+          }
+        />
+
+      {canDownload && (
+        <PdfViewerDialog
+          open={pdfViewer.value}
+          onClose={pdfViewer.onFalse}
+          title={`${letter.templateName} — ${letter.subjectName}`}
+          filename={pdfFilename}
+          load={() => fetchLetterPdfBlob(letter.id)}
         />
       )}
     </DashboardContent>

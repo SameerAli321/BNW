@@ -8,6 +8,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { RoleName } from '../../common/enums/role.enum';
+import { EmploymentType } from '../../common/enums/employment-type.enum';
 
 /**
  * Body for POST /candidates/:id/convert — same shape as CreateUserDto (including the mandatory
@@ -41,6 +42,11 @@ export class ConvertCandidateDto {
   @IsOptional()
   @IsString()
   employeeCode?: string;
+
+  /** Defaults to PERMANENT — pick INTERN when converting an intern. */
+  @IsOptional()
+  @IsEnum(EmploymentType)
+  employmentType?: EmploymentType;
 
   @IsOptional()
   @IsString()

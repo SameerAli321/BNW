@@ -41,7 +41,11 @@ import {
 import { useAuthContext } from 'src/auth/hooks';
 import { RoleBasedGuard } from 'src/auth/guard';
 
-import { USER_ROLE_OPTIONS, USER_ACCOUNT_STATUS_OPTIONS } from 'src/types/user';
+import {
+  USER_ROLE_OPTIONS,
+  EMPLOYMENT_TYPE_OPTIONS,
+  USER_ACCOUNT_STATUS_OPTIONS,
+} from 'src/types/user';
 
 import { UserTableRow } from '../user-table-row';
 import { UserTableToolbar } from '../user-table-toolbar';
@@ -62,6 +66,7 @@ const TABLE_HEAD: TableHeadCellProps[] = [
   { id: 'contact', label: 'Contact number', width: 140 },
   { id: 'salary', label: 'Current salary', width: 130, align: 'right' },
   { id: 'role', label: 'Role', width: 110 },
+  { id: 'employmentType', label: 'Employment type', width: 140 },
   { id: 'joinDate', label: 'Date of joining', width: 130 },
   { id: 'status', label: 'Status', width: 120 },
   { id: '', width: 68 },
@@ -75,11 +80,18 @@ export function UserListView() {
   const { user: currentAuthUser } = useAuthContext();
   const currentRole = currentAuthUser?.role ?? '';
   const canDelete = currentRole === 'ADMIN';
+  // Only Admin creates accounts — HR edits existing users.
+  const canCreate = currentRole === 'ADMIN';
   const canResetPassword = currentRole === 'ADMIN' || currentRole === 'HR';
 
   const confirmDialog = useBoolean();
 
-  const filters = useSetState<IUserTableFilters>({ name: '', role: [], status: 'all' });
+  const filters = useSetState<IUserTableFilters>({
+    name: '',
+    role: [],
+    status: 'all',
+    employmentType: '',
+  });
   const { state: currentFilters, setState: updateFilters } = filters;
 
   // Wired to GET /users?q=&role=&status=&page=&limit= (see docs/API_CONTRACT_SPRINT1.md).
@@ -87,6 +99,7 @@ export function UserListView() {
     q: currentFilters.name || undefined,
     role: currentFilters.role[0] || undefined,
     status: currentFilters.status !== 'all' ? currentFilters.status : undefined,
+    employmentType: currentFilters.employmentType || undefined,
     limit: 200,
   });
 
@@ -94,7 +107,10 @@ export function UserListView() {
   const dataInPage = rowInPage(dataFiltered, table.page, table.rowsPerPage);
 
   const canReset =
-    !!currentFilters.name || currentFilters.role.length > 0 || currentFilters.status !== 'all';
+    !!currentFilters.name ||
+    currentFilters.role.length > 0 ||
+    currentFilters.status !== 'all' ||
+    !!currentFilters.employmentType;
 
   const notFound = !usersLoading && !dataFiltered.length;
 
@@ -167,15 +183,17 @@ export function UserListView() {
             { name: 'List' },
           ]}
           action={
-            <Button
-              component={RouterLink}
-              href={paths.dashboard.user.new}
-              variant="contained"
-              color="primary"
-              startIcon={<Iconify icon="mingcute:add-line" />}
-            >
-              New user
-            </Button>
+            canCreate && (
+              <Button
+                component={RouterLink}
+                href={paths.dashboard.user.new}
+                variant="contained"
+                color="primary"
+                startIcon={<Iconify icon="mingcute:add-line" />}
+              >
+                New user
+              </Button>
+            )
           }
           sx={{ mb: { xs: 3, md: 5 } }}
         />
@@ -223,7 +241,7 @@ export function UserListView() {
           <UserTableToolbar
             filters={filters}
             onResetPage={table.onResetPage}
-            options={{ roles: USER_ROLE_OPTIONS }}
+            options={{ roles: USER_ROLE_OPTIONS, employmentTypes: EMPLOYMENT_TYPE_OPTIONS }}
           />
 
           {canReset && (
@@ -258,7 +276,7 @@ export function UserListView() {
             />
 
             <Scrollbar>
-              <Table size={table.dense ? 'small' : 'medium'} sx={{ minWidth: 1320 }}>
+              <Table size={table.dense ? 'small' : 'medium'} sx={{ minWidth: 1460 }}>
                 <TableHeadCustom
                   order={table.order}
                   orderBy={table.orderBy}
@@ -290,6 +308,7 @@ export function UserListView() {
                         onSelectRow={() => table.onSelectRow(String(row.id))}
                         onDeleteRow={() => handleDeleteRow(row.id)}
                         editHref={paths.dashboard.user.edit(String(row.id))}
+                        viewHref={paths.dashboard.user.details(String(row.id))}
                       />
                     ))}
 

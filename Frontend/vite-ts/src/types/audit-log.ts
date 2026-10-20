@@ -24,4 +24,7 @@ export type IAuditLogListMeta = { total: number; page: number; limit: number };
 export type IAuditLogTableFilters = {
   entity: string;
   action: string;
+  /** Inclusive day range, 'YYYY-MM-DD' ('' = no bound). */
+  from: string;
+  to: string;
 };

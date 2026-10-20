@@ -20,8 +20,6 @@ import Select, { type SelectChangeEvent } from '@mui/material/Select';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
-import { fDate } from 'src/utils/format-time';
-
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
   useGetMyAppraisals,
@@ -152,7 +150,7 @@ export function AppraisalListView() {
   const showPagination = tabs.value === 'all';
 
   const canRequestNext = mine.appraisalsMeta?.canRequestNext ?? true;
-  const nextEligibleDate = mine.appraisalsMeta?.nextEligibleDate;
+  const openRequestId = mine.appraisalsMeta?.openRequestId ?? null;
 
   return (
     <DashboardContent>
@@ -160,7 +158,8 @@ export function AppraisalListView() {
         heading="Appraisals"
         links={[{ name: 'Dashboard', href: paths.dashboard.root }, { name: 'Appraisals' }]}
         // Shown on every tab (not just "My Appraisals") so HR / Admin / managers, who land on other
-        // tabs too, can always request their own; the 3-month window is enforced by the backend.
+        // tabs too, can always request their own. Disabled only while one of theirs is still in
+        // progress — the backend enforces the same rule with a 409.
         action={
           canSeeMine && (
             <Button
@@ -178,9 +177,25 @@ export function AppraisalListView() {
         sx={{ mb: { xs: 3, md: 5 } }}
       />
 
-      {canSeeMine && !canRequestNext && nextEligibleDate && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          You can request your next appraisal on {fDate(nextEligibleDate)} (once every 3 months).
+      {canSeeMine && !canRequestNext && (
+        <Alert
+          severity="info"
+          sx={{ mb: 3 }}
+          action={
+            openRequestId && (
+              <Button
+                size="small"
+                color="inherit"
+                component={RouterLink}
+                href={paths.dashboard.appraisals.details(openRequestId)}
+              >
+                View request
+              </Button>
+            )
+          }
+        >
+          Your appraisal request is still in progress — you can request another once it&apos;s
+          decided.
         </Alert>
       )}
 

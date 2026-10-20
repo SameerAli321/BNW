@@ -24,6 +24,7 @@ const ACTION_LABEL: Record<LetterEventDto['action'], string> = {
   SENT_TO_EMPLOYEE: 'Sent to employee',
   EMPLOYEE_SIGNED: 'Signed by employee',
   CANCELLED: 'Cancelled',
+  EDITED: 'Edited',
 };
 
 const ACTION_COLOR: Record<LetterEventDto['action'], 'primary' | 'error' | 'success' | 'warning' | 'grey'> = {
@@ -33,6 +34,7 @@ const ACTION_COLOR: Record<LetterEventDto['action'], 'primary' | 'error' | 'succ
   SENT_TO_EMPLOYEE: 'primary',
   EMPLOYEE_SIGNED: 'success',
   CANCELLED: 'error',
+  EDITED: 'warning',
 };
 
 type Props = {

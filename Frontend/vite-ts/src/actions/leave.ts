@@ -129,6 +129,19 @@ export async function createLeaveRequest(payload: CreateLeaveRequestDto): Promis
   return res.data.data;
 }
 
+/**
+ * PATCH /leave-requests/:id — the employee (or HR / Admin) edits it while nobody has acted on it.
+ * Same checks as create; 409 once the manager / HR has decided.
+ */
+export async function updateLeaveRequest(
+  id: number | string,
+  payload: Partial<CreateLeaveRequestDto>
+): Promise<LeaveRequestDto> {
+  const res = await axiosInstance.patch(endpoints.leaveRequests.details(id), payload);
+  await revalidate(id, res.data.data);
+  return res.data.data;
+}
+
 export async function submitLeaveManagerDecision(
   id: number | string,
   payload: LeaveDecisionDto

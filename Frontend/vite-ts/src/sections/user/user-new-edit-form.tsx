@@ -27,8 +27,11 @@ import { ConfirmDialog } from 'src/components/custom-dialog';
 
 import {
   userRoleLabel,
+  COMPANY_OPTIONS,
   USER_FORM_DEPARTMENTS,
   USER_FORM_ROLE_OPTIONS,
+  EMPLOYMENT_TYPE_OPTIONS,
+  USER_CREATE_ROLE_OPTIONS,
   USER_ACCOUNT_STATUS_OPTIONS,
 } from 'src/types/user';
 
@@ -86,6 +89,8 @@ function buildUserSchema(isEdit: boolean) {
           message: 'CNIC must be 13 digits, e.g. 35202-1234567-1',
         }),
       status: zod.string().optional(),
+      employmentType: zod.string().min(1, { message: 'Employment type is required!' }),
+      company: zod.string().min(1, { message: 'Company is required!' }),
       leavingDate: zod.string().optional(),
       role: zod.string().min(1, { message: 'Role is required!' }),
       password: isEdit
@@ -155,17 +160,18 @@ export function UserNewEditForm({ currentUser }: Props) {
     [departments, currentUser?.departmentId]
   );
 
-  // Same for roles: the agreed four, plus an older role (HR / Payroll) a user may already have.
-  const roleOptions = useMemo(
-    () =>
-      currentUser && !USER_FORM_ROLE_OPTIONS.some((o) => o.value === currentUser.role)
-        ? [
-            ...USER_FORM_ROLE_OPTIONS,
-            { value: currentUser.role, label: userRoleLabel(currentUser.role) },
-          ]
-        : USER_FORM_ROLE_OPTIONS,
-    [currentUser]
-  );
+  // Creating: CEO / HR / Admin / Team Lead only (team members and interns come in through
+  // Hiring → Convert). Editing: those plus Team Member, plus an older role (Payroll) a user may
+  // already have.
+  const roleOptions = useMemo(() => {
+    if (!currentUser) return USER_CREATE_ROLE_OPTIONS;
+    return USER_FORM_ROLE_OPTIONS.some((o) => o.value === currentUser.role)
+      ? USER_FORM_ROLE_OPTIONS
+      : [
+          ...USER_FORM_ROLE_OPTIONS,
+          { value: currentUser.role, label: userRoleLabel(currentUser.role) },
+        ];
+  }, [currentUser]);
 
   const defaultValues: NewUserSchemaType = {
     firstName: '',
@@ -183,6 +189,8 @@ export function UserNewEditForm({ currentUser }: Props) {
     email: '',
     cnic: '',
     status: 'ACTIVE',
+    employmentType: 'PERMANENT',
+    company: 'BNW',
     leavingDate: '',
     role: '',
     password: '',
@@ -207,6 +215,8 @@ export function UserNewEditForm({ currentUser }: Props) {
             email: currentUser.email,
             cnic: currentUser.cnic ?? '',
             status: currentUser.status,
+            employmentType: currentUser.employmentType ?? 'PERMANENT',
+            company: currentUser.company ?? 'BNW',
             leavingDate: currentUser.leavingDate ?? '',
             role: currentUser.role,
             password: '',
@@ -278,6 +288,8 @@ export function UserNewEditForm({ currentUser }: Props) {
         previousSalary: toAmount(data.previousSalary),
         deductionPolicy: data.deductionPolicy?.trim() || null,
         lastSalaryChangeDate: toDate(data.lastSalaryChangeDate),
+        employmentType: data.employmentType as IUserItem['employmentType'],
+        company: data.company as IUserItem['company'],
         ...(data.status ? { status: data.status as IUserItem['status'] } : {}),
       };
 
@@ -349,6 +361,25 @@ export function UserNewEditForm({ currentUser }: Props) {
 
               <Field.Text name="employeeCode" label="Employee code" placeholder="e.g. BNW-0042" />
               <Field.Text name="designation" label="Job title" />
+
+              <Field.Select name="employmentType" label="Employment type">
+                {EMPLOYMENT_TYPE_OPTIONS.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Field.Select>
+              <Field.Select
+                name="company"
+                label="Company"
+                helperText="Where they sit on the Team Hierarchy chart"
+              >
+                {COMPANY_OPTIONS.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Field.Select>
 
               <Field.Select name="departmentId" label="Department">
                 <MenuItem value="">

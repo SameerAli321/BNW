@@ -13,9 +13,11 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { paths } from 'src/routes/paths';
 import { useParams } from 'src/routes/hooks';
+import { RouterLink } from 'src/routes/components';
 
 import { fDate } from 'src/utils/format-time';
 
+import { endpoints } from 'src/lib/axios';
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
   cancelLeaveRequest,
@@ -30,6 +32,7 @@ import {
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { PdfViewerDialog } from 'src/components/pdf-viewer';
 import { EmptyContent } from 'src/components/empty-content';
 import { ConfirmDialog } from 'src/components/custom-dialog';
 import { LoadingScreen } from 'src/components/loading-screen';
@@ -64,6 +67,7 @@ export function LeaveDetailView() {
     request ? Number(request.startDate.slice(0, 4)) : undefined
   );
   const [busy, setBusy] = useState<'download' | 'cancel' | 'decide' | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelDialog, setCancelDialog] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
@@ -141,6 +145,16 @@ export function LeaveDetailView() {
         action={
           <Stack direction="row" alignItems="center" flexWrap="wrap" sx={{ gap: 1.5 }}>
             <LeaveStatusLabel status={request.status} />
+            {request.canEdit && (
+              <Button
+                component={RouterLink}
+                href={paths.dashboard.leaveRequests.edit(request.id)}
+                variant="outlined"
+                startIcon={<Iconify icon="solar:pen-bold" />}
+              >
+                Edit
+              </Button>
+            )}
             {canCancel && (
               <Button
                 color="error"
@@ -161,6 +175,13 @@ export function LeaveDetailView() {
                 Request cancellation
               </Button>
             )}
+            <Button
+              variant="outlined"
+              startIcon={<Iconify icon="solar:eye-bold" />}
+              onClick={() => setViewerOpen(true)}
+            >
+              View PDF
+            </Button>
             <Button
               variant="outlined"
               loading={busy === 'download'}
@@ -420,6 +441,14 @@ export function LeaveDetailView() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <PdfViewerDialog
+        open={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+        title="Leave application"
+        url={endpoints.leaveRequests.pdf(request.id)}
+        filename={`leave-request-${request.id}.pdf`}
+      />
     </DashboardContent>
   );
 }

@@ -48,7 +48,7 @@ export class LeavePdfService {
       },
       {
         label: 'No. of Days:',
-        value: row.halfDay ? '0.5 (half day)' : `${row.days} working day(s)`,
+        value: row.halfDay ? '0.5 (half day)' : `${row.days} day(s)`,
       },
       { label: 'Reason for Leave:', value: row.reason },
       { label: 'Contact During Leave:', value: row.contactDuringLeave },

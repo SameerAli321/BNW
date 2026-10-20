@@ -34,7 +34,7 @@ function cleanParams(filters: Record<string, unknown>) {
 // ----------------------------------------------------------------------
 // Lists
 
-/** GET /appraisal-requests/mine — self. Own appraisal history + `canRequestNext`/`nextEligibleDate`. */
+/** GET /appraisal-requests/mine — self. Own appraisal history + `canRequestNext`/`openRequestId`. */
 export function useGetMyAppraisals() {
   const { data, isLoading, error, isValidating } = useSWR<MyAppraisalsResponseDto>(
     endpoints.appraisalRequests.mine,
@@ -221,8 +221,8 @@ export function useGetAppraisalFormDefaults() {
 
 /**
  * POST /appraisal-requests — self (anyone but the CEO; with no manager set it goes straight to
- * the CEO). `{ form }` — the full Self Evaluation Form. 409 if already requested one in the last
- * 3 months — the axios response interceptor collapses it into a plain `Error(message)`.
+ * the CEO). `{ form }` — the full Self Evaluation Form. 409 if one of theirs is still in
+ * progress — the axios response interceptor collapses it into a plain `Error(message)`.
  */
 export async function createAppraisalRequest(
   payload: CreateAppraisalRequestDto

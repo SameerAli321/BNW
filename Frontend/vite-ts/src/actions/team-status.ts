@@ -35,8 +35,34 @@ export interface TeamStatusRow {
     workOrders: number;
     appraisals: number;
     lettersToSign: number;
+    /** Forms HR / Admin sent them that they haven't filled in yet. */
+    forms: number;
     total: number;
   };
+}
+
+export type StaffActivityKind =
+  | 'LEAVE'
+  | 'ATTENDANCE'
+  | 'WORK_ORDER'
+  | 'APPRAISAL'
+  | 'LETTER'
+  | 'COMPLAINT'
+  | 'FORM'
+  | 'MEETING'
+  | 'DAILY_LOG'
+  | 'DOCUMENT';
+
+/** One line of a person's activity feed — GET /dashboard/team-status/:userId/activity. */
+export interface StaffActivityItem {
+  kind: StaffActivityKind;
+  id: number;
+  title: string;
+  status: string | null;
+  at: string;
+  detail: string | null;
+  inProgress: boolean;
+  link: string;
 }
 
 export interface TeamStatusSummary {
@@ -86,5 +112,19 @@ export function useGetTeamStatus(filters: TeamStatusFilters, enabled = true) {
       retry: mutate,
     }),
     [data, isLoading, isValidating, error, mutate]
+  );
+}
+
+/** Everything one person has going on, newest first — fetched only while `userId` is set. */
+export function useGetStaffActivity(userId: number | null) {
+  const { data, isLoading, error } = useSWR<{ data: StaffActivityItem[] }>(
+    userId ? `${endpoints.teamStatus}/${userId}/activity` : null,
+    fetcher,
+    { revalidateOnFocus: true }
+  );
+
+  return useMemo(
+    () => ({ items: data?.data ?? [], loading: isLoading, error }),
+    [data, isLoading, error]
   );
 }

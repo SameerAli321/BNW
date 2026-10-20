@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
   IsDateString,
+  IsEnum,
   IsNumber,
   IsOptional,
   IsString,
@@ -9,6 +10,8 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { EmploymentType } from '../../common/enums/employment-type.enum';
+import { Company } from '../../common/enums/company.enum';
 
 // '' from a cleared form field means "remove the value".
 const emptyToNull = ({ value }: { value: unknown }) =>
@@ -29,6 +32,18 @@ export const normalizeCnic = ({ value }: { value: unknown }) => {
  * shared by CreateUserDto and UpdateUserDto (all optional; null clears a value).
  */
 export class EmployeeInfoFields {
+  /** Defaults to PERMANENT on create. */
+  @IsOptional()
+  @IsEnum(EmploymentType, {
+    message: 'Employment type must be Permanent, Contract, Probation or Intern',
+  })
+  employmentType?: EmploymentType;
+
+  /** Defaults to BNW on create. */
+  @IsOptional()
+  @IsEnum(Company, { message: 'Company must be BNW, Hayes or HR / Administration (shared)' })
+  company?: Company;
+
   @Transform(emptyToNull)
   @IsOptional()
   @IsDateString({}, { message: 'Leaving date must be a valid date' })

@@ -238,9 +238,9 @@ export function SalarySlipGenerateView() {
   ].filter(Boolean);
   const totalsError =
     totals.grossSalary <= 0
-      ? 'The gross salary must be more than zero.'
+      ? 'Total earnings must be more than zero.'
       : totals.netSalary < 0
-        ? 'Deductions are more than the gross salary.'
+        ? 'Deductions are more than the total earnings.'
         : null;
   const needsRegenerateTick = !!defaults?.existing && !regenerate;
   const canSubmit =
@@ -594,7 +594,7 @@ export function SalarySlipGenerateView() {
                           : defaults.previous
                             ? `Pre-filled from the ${defaults.previous.salaryMonthLabel} slip — check bonus and overtime for this month.`
                             : defaults.employee.currentSalary !== null
-                              ? 'No earlier salary slip — basic salary starts from the current salary on their record. Add allowances and deductions.'
+                              ? 'No earlier salary slip — gross salary starts from the current salary on their record. Add allowances and deductions.'
                               : 'No earlier salary slip for this employee — enter the figures.'
                       }
                     />
@@ -605,7 +605,7 @@ export function SalarySlipGenerateView() {
                         </Typography>
                         <Box sx={{ mt: '0 !important' }}>
                           {amountField(
-                            'Basic salary',
+                            'Gross salary',
                             form.basicSalary,
                             (v) => set('basicSalary', v),
                             errors.basicSalary,
@@ -700,12 +700,12 @@ export function SalarySlipGenerateView() {
                 <CardHeader title="Salary calculation" />
                 <CardContent>
                   <Stack spacing={1.25}>
-                    {summaryRow('Basic salary', num(form.basicSalary) || 0)}
+                    {summaryRow('Gross salary', num(form.basicSalary) || 0)}
                     {summaryRow('Allowances', totals.totalAllowances)}
                     {summaryRow('Bonus', num(form.bonus) || 0)}
                     {summaryRow('Overtime', num(form.overtime) || 0)}
                     <Divider sx={{ borderStyle: 'dashed' }} />
-                    {summaryRow('Gross salary', totals.grossSalary, { bold: true })}
+                    {summaryRow('Total earnings', totals.grossSalary, { bold: true })}
                     {summaryRow('Deductions', totals.totalDeductions - (num(form.tax) || 0), {
                       negative: true,
                     })}
@@ -734,7 +734,8 @@ export function SalarySlipGenerateView() {
                       </Typography>
                     </Box>
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                      Gross = Basic + Allowances + Bonus + Overtime. Net = Gross − Total deductions.
+                      Total earnings = Gross salary + Allowances + Bonus + Overtime. Net = Total earnings − Total
+                      deductions.
                     </Typography>
 
                     {submitted && totalsError && <Alert severity="error">{totalsError}</Alert>}
@@ -868,7 +869,7 @@ function ResultPanel({ slip, actions, onGenerateAnother, onRevise }: ResultPanel
               <Stack spacing={1}>
                 <Stack direction="row" justifyContent="space-between">
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    Gross salary
+                    Total earnings
                   </Typography>
                   <Typography variant="body2">{fSalary(slip.grossSalary)}</Typography>
                 </Stack>

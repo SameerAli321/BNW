@@ -37,6 +37,8 @@ import { SalarySlip } from './entities/salary-slip.entity';
 import { Booking } from './entities/booking.entity';
 import { BookingParticipant } from './entities/booking-participant.entity';
 import { BookingResource } from './entities/booking-resource.entity';
+import { FormAssignment } from './entities/form-assignment.entity';
+import { PolicyAcknowledgement } from './entities/policy-acknowledgement.entity';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
@@ -63,6 +65,7 @@ import { SalarySlipsModule } from './salary-slips/salary-slips.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { AboutModule } from './about/about.module';
 import { RequestWatchersModule } from './notifications/request-watchers.module';
+import { FormAssignmentsModule } from './form-assignments/form-assignments.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -115,6 +118,8 @@ import { RolesGuard } from './common/guards/roles.guard';
           Booking,
           BookingParticipant,
           BookingResource,
+          FormAssignment,
+          PolicyAcknowledgement,
         ],
         synchronize: false, // migrations only — never sync() against a real schema
         autoLoadEntities: true,
@@ -146,6 +151,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     BookingsModule,
     AboutModule,
     RequestWatchersModule,
+    FormAssignmentsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

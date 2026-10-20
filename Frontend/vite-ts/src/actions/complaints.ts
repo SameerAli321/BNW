@@ -90,6 +90,17 @@ export async function createComplaint(payload: CreateComplaintDto): Promise<Comp
   return res.data.data;
 }
 
+/** PATCH /complaints/:id — the complainant (or HR / Admin) until HR responds; 409 after that. */
+export async function updateComplaint(
+  id: number | string,
+  payload: CreateComplaintDto
+): Promise<ComplaintDto> {
+  const res = await axiosInstance.patch(endpoints.complaints.details(id), payload);
+  await mutate(endpoints.complaints.details(id), { data: res.data.data }, false);
+  await revalidateComplaintLists();
+  return res.data.data;
+}
+
 /** PATCH /complaints/:id/hr-response — HR/ADMIN only. */
 export async function submitComplaintHrResponse(
   id: number | string,

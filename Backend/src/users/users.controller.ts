@@ -48,7 +48,9 @@ export class UsersController {
     return this.usersService.findAll(query);
   }
 
-  @Roles(RoleName.HR, RoleName.ADMIN)
+  // Only Admin creates accounts — HR edits existing users; employees and interns come in through
+  // Hiring → Convert.
+  @Roles(RoleName.ADMIN)
   @Post()
   async create(@Body() dto: CreateUserDto, @CurrentUser() caller: JwtUserPayload) {
     const { user, welcomeEmail } = await this.usersService.create(dto, caller.sub);
@@ -79,6 +81,32 @@ export class UsersController {
     return this.usersService.removeAvatar(caller.sub);
   }
 
+  // HR / ADMIN — set or replace someone else's profile picture (e.g. from the Team Hierarchy page).
+  // Declared after the `me/avatar` routes so "me" never reaches ParseIntPipe.
+  @Roles(RoleName.HR, RoleName.ADMIN)
+  @Post(':id/avatar')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: avatarStorage,
+      fileFilter: avatarFileFilter,
+      limits: { fileSize: MAX_AVATAR_SIZE_BYTES },
+    }),
+  )
+  async uploadUserAvatar(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('Choose an image to upload');
+    return this.usersService.setAvatar(id, file.filename);
+  }
+
+  @Roles(RoleName.HR, RoleName.ADMIN)
+  @Delete(':id/avatar')
+  @HttpCode(HttpStatus.OK)
+  async removeUserAvatar(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.removeAvatar(id);
+  }
+
   // HR / ADMIN / CEO — "notify me about every new request" switch on the Notifications page.
   @Roles(RoleName.HR, RoleName.ADMIN, RoleName.CEO)
   @Patch('me/notification-preferences')
@@ -87,6 +115,13 @@ export class UsersController {
     @CurrentUser() caller: JwtUserPayload,
   ) {
     return this.usersService.setNotifyAllRequests(caller.sub, dto.notifyAllRequests);
+  }
+
+  // Everyone — the Team Hierarchy page: active users' basic, non-sensitive info only (no email,
+  // salary or CNIC). Declared before ':id' so 'hierarchy' isn't parsed as an id.
+  @Get('hierarchy')
+  async hierarchy() {
+    return this.usersService.findHierarchy();
   }
 
   // Public so <img src> works without the Bearer token — file names are random UUIDs (unguessable)

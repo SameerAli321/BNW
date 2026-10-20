@@ -1,4 +1,4 @@
-import type { WorkOrderType } from 'src/actions/work-orders';
+import type { WorkOrderDto, WorkOrderType } from 'src/actions/work-orders';
 
 import { useRef, useState } from 'react';
 
@@ -18,7 +18,12 @@ import { RouterLink } from 'src/routes/components';
 import { useRouter, useSearchParams } from 'src/routes/hooks';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { fPkr, createWorkOrder, useGetWorkOrderSettings } from 'src/actions/work-orders';
+import {
+  fPkr,
+  createWorkOrder,
+  updateWorkOrder,
+  useGetWorkOrderSettings,
+} from 'src/actions/work-orders';
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
@@ -33,12 +38,17 @@ import { useAuthContext } from 'src/auth/hooks';
 const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
 const today = () => new Date().toISOString().slice(0, 10);
 
+type Props = {
+  // Editing an existing work order (until the first decision) instead of creating one.
+  current?: WorkOrderDto;
+};
+
 /**
  * New work order — a reimbursement claim (amount, date, receipt) or an equipment request
  * (item, quantity, needed by, optional quotation). Shows who it will go to, including the CEO
- * step when the amount is over the limit.
+ * step when the amount is over the limit. Also the edit form (the type is fixed by then).
  */
-export function WorkOrderCreateView() {
+export function WorkOrderCreateView({ current }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuthContext();
@@ -46,16 +56,20 @@ export function WorkOrderCreateView() {
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [type, setType] = useState<WorkOrderType>(
-    searchParams.get('type') === 'EQUIPMENT' ? 'EQUIPMENT' : 'REIMBURSEMENT'
+    current?.type ?? (searchParams.get('type') === 'EQUIPMENT' ? 'EQUIPMENT' : 'REIMBURSEMENT')
   );
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('');
-  const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
-  const [expenseDate, setExpenseDate] = useState('');
-  const [quantity, setQuantity] = useState('1');
-  const [neededBy, setNeededBy] = useState('');
+  const [title, setTitle] = useState(current?.title ?? '');
+  const [category, setCategory] = useState(current?.category ?? '');
+  const [description, setDescription] = useState(current?.description ?? '');
+  const [amount, setAmount] = useState(current?.amount != null ? String(current.amount) : '');
+  const [expenseDate, setExpenseDate] = useState(current?.expenseDate ?? '');
+  const [quantity, setQuantity] = useState(String(current?.quantity ?? 1));
+  const [neededBy, setNeededBy] = useState(current?.neededBy ?? '');
   const [receipt, setReceipt] = useState<File | null>(null);
+  // Editing: the file already attached, until it's replaced or removed.
+  const [keptReceiptName, setKeptReceiptName] = useState(
+    current?.hasReceipt ? (current.receiptOriginalName ?? 'Attached file') : null
+  );
   const [submitting, setSubmitting] = useState(false);
 
   const isReimbursement = type === 'REIMBURSEMENT';
@@ -63,9 +77,10 @@ export function WorkOrderCreateView() {
   const amountNumber = Number(amount);
   const needsCeo =
     !!settings && amount !== '' && amountNumber > settings.ceoApprovalLimit && user?.role !== 'CEO';
+  const hasManager = current ? !!current.managerId : !!user?.managerId;
 
   const route = [
-    ...(user?.managerId ? ['Your line manager'] : []),
+    ...(hasManager ? ['Your line manager'] : []),
     ...(needsCeo ? ['CEO'] : []),
     isReimbursement ? 'Payroll (pays you)' : 'HR (issues the item)',
   ];
@@ -95,6 +110,26 @@ export function WorkOrderCreateView() {
     }
     setSubmitting(true);
     try {
+      if (current) {
+        // '' clears an optional field; the receipt is kept unless replaced or removed.
+        await updateWorkOrder(
+          current.id,
+          {
+            title: title.trim(),
+            category,
+            description: description.trim(),
+            amount: amount === '' ? '' : amountNumber,
+            ...(isReimbursement
+              ? { expenseDate }
+              : { quantity: Number(quantity) || 1, neededBy }),
+          },
+          receipt,
+          current.hasReceipt && !receipt && !keptReceiptName
+        );
+        toast.success('Work order updated — the approver has been told');
+        router.push(paths.dashboard.workOrders.details(current.id));
+        return undefined;
+      }
       const created = await createWorkOrder(
         {
           type,
@@ -127,12 +162,23 @@ export function WorkOrderCreateView() {
   return (
     <DashboardContent maxWidth="md">
       <CustomBreadcrumbs
-        heading={isReimbursement ? 'Claim a reimbursement' : 'Request equipment'}
+        heading={
+          current
+            ? `Edit ${isReimbursement ? 'reimbursement claim' : 'equipment request'}`
+            : isReimbursement
+              ? 'Claim a reimbursement'
+              : 'Request equipment'
+        }
         links={[
           { name: 'Dashboard', href: paths.dashboard.root },
           { name: 'Requests & Forms', href: paths.dashboard.requestsForms },
           { name: 'Work orders', href: paths.dashboard.workOrders.root },
-          { name: 'New' },
+          ...(current
+            ? [
+                { name: `#${current.id}`, href: paths.dashboard.workOrders.details(current.id) },
+                { name: 'Edit' },
+              ]
+            : [{ name: 'New' }]),
         ]}
         sx={{ mb: 3 }}
       />
@@ -141,6 +187,7 @@ export function WorkOrderCreateView() {
         <ToggleButtonGroup
           exclusive
           fullWidth
+          disabled={!!current}
           value={type}
           onChange={(_event, value: WorkOrderType | null) => {
             if (!value) return;
@@ -225,9 +272,18 @@ export function WorkOrderCreateView() {
           <Stack direction="row" alignItems="center" flexWrap="wrap" sx={{ gap: 1.5 }}>
             <input ref={fileInput} type="file" hidden accept="application/pdf,image/png,image/jpeg,image/webp" onChange={onPickFile} />
             <Button variant="outlined" color="inherit" startIcon={<Iconify icon="eva:attach-2-fill" />} onClick={() => fileInput.current?.click()}>
-              {receipt ? 'Change file' : isReimbursement ? 'Attach receipt' : 'Attach quotation (optional)'}
+              {receipt || keptReceiptName ? 'Change file' : isReimbursement ? 'Attach receipt' : 'Attach quotation (optional)'}
             </Button>
-            {receipt ? (
+            {!receipt && keptReceiptName ? (
+              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ minWidth: 0 }}>
+                <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
+                  {keptReceiptName}
+                </Typography>
+                <Button size="small" color="error" onClick={() => setKeptReceiptName(null)}>
+                  Remove
+                </Button>
+              </Stack>
+            ) : receipt ? (
               <Stack direction="row" alignItems="center" spacing={0.5} sx={{ minWidth: 0 }}>
                 <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
                   {receipt.name}
@@ -250,11 +306,16 @@ export function WorkOrderCreateView() {
         </Alert>
 
         <Stack direction="row" spacing={1.5} justifyContent="flex-end">
-          <Button component={RouterLink} href={paths.dashboard.workOrders.root} variant="outlined" color="inherit">
+          <Button
+            component={RouterLink}
+            href={current ? paths.dashboard.workOrders.details(current.id) : paths.dashboard.workOrders.root}
+            variant="outlined"
+            color="inherit"
+          >
             Cancel
           </Button>
           <Button variant="contained" loading={submitting} onClick={onSubmit}>
-            Submit
+            {current ? 'Save changes' : 'Submit'}
           </Button>
         </Stack>
       </Stack>

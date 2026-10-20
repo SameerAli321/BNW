@@ -27,6 +27,8 @@ const IndexPage = lazy(() => import('src/pages/dashboard'));
 const UserListPage = lazy(() => import('src/pages/dashboard/user/list'));
 const UserCreatePage = lazy(() => import('src/pages/dashboard/user/new'));
 const UserEditPage = lazy(() => import('src/pages/dashboard/user/edit'));
+const UserDetailsPage = lazy(() => import('src/pages/dashboard/user/details'));
+const TeamHierarchyPage = lazy(() => import('src/pages/dashboard/team-hierarchy'));
 // Account (own profile / change password — needed for the mustChangePassword flow)
 const AccountGeneralPage = lazy(() => import('src/pages/dashboard/user/account/general'));
 const AccountChangePasswordPage = lazy(
@@ -63,6 +65,7 @@ const RequestsFormsPage = lazy(() => import('src/pages/dashboard/requests-forms'
 const ComplaintListPage = lazy(() => import('src/pages/dashboard/complaints/list'));
 const ComplaintCreatePage = lazy(() => import('src/pages/dashboard/complaints/new'));
 const ComplaintDetailPage = lazy(() => import('src/pages/dashboard/complaints/detail'));
+const ComplaintEditPage = lazy(() => import('src/pages/dashboard/complaints/edit'));
 // Attendance regularization form (employee -> HOD -> HR)
 const AttendanceRegularizationListPage = lazy(
   () => import('src/pages/dashboard/attendance-regularizations/list')
@@ -73,14 +76,19 @@ const AttendanceRegularizationCreatePage = lazy(
 const AttendanceRegularizationDetailPage = lazy(
   () => import('src/pages/dashboard/attendance-regularizations/detail')
 );
+const AttendanceRegularizationEditPage = lazy(
+  () => import('src/pages/dashboard/attendance-regularizations/edit')
+);
 // Leave / holiday (employee -> manager -> HR)
 const LeaveRequestListPage = lazy(() => import('src/pages/dashboard/leave-requests/list'));
 const LeaveRequestCreatePage = lazy(() => import('src/pages/dashboard/leave-requests/new'));
 const LeaveRequestDetailPage = lazy(() => import('src/pages/dashboard/leave-requests/detail'));
+const LeaveRequestEditPage = lazy(() => import('src/pages/dashboard/leave-requests/edit'));
 // Work orders (reimbursement / equipment: employee -> manager -> CEO over limit -> Payroll / HR)
 const WorkOrderListPage = lazy(() => import('src/pages/dashboard/work-orders/list'));
 const WorkOrderCreatePage = lazy(() => import('src/pages/dashboard/work-orders/new'));
 const WorkOrderDetailPage = lazy(() => import('src/pages/dashboard/work-orders/detail'));
+const WorkOrderEditPage = lazy(() => import('src/pages/dashboard/work-orders/edit'));
 // Salary slips (HR / ADMIN generate + email; everyone sees their own)
 const SalarySlipListPage = lazy(() => import('src/pages/dashboard/salary-slips/list'));
 const SalarySlipGeneratePage = lazy(() => import('src/pages/dashboard/salary-slips/new'));
@@ -138,6 +146,8 @@ export const dashboardRoutes: RouteObject[] = [
           { path: 'list', element: <UserListPage /> },
           { path: 'new', element: <UserCreatePage /> },
           { path: ':id/edit', element: <UserEditPage /> },
+          // Static segments above/below ('list', 'new', 'account') still win over ':id'.
+          { path: ':id', element: <UserDetailsPage /> },
           {
             path: 'account',
             element: accountLayout(),
@@ -150,6 +160,7 @@ export const dashboardRoutes: RouteObject[] = [
         ],
       },
       { path: 'staff-summary', element: <StaffSummaryListPage /> },
+      { path: 'team-hierarchy', element: <TeamHierarchyPage /> },
       { path: 'audit-log', element: <AuditLogListPage /> },
       { path: 'my-e-record', element: <MyERecordPage /> },
       {
@@ -190,6 +201,7 @@ export const dashboardRoutes: RouteObject[] = [
           { index: true, element: <ComplaintListPage /> },
           { path: 'new', element: <ComplaintCreatePage /> },
           { path: ':id', element: <ComplaintDetailPage /> },
+          { path: ':id/edit', element: <ComplaintEditPage /> },
         ],
       },
       {
@@ -198,6 +210,7 @@ export const dashboardRoutes: RouteObject[] = [
           { index: true, element: <AttendanceRegularizationListPage /> },
           { path: 'new', element: <AttendanceRegularizationCreatePage /> },
           { path: ':id', element: <AttendanceRegularizationDetailPage /> },
+          { path: ':id/edit', element: <AttendanceRegularizationEditPage /> },
         ],
       },
       {
@@ -206,6 +219,7 @@ export const dashboardRoutes: RouteObject[] = [
           { index: true, element: <LeaveRequestListPage /> },
           { path: 'new', element: <LeaveRequestCreatePage /> },
           { path: ':id', element: <LeaveRequestDetailPage /> },
+          { path: ':id/edit', element: <LeaveRequestEditPage /> },
         ],
       },
       {
@@ -214,6 +228,7 @@ export const dashboardRoutes: RouteObject[] = [
           { index: true, element: <WorkOrderListPage /> },
           { path: 'new', element: <WorkOrderCreatePage /> },
           { path: ':id', element: <WorkOrderDetailPage /> },
+          { path: ':id/edit', element: <WorkOrderEditPage /> },
         ],
       },
       {

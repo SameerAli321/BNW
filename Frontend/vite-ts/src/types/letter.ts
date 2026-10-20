@@ -53,7 +53,8 @@ export type LetterEventAction =
   | 'CEO_SIGNED'
   | 'SENT_TO_EMPLOYEE'
   | 'EMPLOYEE_SIGNED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'EDITED';
 
 /** `LetterFieldSchemaEntry` — contract §DTOs. One row of a template's `fieldsSchema`. */
 export interface LetterFieldSchemaEntry {
@@ -132,7 +133,12 @@ export interface LetterDto {
   templateId: number;
   templateName: string;
   type: LetterType;
-  subjectUserId: number;
+  /** Null while the letter belongs to a hiring candidate who has no account yet. */
+  subjectUserId: number | null;
+  /** The candidate the letter was prepared for (kept after the candidate is converted). */
+  subjectCandidateId: number | null;
+  /** True while the subject is a candidate with no account yet. */
+  isCandidate: boolean;
   subjectName: string;
   preparedBy: number;
   preparedByName: string;
@@ -146,11 +152,26 @@ export interface LetterDto {
   signatures?: SignatureDto[];
 }
 
-/** `POST /letters` body — HR/ADMIN only. Creates a `DRAFT` letter. */
+/**
+ * `POST /letters` body — HR/ADMIN only. Creates a `DRAFT` letter. Exactly one of
+ * `subjectUserId` / `subjectCandidateId` (a candidate with no account yet; not HIRED).
+ */
 export type CreateLetterDto = {
   templateId: number;
-  subjectUserId: number;
+  subjectUserId?: number;
+  subjectCandidateId?: number;
   fieldValues: Record<string, string>;
+};
+
+/**
+ * `POST /letters/:id/send-to-employee` adds `delivery` to the letter: who was emailed. Employee
+ * emails go out in the background (`QUEUED`); candidate emails report the real SMTP outcome.
+ */
+export type LetterDelivery = {
+  recipientType: 'EMPLOYEE' | 'CANDIDATE';
+  emailedTo: string | null;
+  emailStatus: 'QUEUED' | 'SENT' | 'FAILED' | 'NOT_CONFIGURED' | 'SKIPPED';
+  warning: string | null;
 };
 
 /** `PATCH /letters/:id` body — HR/ADMIN only, while `DRAFT`/`CHANGES_REQUESTED`. */

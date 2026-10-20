@@ -23,12 +23,16 @@ export const endpoints = {
   users: {
     list: '/users',
     details: (id: number | string) => `/users/${id}`,
+    // Team Hierarchy page — active users' basic info, any signed-in user.
+    hierarchy: '/users/hierarchy',
     reports: (id: number | string) => `/users/${id}/reports`,
     // Gap-fix — see docs/API_CONTRACT_GAPS_FIX.md Gap 1.
     profile: (id: number | string) => `/users/${id}/profile`,
     resetPassword: (id: number | string) => `/users/${id}/reset-password`,
     // Own profile picture — POST (multipart 'file') to upload / replace, DELETE to remove.
     myAvatar: '/users/me/avatar',
+    // HR / ADMIN — someone else's profile picture.
+    avatar: (id: number | string) => `/users/${id}/avatar`,
     // PATCH { notifyAllRequests } — HR / ADMIN / CEO opt in to a notification for every new request.
     notificationPreferences: '/users/me/notification-preferences',
   },
@@ -178,7 +182,14 @@ export const endpoints = {
     send: (id: number | string) => `/salary-slips/${id}/send`,
   },
   // About us — company details + CEO message (CEO / HR / ADMIN edit; photo upload is multipart 'file').
-  about: { root: '/about', ceoPhoto: '/about/ceo-photo' },
+  about: {
+    root: '/about',
+    ceoPhoto: '/about/ceo-photo',
+    myPolicyAck: '/about/policy/acknowledgement/mine',
+    acknowledgePolicy: '/about/policy/acknowledge',
+    policyAcks: '/about/policy/acknowledgements',
+    remindPolicy: '/about/policy/remind',
+  },
   // Dashboard 'Team status' table — CEO / HR / ADMIN: everyone; Team Leads: direct reports.
   teamStatus: '/dashboard/team-status',
   // Bookings — meetings, meeting rooms, pool table (+ rooms & tables HR / ADMIN manage).
@@ -187,6 +198,8 @@ export const endpoints = {
     upcomingMeetings: '/bookings/upcoming-meetings',
     availability: '/bookings/availability',
     people: '/bookings/people',
+    calendarPeople: '/bookings/calendar-people',
+    calendarLeaves: '/bookings/calendar-leaves',
     details: (id: number | string) => `/bookings/${id}`,
     cancel: (id: number | string) => `/bookings/${id}/cancel`,
     resources: '/booking-resources',
@@ -212,6 +225,13 @@ export const endpoints = {
     details: (id: number | string) => `/onboarding-forms/${id}`,
     hrRecord: (id: number | string) => `/onboarding-forms/${id}/hr-record`,
     pdf: (id: number | string) => `/onboarding-forms/${id}/pdf`,
+  },
+  // "HR sends a form" — HR / ADMIN send a form to employees; everyone sees theirs (`mine`).
+  formAssignments: {
+    list: '/form-assignments',
+    mine: '/form-assignments/mine',
+    complete: (id: number | string) => `/form-assignments/${id}/complete`,
+    cancel: (id: number | string) => `/form-assignments/${id}/cancel`,
   },
   // Demo-only endpoints kept from the minimal-kit template (out of scope for BNW OMS Sprint 1,
   // not reachable from the app nav — see docs/FRONTEND_STATUS.md).

@@ -25,6 +25,7 @@ import { CreateAttendanceRegularizationDto } from './dto/create-attendance-regul
 import { HodRecommendationDto } from './dto/hod-recommendation.dto';
 import { HrDecisionDto } from './dto/hr-decision.dto';
 import { QueryAttendanceRegularizationsDto } from './dto/query-attendance-regularizations.dto';
+import { UpdateAttendanceRegularizationDto } from './dto/update-attendance-regularization.dto';
 import { RequestWatchersService } from '../notifications/request-watchers.service';
 import { NotifyService } from '../notifications/notify.service';
 
@@ -146,6 +147,91 @@ export class AttendanceRegularizationsService {
     return this.getOne(saved.id, caller);
   }
 
+  /**
+   * Why the form can't be edited any more, or null while it still can: waiting on the HOD, or on
+   * HR when there's no HOD and HR hasn't recorded it yet.
+   */
+  private editBlocker(row: AttendanceRegularization): string | null {
+    if (row.status === AttendanceRegularizationStatus.PENDING_HOD) return null;
+    if (
+      row.status === AttendanceRegularizationStatus.PENDING_HR &&
+      !row.hodId &&
+      !row.hodSignedAt &&
+      !row.hrSignedAt
+    ) {
+      return null;
+    }
+    return row.hodSignedAt
+      ? 'Your head of department has already recorded a recommendation — this form can no longer be edited'
+      : `This form is already ${row.status.toLowerCase().replace(/_/g, ' ')} — it can no longer be edited`;
+  }
+
+  /** The employee, or HR / Admin on their behalf, until the HOD recommendation is recorded. */
+  private canEdit(row: AttendanceRegularization, caller: JwtUserPayload): boolean {
+    const allowed =
+      row.employeeId === caller.sub ||
+      [RoleName.HR, RoleName.ADMIN].includes(caller.role as RoleName);
+    return allowed && this.editBlocker(row) === null;
+  }
+
+  async update(
+    id: number,
+    dto: UpdateAttendanceRegularizationDto,
+    caller: JwtUserPayload,
+  ): Promise<AttendanceRegularizationDto> {
+    const row = await this.findEntityForViewer(id, caller);
+    if (
+      row.employeeId !== caller.sub &&
+      ![RoleName.HR, RoleName.ADMIN].includes(caller.role as RoleName)
+    ) {
+      throw new ForbiddenException('Only the employee (or HR) can edit this form');
+    }
+    const blocker = this.editBlocker(row);
+    if (blocker) throw new ConflictException(blocker);
+
+    // Same checks as create, on the merged values.
+    const attendanceDate = dto.attendanceDate ?? row.attendanceDate;
+    const timeArrival = dto.timeArrival !== undefined ? dto.timeArrival || null : row.timeArrival;
+    const timeDeparture =
+      dto.timeDeparture !== undefined ? dto.timeDeparture || null : row.timeDeparture;
+    if (attendanceDate > todayLocal()) {
+      throw new BadRequestException('You cannot regularize attendance for a future date');
+    }
+    if (!timeArrival && !timeDeparture) {
+      throw new BadRequestException('Enter the arrival time, the departure time, or both');
+    }
+
+    // Only while it's still in the same status — a recommendation landing at the same moment wins.
+    const result = await this.repo.update(
+      { id, status: row.status },
+      {
+        attendanceDate,
+        timeArrival,
+        timeDeparture,
+        reason: dto.reason !== undefined ? dto.reason.trim() : row.reason,
+      },
+    );
+    if (!result.affected) {
+      throw new ConflictException('This form was just updated by someone else — refresh');
+    }
+
+    const name = `${row.employee.firstName} ${row.employee.lastName}`;
+    const approverIds = (
+      row.status === AttendanceRegularizationStatus.PENDING_HOD && row.hodId
+        ? [row.hodId]
+        : await this.activeHrUserIds()
+    ).filter((userId) => userId !== caller.sub);
+    await this.notify(
+      approverIds,
+      `${name} edited their attendance regularization — please review the updated details`,
+      id,
+    );
+    if (row.employeeId !== caller.sub) {
+      await this.notify([row.employeeId], 'HR updated your attendance regularization', id);
+    }
+    return this.getOne(id, caller);
+  }
+
   private async list(
     query: QueryAttendanceRegularizationsDto,
     scope: ListScope,
@@ -194,7 +280,8 @@ export class AttendanceRegularizationsService {
   }
 
   async getOne(id: number, caller: JwtUserPayload): Promise<AttendanceRegularizationDto> {
-    return toAttendanceRegularizationDto(await this.findEntityForViewer(id, caller));
+    const row = await this.findEntityForViewer(id, caller);
+    return { ...toAttendanceRegularizationDto(row), canEdit: this.canEdit(row, caller) };
   }
 
   async hodRecommendation(

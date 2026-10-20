@@ -21,6 +21,9 @@ export type AuditLogsListFilters = {
   actorId?: number;
   entity?: string;
   action?: string;
+  /** Inclusive day range, 'YYYY-MM-DD' (Pakistan time on the backend). */
+  from?: string;
+  to?: string;
   page?: number;
   limit?: number;
 };

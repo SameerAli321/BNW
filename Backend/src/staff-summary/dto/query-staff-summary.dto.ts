@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import { IsEnum, IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { RoleName } from '../../common/enums/role.enum';
 import { UserStatus } from '../../common/enums/user-status.enum';
+import { EmploymentType } from '../../common/enums/employment-type.enum';
 
 export class QueryStaffSummaryDto {
   @IsOptional()
@@ -20,6 +21,10 @@ export class QueryStaffSummaryDto {
   @IsOptional()
   @IsEnum(UserStatus)
   status?: UserStatus;
+
+  @IsOptional()
+  @IsEnum(EmploymentType)
+  employmentType?: EmploymentType;
 
   // Column the table is sorted by (the frontend's head-cell id). Unknown values fall back to
   // newest-first, so the empty action column can't break the query.

@@ -46,6 +46,8 @@ export interface AttendanceRegularizationDto {
   hrSignedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Detail reads only: the caller may still edit it (the HOD hasn't recommended it yet).
+  canEdit?: boolean;
 }
 
 export interface AttendanceRegularizationListMeta {

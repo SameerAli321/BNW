@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Put, Query, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Put,
+  Query,
+  Res,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { LeaveService } from './leave.service';
 import { LeavePdfService } from './leave-pdf.service';
@@ -13,6 +24,7 @@ import {
 } from './dto/leave-cancellation.dto';
 import { QueryLeaveRequestsDto } from './dto/query-leave-requests.dto';
 import { UpdateLeaveTypeDto } from './dto/update-leave-type.dto';
+import { UpdateLeaveRequestDto } from './dto/update-leave-request.dto';
 
 @Controller('leave-types')
 export class LeaveTypesController {
@@ -75,6 +87,16 @@ export class LeaveRequestsController {
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() caller: JwtUserPayload) {
     return this.service.getOne(id, caller);
+  }
+
+  // The employee, or HR / ADMIN on their behalf, until the first decision — enforced in the service.
+  @Patch(':id')
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateLeaveRequestDto,
+    @CurrentUser() caller: JwtUserPayload,
+  ) {
+    return this.service.update(id, dto, caller);
   }
 
   @Get(':id/pdf')

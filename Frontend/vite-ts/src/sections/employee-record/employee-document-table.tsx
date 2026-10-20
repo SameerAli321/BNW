@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 
 import Card from '@mui/material/Card';
 import Table from '@mui/material/Table';
+import Tooltip from '@mui/material/Tooltip';
 import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
 import TableHead from '@mui/material/TableHead';
@@ -15,6 +16,7 @@ import Typography from '@mui/material/Typography';
 import { fDate } from 'src/utils/format-time';
 import { fData } from 'src/utils/format-number';
 
+import { endpoints } from 'src/lib/axios';
 import { downloadDocument } from 'src/actions/employee-records';
 
 import { Label } from 'src/components/label';
@@ -22,6 +24,7 @@ import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 import { TableNoData } from 'src/components/table';
 import { Scrollbar } from 'src/components/scrollbar';
+import { usePdfViewer, PdfViewerDialog } from 'src/components/pdf-viewer';
 
 // ----------------------------------------------------------------------
 
@@ -31,6 +34,7 @@ type Props = {
 
 export function EmployeeDocumentTable({ documents }: Props) {
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const { openViewer, viewerProps } = usePdfViewer();
 
   const handleDownload = useCallback(async (doc: EmployeeDocumentDto) => {
     setDownloadingId(doc.id);
@@ -57,7 +61,7 @@ export function EmployeeDocumentTable({ documents }: Props) {
               <TableCell>Source</TableCell>
               <TableCell>Uploaded by</TableCell>
               <TableCell>Uploaded on</TableCell>
-              <TableCell align="right">Download</TableCell>
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
 
@@ -78,13 +82,28 @@ export function EmployeeDocumentTable({ documents }: Props) {
                 </TableCell>
                 <TableCell>{doc.uploadedByName}</TableCell>
                 <TableCell>{fDate(doc.createdAt)}</TableCell>
-                <TableCell align="right">
-                  <IconButton
-                    onClick={() => handleDownload(doc)}
-                    disabled={downloadingId === doc.id}
-                  >
-                    <Iconify icon="solar:download-bold" />
-                  </IconButton>
+                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                  <Tooltip title="View">
+                    <IconButton
+                      onClick={() =>
+                        openViewer({
+                          title: `${doc.documentTypeName} — ${doc.originalName}`,
+                          filename: doc.originalName,
+                          url: endpoints.documents.download(doc.id),
+                        })
+                      }
+                    >
+                      <Iconify icon="solar:eye-bold" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Download">
+                    <IconButton
+                      onClick={() => handleDownload(doc)}
+                      disabled={downloadingId === doc.id}
+                    >
+                      <Iconify icon="solar:download-bold" />
+                    </IconButton>
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             ))}
@@ -93,6 +112,8 @@ export function EmployeeDocumentTable({ documents }: Props) {
           </TableBody>
         </Table>
       </Scrollbar>
+
+      <PdfViewerDialog {...viewerProps} />
     </Card>
   );
 }

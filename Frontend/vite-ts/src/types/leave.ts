@@ -71,6 +71,8 @@ export interface LeaveRequestDto {
   cancellationDecidedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Detail reads only: the caller may still edit it (nobody has acted on it yet).
+  canEdit?: boolean;
 }
 
 export interface LeaveListMeta {

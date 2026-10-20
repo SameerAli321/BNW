@@ -49,7 +49,7 @@ export class CreateSalarySlipDto {
   salaryMonth: string;
 
   @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Enter the basic salary' })
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Enter the gross salary' })
   @Min(0)
   @Max(MAX_AMOUNT)
   basicSalary: number;

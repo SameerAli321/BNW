@@ -24,7 +24,7 @@ import { RouterLink } from 'src/routes/components';
 import { fDate } from 'src/utils/format-time';
 
 import { fPkr } from 'src/actions/work-orders';
-import { resetUserPassword } from 'src/actions/users';
+import { avatarSrc, resetUserPassword } from 'src/actions/users';
 
 import { Label } from 'src/components/label';
 import { toast } from 'src/components/snackbar';
@@ -32,7 +32,7 @@ import { Iconify } from 'src/components/iconify';
 import { ConfirmDialog } from 'src/components/custom-dialog';
 import { CustomPopover } from 'src/components/custom-popover';
 
-import { userStatusLabel } from 'src/types/user';
+import { userRoleLabel, userStatusLabel, employmentTypeLabel } from 'src/types/user';
 
 // ----------------------------------------------------------------------
 
@@ -40,6 +40,7 @@ type Props = {
   row: IUserItem;
   selected: boolean;
   editHref: string;
+  viewHref: string;
   canDelete: boolean;
   canResetPassword: boolean;
   onSelectRow: () => void;
@@ -50,6 +51,7 @@ export function UserTableRow({
   row,
   selected,
   editHref,
+  viewHref,
   canDelete,
   canResetPassword,
   onSelectRow,
@@ -85,6 +87,13 @@ export function UserTableRow({
       slotProps={{ arrow: { placement: 'right-top' } }}
     >
       <MenuList>
+        <li>
+          <MenuItem component={RouterLink} href={viewHref} onClick={() => menuActions.onClose()}>
+            <Iconify icon="solar:eye-bold" />
+            View
+          </MenuItem>
+        </li>
+
         <li>
           <MenuItem component={RouterLink} href={editHref} onClick={() => menuActions.onClose()}>
             <Iconify icon="solar:pen-bold" />
@@ -233,14 +242,16 @@ export function UserTableRow({
 
         <TableCell>
           <Box sx={{ gap: 2, display: 'flex', alignItems: 'center' }}>
-            <Avatar alt={fullName}>{fullName.charAt(0).toUpperCase()}</Avatar>
+            <Avatar alt={fullName} src={avatarSrc(row.avatarUrl)}>
+              {fullName.charAt(0).toUpperCase()}
+            </Avatar>
 
             <Stack
               sx={{ typography: 'body2', flex: '1 1 auto', alignItems: 'flex-start', minWidth: 0 }}
             >
               <Link
                 component={RouterLink}
-                href={editHref}
+                href={viewHref}
                 color="inherit"
                 sx={{ cursor: 'pointer' }}
               >
@@ -278,7 +289,13 @@ export function UserTableRow({
 
         <TableCell sx={{ whiteSpace: 'nowrap' }}>
           <Label variant="soft" color="default">
-            {row.role}
+            {userRoleLabel(row.role)}
+          </Label>
+        </TableCell>
+
+        <TableCell sx={{ whiteSpace: 'nowrap' }}>
+          <Label variant="soft" color={row.employmentType === 'INTERN' ? 'info' : 'default'}>
+            {employmentTypeLabel(row.employmentType) || '—'}
           </Label>
         </TableCell>
 

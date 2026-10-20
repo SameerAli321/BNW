@@ -8,14 +8,19 @@ export interface CandidateDto {
   cvOriginalName: string;
   status: string;
   convertedUserId: number | null;
+  /** Letters / contracts HR has prepared for this candidate (any status). */
+  letterCount: number;
   uploadedBy: number;
   uploadedByName: string;
   createdAt: string;
   updatedAt: string;
 }
 
-/** Requires the `uploadedByUser` relation to be loaded for `uploadedByName` to resolve. */
-export function toCandidateDto(candidate: Candidate): CandidateDto {
+/**
+ * Requires the `uploadedByUser` relation to be loaded for `uploadedByName` to resolve.
+ * `letterCount` is counted separately by CandidatesService (0 when not passed).
+ */
+export function toCandidateDto(candidate: Candidate, letterCount = 0): CandidateDto {
   return {
     id: candidate.id,
     name: candidate.name,
@@ -24,6 +29,7 @@ export function toCandidateDto(candidate: Candidate): CandidateDto {
     cvOriginalName: candidate.cvOriginalName,
     status: candidate.status,
     convertedUserId: candidate.convertedUserId,
+    letterCount,
     uploadedBy: candidate.uploadedBy,
     uploadedByName: candidate.uploadedByUser
       ? `${candidate.uploadedByUser.firstName} ${candidate.uploadedByUser.lastName}`

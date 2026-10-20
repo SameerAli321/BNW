@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuditLog } from '../entities/audit-log.entity';
 import { AuditLogDto, toAuditLogDto } from '../common/mappers/audit-log.mapper';
 import { QueryAuditLogsDto } from './dto/query-audit-logs.dto';
+import { pktToDate } from '../interviews/interview-emails';
 
 export interface LogAuditEntryParams {
   actorId: number | null;
@@ -56,6 +57,19 @@ export class AuditLogService {
     }
     if (query.action) {
       qb.andWhere('log.action = :action', { action: query.action });
+    }
+    // from / to are whole Pakistan-time days, both inclusive: [start of `from`, start of the day
+    // after `to`).
+    if (query.from && query.to && query.from > query.to) {
+      throw new BadRequestException('The "to" date cannot be before the "from" date');
+    }
+    if (query.from) {
+      qb.andWhere('log.createdAt >= :fromAt', { fromAt: pktToDate(query.from, '00:00') });
+    }
+    if (query.to) {
+      const toAt = pktToDate(query.to, '00:00');
+      toAt.setUTCDate(toAt.getUTCDate() + 1);
+      qb.andWhere('log.createdAt < :toAt', { toAt });
     }
 
     qb.orderBy('log.createdAt', 'DESC')

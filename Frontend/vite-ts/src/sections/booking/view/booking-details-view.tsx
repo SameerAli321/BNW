@@ -64,7 +64,8 @@ const initials = (name: string) =>
 /**
  * One booking: when, where, who organised it and who's invited. The organiser (or whoever booked
  * it; HR / Admin for rooms and tables) can edit, reschedule or cancel it while it's upcoming.
- * Meetings are only visible to their organiser and participants (the backend returns 403 otherwise).
+ * Meetings are only visible to their organiser and participants, HR / Admin / CEO and the Team
+ * Lead of someone involved (the backend returns 403 otherwise).
  */
 export function BookingDetailsView({ id }: Props) {
   const { booking, bookingLoading, bookingError } = useGetBooking(id);
@@ -72,7 +73,7 @@ export function BookingDetailsView({ id }: Props) {
   const [reason, setReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
-  const breadcrumbs = (heading: string) => (
+  const breadcrumbs = (heading: string, action?: ReactNode) => (
     <CustomBreadcrumbs
       heading={heading}
       links={[
@@ -80,6 +81,7 @@ export function BookingDetailsView({ id }: Props) {
         { name: 'Bookings', href: paths.dashboard.bookings.root },
         { name: heading },
       ]}
+      action={action}
       sx={{ mb: { xs: 3, md: 4 } }}
     />
   );
@@ -133,7 +135,19 @@ export function BookingDetailsView({ id }: Props) {
 
   return (
     <DashboardContent>
-      {breadcrumbs(booking.title)}
+      {breadcrumbs(
+        booking.title,
+        // The calendar, on this booking's day (Day view).
+        <Button
+          component={RouterLink}
+          href={`${paths.dashboard.bookings.root}?date=${booking.date}&view=timeGridDay`}
+          color="inherit"
+          variant="outlined"
+          startIcon={<Iconify icon="solar:calendar-date-bold" />}
+        >
+          Open in calendar
+        </Button>
+      )}
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>

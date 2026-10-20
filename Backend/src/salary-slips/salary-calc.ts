@@ -21,9 +21,10 @@ export type SalaryTotals = {
 };
 
 /**
- * Gross = Basic + Allowances + Bonus + Overtime.
+ * Total earnings (`grossSalary`) = Gross salary (`basicSalary`) + Allowances + Bonus + Overtime.
  * Total deductions = itemised deductions + tax.
- * Net = Gross − Total deductions.
+ * Net = Total earnings − Total deductions.
+ * (UI/PDF labels only — the column names stay basic_salary / gross_salary.)
  */
 export function calculateSalary(input: SalaryInputs): SalaryTotals {
   const allowances = input.allowances.reduce((sum, item) => sum + toPaisa(item.amount), 0);

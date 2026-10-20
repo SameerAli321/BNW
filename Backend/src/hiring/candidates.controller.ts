@@ -97,6 +97,8 @@ export class CandidatesController {
     createReadStream(absolutePath).pipe(res);
   }
 
+  // Only Admin creates user accounts (client decision); HR still manages candidates.
+  @Roles(RoleName.ADMIN)
   @Post(':id/convert')
   async convert(
     @Param('id', ParseIntPipe) id: number,

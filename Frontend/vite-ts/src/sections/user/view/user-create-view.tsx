@@ -11,11 +11,12 @@ import { UserNewEditForm } from '../user-new-edit-form';
 
 // ----------------------------------------------------------------------
 
+/** Admin only — HR edits existing users; employees and interns come in through Hiring → Convert. */
 export function UserCreateView() {
   const { user } = useAuthContext();
 
   return (
-    <RoleBasedGuard hasContent currentRole={user?.role ?? ''} allowedRoles={['HR', 'ADMIN']}>
+    <RoleBasedGuard hasContent currentRole={user?.role ?? ''} allowedRoles={['ADMIN']}>
       <DashboardContent>
         <CustomBreadcrumbs
           heading="Create a new user"

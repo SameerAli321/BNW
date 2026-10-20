@@ -54,7 +54,7 @@ export class LeaveRequest {
   @Column({ name: 'half_day', type: 'boolean', default: false })
   halfDay: boolean;
 
-  // Working days (Mon–Fri) in the range, or 0.5 for a half day — computed server-side.
+  // Leave days (Mon–Fri plus sandwiched weekends — see countLeaveDays), or 0.5 for a half day.
   @Column({ type: 'numeric', precision: 5, scale: 1, transformer: numericTransformer })
   days: number;
 

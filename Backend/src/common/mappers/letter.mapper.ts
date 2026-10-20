@@ -82,7 +82,10 @@ export interface LetterDto {
   templateId: number;
   templateName: string;
   type: string;
-  subjectUserId: number;
+  subjectUserId: number | null;
+  subjectCandidateId: number | null;
+  /** True while the letter belongs to a hiring candidate with no account yet. */
+  isCandidate: boolean;
   subjectName: string;
   preparedBy: number;
   preparedByName: string;
@@ -97,7 +100,20 @@ export interface LetterDto {
 }
 
 /**
- * Requires the `template`, `subjectUser`, `preparedByUser` relations to be loaded. `events`/
+ * Who POST /letters/:id/send-to-employee emailed. Employee emails go out in the background
+ * (QUEUED); candidate emails are sent straight away so the real SMTP outcome is known.
+ */
+export interface LetterDeliveryDto {
+  recipientType: 'EMPLOYEE' | 'CANDIDATE';
+  emailedTo: string | null;
+  emailStatus: 'QUEUED' | 'SENT' | 'FAILED' | 'NOT_CONFIGURED' | 'SKIPPED';
+  /** Set when the email did not (or may not) reach the recipient. */
+  warning: string | null;
+}
+
+/**
+ * Requires the `template`, `subjectUser`, `subjectCandidate`, `preparedByUser` relations to be
+ * loaded. `events`/
  * `signatures` are only populated by the caller for GET /letters/:id, not the list endpoint.
  */
 export function toLetterDto(
@@ -110,9 +126,11 @@ export function toLetterDto(
     templateName: letter.template?.name ?? '',
     type: letter.type,
     subjectUserId: letter.subjectUserId,
+    subjectCandidateId: letter.subjectCandidateId ?? null,
+    isCandidate: letter.subjectUserId == null,
     subjectName: letter.subjectUser
       ? `${letter.subjectUser.firstName} ${letter.subjectUser.lastName}`
-      : '',
+      : (letter.subjectCandidate?.name ?? ''),
     preparedBy: letter.preparedBy,
     preparedByName: letter.preparedByUser
       ? `${letter.preparedByUser.firstName} ${letter.preparedByUser.lastName}`

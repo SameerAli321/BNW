@@ -30,25 +30,30 @@ import {
 import { useAuthContext } from 'src/auth/hooks';
 import { RoleBasedGuard } from 'src/auth/guard';
 
-import { USER_ROLE_OPTIONS } from 'src/types/user';
+import { USER_ROLE_OPTIONS, EMPLOYMENT_TYPE_OPTIONS } from 'src/types/user';
 
 import { StaffSummaryTableRow } from '../staff-summary-table-row';
 import { StaffSummaryTableToolbar } from '../staff-summary-table-toolbar';
 
 // ----------------------------------------------------------------------
 
+// Every id with a label is sortable on the server (staff-summary.service.ts applySort).
 const TABLE_HEAD: TableHeadCellProps[] = [
   { id: 'name', label: 'Name' },
   { id: 'employeeCode', label: 'Employee code', width: 140 },
+  { id: 'email', label: 'Email', width: 200 },
+  { id: 'contactNumber', label: 'Contact number', width: 150 },
   { id: 'department', label: 'Department', width: 160 },
   { id: 'designation', label: 'Designation', width: 160 },
   { id: 'manager', label: 'Manager', width: 160 },
-  { id: 'role', label: 'Role', width: 110 },
-  { id: 'joinDate', label: 'Join date', width: 110 },
+  { id: 'role', label: 'Role', width: 120 },
+  { id: 'employmentType', label: 'Employment type', width: 150 },
+  { id: 'joinDate', label: 'Join date', width: 120 },
   { id: 'status', label: 'Status', width: 100 },
-  { id: 'documentCount', label: 'Docs', width: 70, align: 'center' },
+  { id: 'documentCount', label: 'Docs', width: 80, align: 'center' },
   { id: '', width: 110 },
 ];
+
 
 // ----------------------------------------------------------------------
 
@@ -69,6 +74,7 @@ export function StaffSummaryListView() {
     departmentId: '',
     role: '',
     status: 'all',
+    employmentType: '',
   });
   const { state: currentFilters } = filters;
 
@@ -79,6 +85,7 @@ export function StaffSummaryListView() {
     departmentId: currentFilters.departmentId ? Number(currentFilters.departmentId) : undefined,
     role: currentFilters.role || undefined,
     status: currentFilters.status !== 'all' ? currentFilters.status : undefined,
+    employmentType: currentFilters.employmentType || undefined,
     // Sorted on the server — rows are paginated there, so sorting the current page locally would
     // only reorder those 25 rows.
     sortBy: table.orderBy || undefined,
@@ -129,18 +136,26 @@ export function StaffSummaryListView() {
           <StaffSummaryTableToolbar
             filters={filters}
             onResetPage={table.onResetPage}
-            options={{ roles: USER_ROLE_OPTIONS, departments }}
+            options={{
+              roles: USER_ROLE_OPTIONS,
+              departments,
+              employmentTypes: EMPLOYMENT_TYPE_OPTIONS,
+            }}
           />
 
           <Box sx={{ position: 'relative' }}>
             <Scrollbar>
-              <Table size={table.dense ? 'small' : 'medium'} sx={{ minWidth: 1000 }}>
+              <Table size={table.dense ? 'small' : 'medium'} sx={{ minWidth: 1700 }}>
                 <TableHeadCustom
                   order={table.order}
                   orderBy={table.orderBy}
                   headCells={TABLE_HEAD}
                   rowCount={rows.length}
-                  onSort={table.onSort}
+                  onSort={(id) => {
+                    table.onResetPage();
+                    table.onSort(id);
+                  }}
+                  showSortIcons
                   sx={{
                     '& .MuiTableCell-head': {
                       boxShadow: (theme) =>

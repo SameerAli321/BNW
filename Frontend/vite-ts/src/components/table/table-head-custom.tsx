@@ -40,6 +40,11 @@ export type TableHeadCustomProps = {
   headCells: TableHeadCellProps[];
   onSort?: (id: string) => void;
   onSelectAllRows?: (checked: boolean) => void;
+  /**
+   * Always show the sort arrow on sortable columns (faded until active) instead of only on hover /
+   * the active column. Cells with an empty id (e.g. the action column) are left unsortable.
+   */
+  showSortIcons?: boolean;
 };
 
 export function TableHeadCustom({
@@ -51,6 +56,7 @@ export function TableHeadCustom({
   rowCount = 0,
   numSelected = 0,
   onSelectAllRows,
+  showSortIcons = false,
 }: TableHeadCustomProps) {
   return (
     <TableHead sx={sx}>
@@ -83,12 +89,19 @@ export function TableHeadCustom({
               ...(Array.isArray(headCell.sx) ? headCell.sx : [headCell.sx]),
             ]}
           >
-            {onSort ? (
+            {onSort && !(showSortIcons && !headCell.id) ? (
               <TableSortLabel
-                hideSortIcon
+                hideSortIcon={!showSortIcons}
                 active={orderBy === headCell.id}
                 direction={orderBy === headCell.id ? order : 'asc'}
                 onClick={() => onSort(headCell.id)}
+                // Inactive arrows are hidden until hover by default — keep them faintly visible so
+                // every column reads as sortable.
+                sx={
+                  showSortIcons && orderBy !== headCell.id
+                    ? { '& .MuiTableSortLabel-icon': { opacity: 0.35 } }
+                    : undefined
+                }
               >
                 {headCell.label}
 

@@ -1,4 +1,4 @@
-import type { UserRole } from './user';
+import type { UserRole, EmploymentType } from './user';
 
 // ----------------------------------------------------------------------
 // BNW OMS — Sprint 5 types (Hiring: candidates, bulk CV upload, convert-to-employee, joining
@@ -25,6 +25,8 @@ export interface CandidateDto {
   cvOriginalName: string;
   status: CandidateStatus;
   convertedUserId: number | null;
+  /** Letters / contracts HR has prepared for this candidate (any status). */
+  letterCount: number;
   uploadedBy: number;
   uploadedByName: string;
   createdAt: string;
@@ -52,6 +54,7 @@ export type ConvertCandidateDto = {
   designation?: string | null;
   joinDate?: string | null;
   employeeCode?: string | null;
+  employmentType?: EmploymentType;
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -67,6 +70,8 @@ export type ConvertCandidateResponse = {
     sentTo: string;
     error?: string;
   };
+  /** Letters prepared for the candidate that moved onto the new account. */
+  movedLetters?: number;
 };
 
 export type ICandidateListMeta = { total: number; page: number; limit: number };

@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  Res,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { AttendanceRegularizationsService } from './attendance-regularizations.service';
 import { AttendanceRegularizationPdfService } from './attendance-regularization-pdf.service';
@@ -9,6 +19,7 @@ import { CreateAttendanceRegularizationDto } from './dto/create-attendance-regul
 import { HodRecommendationDto } from './dto/hod-recommendation.dto';
 import { HrDecisionDto } from './dto/hr-decision.dto';
 import { QueryAttendanceRegularizationsDto } from './dto/query-attendance-regularizations.dto';
+import { UpdateAttendanceRegularizationDto } from './dto/update-attendance-regularization.dto';
 
 @Controller('attendance-regularizations')
 export class AttendanceRegularizationsController {
@@ -53,6 +64,16 @@ export class AttendanceRegularizationsController {
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() caller: JwtUserPayload) {
     return this.service.getOne(id, caller);
+  }
+
+  // The employee, or HR / ADMIN on their behalf, until the HOD recommends — enforced in the service.
+  @Patch(':id')
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateAttendanceRegularizationDto,
+    @CurrentUser() caller: JwtUserPayload,
+  ) {
+    return this.service.update(id, dto, caller);
   }
 
   @Get(':id/pdf')

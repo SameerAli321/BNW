@@ -5,6 +5,7 @@ import type {
   UpdateUserDto,
   CreateUserDto,
   IUserListMeta,
+  IHierarchyNode,
 } from 'src/types/user';
 
 import { useMemo } from 'react';
@@ -28,6 +29,7 @@ export type UsersListFilters = {
   q?: string;
   role?: string;
   status?: string;
+  employmentType?: string;
   departmentId?: number;
   page?: number;
   limit?: number;
@@ -64,7 +66,11 @@ export function useGetUsers(filters: UsersListFilters = {}) {
 
 /** Revalidate every cached `useGetUsers` list (any filter combination) — call after create/update/delete. */
 function revalidateUsersList() {
-  return mutate((key) => Array.isArray(key) && key[0] === endpoints.users.list);
+  return Promise.all([
+    mutate((key) => Array.isArray(key) && key[0] === endpoints.users.list),
+    // The org chart shows names / managers / designations too.
+    mutate(endpoints.users.hierarchy),
+  ]);
 }
 
 /** GET /users/:id */
@@ -88,6 +94,20 @@ export function useGetUser(userId?: number | string) {
   );
 
   return memoizedValue;
+}
+
+/** GET /users/hierarchy — any authenticated user; active users only, no sensitive fields. */
+export function useGetHierarchy() {
+  const { data, isLoading, error } = useSWR<{ data: IHierarchyNode[] }>(
+    endpoints.users.hierarchy,
+    fetcher,
+    swrOptions
+  );
+
+  return useMemo(
+    () => ({ people: data?.data || [], peopleLoading: isLoading, peopleError: error }),
+    [data?.data, error, isLoading]
+  );
 }
 
 /** GET /roles — any authenticated user. */
@@ -177,5 +197,23 @@ export async function uploadMyAvatar(file: File): Promise<UserDto> {
 /** DELETE /users/me/avatar — back to the initial-letter avatar. */
 export async function removeMyAvatar(): Promise<UserDto> {
   const res = await axiosInstance.delete(endpoints.users.myAvatar);
+  return res.data.data;
+}
+
+/** POST /users/:id/avatar — HR / ADMIN set someone else's profile picture. */
+export async function uploadUserAvatar(id: number, file: File): Promise<UserDto> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await axiosInstance.post(endpoints.users.avatar(id), formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  await Promise.all([mutate(endpoints.users.hierarchy), mutate(endpoints.users.details(id))]);
+  return res.data.data;
+}
+
+/** DELETE /users/:id/avatar — HR / ADMIN remove someone's profile picture. */
+export async function removeUserAvatar(id: number): Promise<UserDto> {
+  const res = await axiosInstance.delete(endpoints.users.avatar(id));
+  await Promise.all([mutate(endpoints.users.hierarchy), mutate(endpoints.users.details(id))]);
   return res.data.data;
 }

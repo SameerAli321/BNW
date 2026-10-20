@@ -53,7 +53,11 @@ const ICONS = {
 export const navData: NavSectionProps['data'] = [
   {
     subheader: 'Overview',
-    items: [{ title: 'Dashboard', path: paths.dashboard.root, icon: ICONS.dashboard }],
+    items: [
+      { title: 'Dashboard', path: paths.dashboard.root, icon: ICONS.dashboard },
+      // Everyone has their own calendar (Team Leads / HR / Admin / CEO also see others').
+      { title: 'Calendar', path: paths.dashboard.bookings.root, icon: ICONS.calendar },
+    ],
   },
   {
     subheader: 'Management',
@@ -128,6 +132,12 @@ export const navData: NavSectionProps['data'] = [
   {
     subheader: 'People & Performance',
     items: [
+      {
+        // Org chart of every active user with basic profiles — visible to everyone.
+        title: 'Team Hierarchy',
+        path: paths.dashboard.teamHierarchy,
+        icon: ICONS.team,
+      },
       {
         // Sprint 4 — Appraisals (see docs/API_CONTRACT_SPRINT4.md). No `allowedRoles`: every
         // role can see this item, same reasoning as "Letters" — an employee needs it to find/

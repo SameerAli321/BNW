@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { CurrentUser, JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RoleName } from '../common/enums/role.enum';
@@ -24,5 +24,15 @@ export class DashboardController {
   @Get('team-status')
   async teamStatusList(@Query() query: QueryTeamStatusDto, @CurrentUser() caller: JwtUserPayload) {
     return this.teamStatus.list(query, caller);
+  }
+
+  // One person's full activity feed (opened from a "Team status" row) — same people as above.
+  @Roles(RoleName.CEO, RoleName.HR, RoleName.ADMIN, RoleName.MANAGER)
+  @Get('team-status/:userId/activity')
+  async teamStatusActivity(
+    @Param('userId', ParseIntPipe) userId: number,
+    @CurrentUser() caller: JwtUserPayload,
+  ) {
+    return this.teamStatus.activity(userId, caller);
   }
 }

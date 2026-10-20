@@ -126,7 +126,7 @@ export function AppraisalRequestFormView() {
 
   const isCeo = user?.role === 'CEO';
   const canRequestNext = appraisalsMeta?.canRequestNext ?? true;
-  const nextEligibleDate = appraisalsMeta?.nextEligibleDate;
+  const openRequestId = appraisalsMeta?.openRequestId ?? null;
   const blocked = isCeo || !canRequestNext;
 
   const methods = useForm<SelfEvaluationSchemaType>({
@@ -214,10 +214,25 @@ export function AppraisalRequestFormView() {
         </Alert>
       )}
 
-      {!isCeo && !canRequestNext && nextEligibleDate && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          You can request your next appraisal on {new Date(nextEligibleDate).toLocaleDateString()}{' '}
-          (once every 3 months).
+      {!isCeo && !canRequestNext && (
+        <Alert
+          severity="info"
+          sx={{ mb: 3 }}
+          action={
+            openRequestId && (
+              <Button
+                size="small"
+                color="inherit"
+                component={RouterLink}
+                href={paths.dashboard.appraisals.details(openRequestId)}
+              >
+                View request
+              </Button>
+            )
+          }
+        >
+          Your appraisal request is still in progress — you can request another once it&apos;s
+          decided.
         </Alert>
       )}
 

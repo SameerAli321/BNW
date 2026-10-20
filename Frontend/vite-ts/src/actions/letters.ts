@@ -2,6 +2,7 @@ import type { SWRConfiguration } from 'swr';
 import type {
   LetterDto,
   IListMeta,
+  LetterDelivery,
   CreateLetterDto,
   UpdateLetterDto,
   LetterTemplateDto,
@@ -135,6 +136,10 @@ export async function updateLetterTemplate(
 export type LettersListFilters = {
   type?: string;
   status?: string;
+  /** HR/CEO/ADMIN only (ignored by the backend for others): one employee's letters. */
+  subjectUserId?: number;
+  /** HR/CEO/ADMIN only: letters prepared for a hiring candidate. */
+  candidateId?: number;
   page?: number;
   limit?: number;
 };
@@ -146,11 +151,11 @@ type LettersListResponse = { data: LetterDto[]; meta: IListMeta };
  * caller only ever sees letters where they're the subject (server-side filter, not a query param
  * — see the contract). This is how an employee sees their own pending/past letters.
  */
-export function useGetLetters(filters: LettersListFilters = {}) {
+export function useGetLetters(filters: LettersListFilters = {}, enabled = true) {
   const params = cleanParams(filters);
 
   const { data, isLoading, error, isValidating } = useSWR<LettersListResponse>(
-    [endpoints.letters.list, { params }],
+    enabled ? [endpoints.letters.list, { params }] : null,
     fetcher,
     swrOptions
   );
@@ -223,7 +228,7 @@ export async function updateLetter(
 }
 
 /**
- * POST /letters/:id/preview — HR/ADMIN only. (Re-)renders the PDF from current `fieldValues`
+ * POST /letters/:id/preview — HR/CEO/ADMIN. (Re-)renders the PDF from current `fieldValues`
  * without changing status. Returns `{ data: { pdfUrl } }` per the contract; the letter is
  * revalidated afterwards so `hasPdf` flips to true on first preview.
  */
@@ -256,14 +261,16 @@ export async function ceoSignLetter(id: number | string, signatureText: string):
 
 /**
  * POST /letters/:id/send-to-employee — HR/ADMIN only. CEO_SIGNED -> SENT_TO_EMPLOYEE. `message` is
- * an optional note shown to the employee on the letter's timeline.
+ * an optional note shown to the employee on the letter's timeline. A candidate-only letter is
+ * emailed to the candidate instead. Returns who was emailed (`delivery`) for the toast.
  */
 export async function sendLetterToEmployee(
   id: number | string,
   message?: string
-): Promise<void> {
-  await axiosInstance.post(endpoints.letters.sendToEmployee(id), { message });
+): Promise<LetterDelivery | undefined> {
+  const res = await axiosInstance.post(endpoints.letters.sendToEmployee(id), { message });
   await revalidateAfterAction(id);
+  return res.data?.data?.delivery;
 }
 
 /**
@@ -292,6 +299,11 @@ export async function downloadLetterPdf(
   id: number | string,
   filename: string
 ): Promise<void> {
+  downloadBlob(await fetchLetterPdfBlob(id), filename);
+}
+
+/** GET /letters/:id/pdf as a Blob — for the in-app viewer (PdfViewerDialog `load`). */
+export async function fetchLetterPdfBlob(id: number | string): Promise<Blob> {
   const res = await axiosInstance.get(endpoints.letters.pdf(id), { responseType: 'blob' });
-  downloadBlob(res.data, filename);
+  return res.data;
 }

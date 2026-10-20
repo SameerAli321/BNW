@@ -116,8 +116,12 @@ export const paths = {
       account: `${ROOTS.DASHBOARD}/user/account`,
       accountPersonalDetails: `${ROOTS.DASHBOARD}/user/account/personal-details`,
       edit: (id: string) => `${ROOTS.DASHBOARD}/user/${id}/edit`,
+      // Read-only view of one user's employee information.
+      details: (id: number | string) => `${ROOTS.DASHBOARD}/user/${id}`,
       demo: { edit: `${ROOTS.DASHBOARD}/user/${MOCK_ID}/edit` },
     },
+    // Org chart of every active user — visible to everyone.
+    teamHierarchy: `${ROOTS.DASHBOARD}/team-hierarchy`,
     // Sprint 2 — E-record & Staff summary, see docs/API_CONTRACT_SPRINT2.md.
     staffSummary: `${ROOTS.DASHBOARD}/staff-summary`,
     // Gap-fix — Audit Log, see docs/API_CONTRACT_GAPS_FIX.md Gap 2.
@@ -165,24 +169,28 @@ export const paths = {
       root: `${ROOTS.DASHBOARD}/complaints`,
       new: `${ROOTS.DASHBOARD}/complaints/new`,
       details: (id: number | string) => `${ROOTS.DASHBOARD}/complaints/${id}`,
+      edit: (id: number | string) => `${ROOTS.DASHBOARD}/complaints/${id}/edit`,
     },
     // Attendance regularization form — employee submits, HOD recommends, HR records.
     attendanceRegularizations: {
       root: `${ROOTS.DASHBOARD}/attendance-regularizations`,
       new: `${ROOTS.DASHBOARD}/attendance-regularizations/new`,
       details: (id: number | string) => `${ROOTS.DASHBOARD}/attendance-regularizations/${id}`,
+      edit: (id: number | string) => `${ROOTS.DASHBOARD}/attendance-regularizations/${id}/edit`,
     },
     // Leave / holiday — employee applies, manager approves, HR gives final approval.
     leaveRequests: {
       root: `${ROOTS.DASHBOARD}/leave-requests`,
       new: `${ROOTS.DASHBOARD}/leave-requests/new`,
       details: (id: number | string) => `${ROOTS.DASHBOARD}/leave-requests/${id}`,
+      edit: (id: number | string) => `${ROOTS.DASHBOARD}/leave-requests/${id}/edit`,
     },
     // Work orders — reimbursement claims + equipment requests.
     workOrders: {
       root: `${ROOTS.DASHBOARD}/work-orders`,
       new: `${ROOTS.DASHBOARD}/work-orders/new`,
       details: (id: number | string) => `${ROOTS.DASHBOARD}/work-orders/${id}`,
+      edit: (id: number | string) => `${ROOTS.DASHBOARD}/work-orders/${id}/edit`,
     },
     // Salary slips — history / my slips, and the HR / ADMIN generate form.
     salarySlips: {

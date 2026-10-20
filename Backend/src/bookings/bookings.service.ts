@@ -10,8 +10,10 @@ import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { Booking } from '../entities/booking.entity';
 import { BookingParticipant } from '../entities/booking-participant.entity';
 import { BookingResource } from '../entities/booking-resource.entity';
+import { LeaveRequest } from '../entities/leave-request.entity';
 import { User } from '../entities/user.entity';
 import { BookingResourceType, BookingStatus, BookingType } from '../common/enums/booking.enum';
+import { LeaveRequestStatus } from '../common/enums/leave-request-status.enum';
 import { RoleName } from '../common/enums/role.enum';
 import { UserStatus } from '../common/enums/user-status.enum';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
@@ -19,7 +21,8 @@ import {
   BOOKING_ADMIN_ROLES,
   BookingDto,
   BookingResourceDto,
-  isBookingInvolved,
+  BookingViewer,
+  canSeeBookingDetails,
   toBookingDto,
   toBookingResourceDto,
 } from '../common/mappers/booking.mapper';
@@ -28,6 +31,7 @@ import { MailService } from '../mail/mail.service';
 import { buildIcs } from '../mail/ics';
 import {
   AvailabilityQueryDto,
+  CalendarLeavesQueryDto,
   CreateBookingDto,
   CreateBookingResourceDto,
   QueryBookingResourcesDto,
@@ -50,6 +54,47 @@ export const MEETING_ORGANIZER_ROLES: string[] = [
   RoleName.ADMIN,
   RoleName.MANAGER,
 ];
+
+/** Who may view every employee's calendar (and see all meetings in full). */
+export const CALENDAR_VIEW_ALL_ROLES: string[] = [RoleName.ADMIN, RoleName.HR, RoleName.CEO];
+
+/**
+ * Whose calendars the caller may view: 'all', or a list of user ids (always including their own).
+ * Team Leads get their whole reporting line; everyone else only themselves.
+ */
+export type CalendarScope = 'all' | number[];
+
+/** Leave shown on the calendar: approved (incl. cancellation pending) and still-pending requests. */
+const CALENDAR_LEAVE_STATUSES = [
+  LeaveRequestStatus.APPROVED,
+  LeaveRequestStatus.CANCELLATION_REQUESTED,
+  LeaveRequestStatus.PENDING_MANAGER,
+  LeaveRequestStatus.PENDING_HR,
+];
+const PENDING_LEAVE_STATUSES = [LeaveRequestStatus.PENDING_MANAGER, LeaveRequestStatus.PENDING_HR];
+
+export interface CalendarPersonDto {
+  id: number;
+  name: string;
+  designation: string | null;
+  department: string | null;
+  isSelf: boolean;
+}
+
+export interface CalendarLeaveDto {
+  id: number;
+  userId: number;
+  employeeName: string;
+  leaveTypeName: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  halfDay: boolean;
+  status: LeaveRequestStatus;
+  isPending: boolean;
+  /** The viewer may open the leave request (own, HR / Admin / CEO, or its approving manager). */
+  canOpen: boolean;
+}
 
 /** Which kind of resource each booking type uses. */
 const RESOURCE_TYPE_FOR: Record<BookingType, BookingResourceType> = {
@@ -104,6 +149,7 @@ export class BookingsService {
     @InjectRepository(BookingResource)
     private readonly resourcesRepo: Repository<BookingResource>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
+    @InjectRepository(LeaveRequest) private readonly leavesRepo: Repository<LeaveRequest>,
     private readonly dataSource: DataSource,
     private readonly notifier: NotifyService,
     private readonly mail: MailService,
@@ -126,10 +172,51 @@ export class BookingsService {
     return ids.map((id) => byId.get(id)).filter((row): row is Booking => !!row);
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // Calendar scope — whose calendars the caller may view
+  // ---------------------------------------------------------------------------------------------
+
   /**
-   * GET /bookings. Room and pool-table bookings are visible to everyone; meetings only to their
-   * organiser and participants — except that a meeting held in a room shows up for others as a
-   * "Private meeting" block, so the room's busy time is visible without any details.
+   * HR / Admin / CEO: everyone. Team Leads: themselves + everyone reporting to them, directly or
+   * further down (users.manager_id, soft-deleted users ignored). Everyone else: only themselves.
+   * Worked out from the current data on every request, so team changes apply straight away.
+   */
+  async calendarScope(caller: JwtUserPayload): Promise<CalendarScope> {
+    if (CALENDAR_VIEW_ALL_ROLES.includes(caller.role)) return 'all';
+    if (caller.role !== RoleName.MANAGER) return [caller.sub];
+    // UNION (not UNION ALL) also stops a manager_id cycle from looping forever.
+    const rows = (await this.dataSource.query(
+      `WITH RECURSIVE team AS (
+         SELECT u.id FROM users u WHERE u.manager_id = $1 AND u.deleted_at IS NULL
+         UNION
+         SELECT u.id FROM users u JOIN team t ON u.manager_id = t.id WHERE u.deleted_at IS NULL
+       )
+       SELECT id FROM team`,
+      [caller.sub],
+    )) as Array<{ id: number }>;
+    return [...new Set([caller.sub, ...rows.map((row) => row.id)])];
+  }
+
+  /** 403 unless `userId` is in the caller's calendar scope. */
+  private assertCalendarAccess(scope: CalendarScope, userId: number, caller: JwtUserPayload): void {
+    if (scope === 'all' || scope.includes(userId)) return;
+    throw new ForbiddenException(
+      caller.role === RoleName.MANAGER
+        ? "You can only view your own calendar and your team members' calendars"
+        : 'You can only view your own calendar',
+    );
+  }
+
+  /** The caller as a BookingViewer that sees in-scope meetings in full. */
+  private viewerFor(caller: JwtUserPayload, scope: CalendarScope): BookingViewer {
+    return { ...caller, visibleUserIds: scope === 'all' ? 'all' : new Set(scope) };
+  }
+
+  /**
+   * GET /bookings. Room and pool-table bookings are visible to everyone; meetings to their
+   * organiser and participants, plus to whoever may view one of those people's calendars (HR /
+   * Admin / CEO: all; Team Leads: their team) — see `calendarScope`. Any other meeting held in a
+   * room shows up as a "Private meeting" block, so the room's busy time is visible without details.
    */
   async list(
     query: QueryBookingsDto,
@@ -137,17 +224,35 @@ export class BookingsService {
   ): Promise<{ data: BookingDto[]; meta: { total: number; page: number; limit: number } }> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
-    const params: unknown[] = [caller.sub];
+    const scope = await this.calendarScope(caller);
+    if (query.userId) this.assertCalendarAccess(scope, query.userId, caller);
+    const params: unknown[] = [];
     const param = (value: unknown) => {
       params.push(value);
       return `$${params.length}`;
     };
 
-    const involved = `(b.organizer_id = $1 OR b.created_by_id = $1 OR EXISTS (
-      SELECT 1 FROM booking_participants vp WHERE vp.booking_id = b.id AND vp.user_id = $1))`;
-    const visible = `(b.type <> 'MEETING' OR ${involved})`;
+    // The caller's id is only added as a parameter when the SQL uses it — Postgres rejects a
+    // query with a parameter it never references ("could not determine data type of parameter").
+    let me: string | null = null;
+    const involved = () => {
+      me ??= param(caller.sub);
+      return `(b.organizer_id = ${me} OR b.created_by_id = ${me} OR EXISTS (
+      SELECT 1 FROM booking_participants vp WHERE vp.booking_id = b.id AND vp.user_id = ${me}))`;
+    };
+    // HR / Admin / CEO see every booking; Team Leads their team's meetings; others their own.
+    let visible: string;
+    if (scope === 'all') visible = 'TRUE';
+    else if (scope.length <= 1) visible = `(b.type <> 'MEETING' OR ${involved()})`;
+    else {
+      const ids = param(scope);
+      visible = `(b.type <> 'MEETING' OR b.organizer_id = ANY(${ids}::int[])
+        OR b.created_by_id = ANY(${ids}::int[]) OR EXISTS (
+        SELECT 1 FROM booking_participants sp WHERE sp.booking_id = b.id
+          AND sp.user_id = ANY(${ids}::int[])))`;
+    }
     const where: string[] = [];
-    if (query.scope === 'mine') where.push(involved);
+    if (query.scope === 'mine') where.push(involved());
     // Private room blocks only on the calendar (a date range), and never when filtering by person
     // or searching titles — that would reveal private meetings.
     else if (query.from && query.to && !query.userId && !query.search) {
@@ -186,16 +291,87 @@ export class BookingsService {
     )) as Array<{ id: number }>;
 
     const bookings = await this.loadMany(rows.map((row) => row.id));
-    return { data: bookings.map((b) => toBookingDto(b, caller)), meta: { total, page, limit } };
+    const viewer = this.viewerFor(caller, scope);
+    return { data: bookings.map((b) => toBookingDto(b, viewer)), meta: { total, page, limit } };
   }
 
-  /** GET /bookings/:id — meetings only for their organiser / participants. */
+  /**
+   * GET /bookings/:id — meetings only for their organiser / participants, or whoever may view one
+   * of their calendars (HR / Admin / CEO, the Team Lead of someone involved).
+   */
   async getOne(id: number, caller: JwtUserPayload): Promise<BookingDto> {
     const booking = await this.load(id);
-    if (booking.type === BookingType.MEETING && !isBookingInvolved(booking, caller)) {
+    const viewer = this.viewerFor(caller, await this.calendarScope(caller));
+    if (!canSeeBookingDetails(booking, viewer)) {
       throw new ForbiddenException('You are not invited to this meeting');
     }
-    return toBookingDto(booking, caller);
+    return toBookingDto(booking, viewer);
+  }
+
+  /**
+   * GET /bookings/calendar-people — whose calendar the caller may open (the "Calendar of" picker):
+   * everyone for HR / Admin / CEO, a Team Lead's team + themselves, otherwise only themselves.
+   * Active employees only, by name.
+   */
+  async calendarPeople(caller: JwtUserPayload): Promise<CalendarPersonDto[]> {
+    const scope = await this.calendarScope(caller);
+    const users = await this.usersRepo.find({
+      where: {
+        status: UserStatus.ACTIVE,
+        ...(scope === 'all' ? {} : { id: In(scope) }),
+      },
+      relations: ['department'],
+      order: { firstName: 'ASC', lastName: 'ASC' },
+    });
+    return users.map((user) => ({
+      id: user.id,
+      name: fullName(user),
+      designation: user.designation,
+      department: user.department?.name ?? null,
+      isSelf: user.id === caller.sub,
+    }));
+  }
+
+  /**
+   * GET /bookings/calendar-leaves — leave overlapping the range for people in the caller's
+   * calendar scope (or just `userId`, which must be in it): approved leave (incl. a pending
+   * cancellation) and requests still waiting for approval (`isPending`).
+   */
+  async calendarLeaves(
+    query: CalendarLeavesQueryDto,
+    caller: JwtUserPayload,
+  ): Promise<CalendarLeaveDto[]> {
+    if (query.from > query.to) throw new BadRequestException('from must be on or before to');
+    const scope = await this.calendarScope(caller);
+    if (query.userId) this.assertCalendarAccess(scope, query.userId, caller);
+
+    const qb = this.leavesRepo
+      .createQueryBuilder('l')
+      .innerJoinAndSelect('l.employee', 'e', 'e.deleted_at IS NULL')
+      .leftJoinAndSelect('l.leaveType', 't')
+      .where('l.status IN (:...statuses)', { statuses: CALENDAR_LEAVE_STATUSES })
+      .andWhere('l.start_date <= :to AND l.end_date >= :from', { from: query.from, to: query.to })
+      .orderBy('l.start_date', 'ASC')
+      .addOrderBy('l.id', 'ASC');
+    if (query.userId) qb.andWhere('l.employee_id = :userId', { userId: query.userId });
+    else if (scope !== 'all') qb.andWhere('l.employee_id IN (:...ids)', { ids: scope });
+
+    const rows = await qb.getMany();
+    const viewAll = CALENDAR_VIEW_ALL_ROLES.includes(caller.role);
+    return rows.map((row) => ({
+      id: row.id,
+      userId: row.employeeId,
+      employeeName: fullName(row.employee),
+      leaveTypeName: row.leaveType?.name ?? 'Leave',
+      startDate: row.startDate,
+      endDate: row.endDate,
+      days: row.days,
+      halfDay: row.halfDay,
+      status: row.status,
+      isPending: PENDING_LEAVE_STATUSES.includes(row.status),
+      // Mirrors who the leave module lets open a request.
+      canOpen: viewAll || row.employeeId === caller.sub || row.managerId === caller.sub,
+    }));
   }
 
   /**

@@ -5,14 +5,17 @@ import Button from '@mui/material/Button';
 
 import { paths } from 'src/routes/paths';
 import { useParams } from 'src/routes/hooks';
+import { RouterLink } from 'src/routes/components';
 
 import { fDate } from 'src/utils/format-time';
 
+import { endpoints } from 'src/lib/axios';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useGetComplaint, downloadComplaintPdf } from 'src/actions/complaints';
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { PdfViewerDialog } from 'src/components/pdf-viewer';
 import { EmptyContent } from 'src/components/empty-content';
 import { LoadingScreen } from 'src/components/loading-screen';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
@@ -38,6 +41,7 @@ export function ComplaintDetailView() {
 
   const { complaint, complaintLoading, complaintError } = useGetComplaint(id);
   const [downloading, setDownloading] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   if (complaintLoading) {
     return (
@@ -88,6 +92,23 @@ export function ComplaintDetailView() {
         action={
           <Stack direction="row" alignItems="center" flexWrap="wrap" sx={{ gap: 1.5 }}>
             <ComplaintStatusLabel status={complaint.status} />
+            {complaint.canEdit && (
+              <Button
+                component={RouterLink}
+                href={paths.dashboard.complaints.edit(complaint.id)}
+                variant="outlined"
+                startIcon={<Iconify icon="solar:pen-bold" />}
+              >
+                Edit
+              </Button>
+            )}
+            <Button
+              variant="outlined"
+              startIcon={<Iconify icon="solar:eye-bold" />}
+              onClick={() => setViewerOpen(true)}
+            >
+              View PDF
+            </Button>
             <Button
               variant="outlined"
               loading={downloading}
@@ -153,6 +174,14 @@ export function ComplaintDetailView() {
           )}
         </HrFormSection>
       </Stack>
+
+      <PdfViewerDialog
+        open={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+        title="Complaint form"
+        url={endpoints.complaints.pdf(complaint.id)}
+        filename={`complaint-${complaint.id}.pdf`}
+      />
     </DashboardContent>
   );
 }

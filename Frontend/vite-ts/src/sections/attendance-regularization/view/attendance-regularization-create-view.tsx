@@ -1,3 +1,5 @@
+import type { AttendanceRegularizationDto } from 'src/types/attendance-regularization';
+
 import { useState } from 'react';
 
 import Grid from '@mui/material/Grid';
@@ -11,7 +13,10 @@ import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { createAttendanceRegularization } from 'src/actions/attendance-regularizations';
+import {
+  createAttendanceRegularization,
+  updateAttendanceRegularization,
+} from 'src/actions/attendance-regularizations';
 
 import { toast } from 'src/components/snackbar';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
@@ -30,19 +35,25 @@ function todayLocal(): string {
   ).padStart(2, '0')}`;
 }
 
+type Props = {
+  // Editing an existing form (until the HOD recommends it) instead of submitting a new one.
+  current?: AttendanceRegularizationDto;
+};
+
 /**
  * The employee's part of the HRD "Regularization of Attendance Recorded in HRD" form. Code, name,
- * designation and department come from the logged-in user; the form then goes to their manager
- * (head of department) to recommend, and on to HR.
+ * designation and department come from the logged-in user (or the form, when editing); the form
+ * then goes to their manager (head of department) to recommend, and on to HR.
  */
-export function AttendanceRegularizationCreateView() {
+export function AttendanceRegularizationCreateView({ current }: Props) {
   const router = useRouter();
   const { user } = useAuthContext();
 
-  const [attendanceDate, setAttendanceDate] = useState(todayLocal());
-  const [timeArrival, setTimeArrival] = useState('');
-  const [timeDeparture, setTimeDeparture] = useState('');
-  const [reason, setReason] = useState('');
+  const [attendanceDate, setAttendanceDate] = useState(current?.attendanceDate ?? todayLocal());
+  // The API may return 'HH:MM:SS' — the time input wants 'HH:MM'.
+  const [timeArrival, setTimeArrival] = useState(current?.timeArrival?.slice(0, 5) ?? '');
+  const [timeDeparture, setTimeDeparture] = useState(current?.timeDeparture?.slice(0, 5) ?? '');
+  const [reason, setReason] = useState(current?.reason ?? '');
   const [submitting, setSubmitting] = useState(false);
 
   const onSubmit = async () => {
@@ -60,6 +71,20 @@ export function AttendanceRegularizationCreateView() {
     }
     setSubmitting(true);
     try {
+      if (current) {
+        // '' clears a time that was removed.
+        await updateAttendanceRegularization(current.id, {
+          attendanceDate,
+          reason,
+          timeArrival,
+          timeDeparture,
+        });
+        toast.success(
+          current.hodId ? 'Form updated — your head of department has been told' : 'Form updated — HR has been told'
+        );
+        router.push(paths.dashboard.attendanceRegularizations.details(current.id));
+        return;
+      }
       const created = await createAttendanceRegularization({
         attendanceDate,
         reason,
@@ -81,16 +106,24 @@ export function AttendanceRegularizationCreateView() {
   return (
     <DashboardContent maxWidth="md">
       <CustomBreadcrumbs
-        heading="Regularization of attendance"
+        heading={current ? 'Edit regularization of attendance' : 'Regularization of attendance'}
         links={[
           { name: 'Dashboard', href: paths.dashboard.root }, { name: 'Requests & Forms', href: paths.dashboard.requestsForms },
           { name: 'Attendance Regularization', href: paths.dashboard.attendanceRegularizations.root },
-          { name: 'New' },
+          ...(current
+            ? [
+                {
+                  name: `#${current.id}`,
+                  href: paths.dashboard.attendanceRegularizations.details(current.id),
+                },
+                { name: 'Edit' },
+              ]
+            : [{ name: 'New' }]),
         ]}
         sx={{ mb: 3 }}
       />
 
-      {!user?.managerId && (
+      {!current && !user?.managerId && (
         <Alert severity="info" sx={{ mb: 3 }}>
           You have no manager on record, so this form will go straight to HR.
         </Alert>
@@ -100,21 +133,38 @@ export function AttendanceRegularizationCreateView() {
         <HrFormSection title="Employee">
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField label="Employee code" value={user?.employeeCode ?? '—'} fullWidth disabled />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
-                label="Employee name"
-                value={user ? `${user.firstName} ${user.lastName}` : ''}
+                label="Employee code"
+                value={(current ? current.employeeCode : user?.employeeCode) ?? '—'}
                 fullWidth
                 disabled
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField label="Designation" value={user?.designation ?? '—'} fullWidth disabled />
+              <TextField
+                label="Employee name"
+                value={
+                  current ? current.employeeName : user ? `${user.firstName} ${user.lastName}` : ''
+                }
+                fullWidth
+                disabled
+              />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField label="Department" value={user?.departmentName ?? '—'} fullWidth disabled />
+              <TextField
+                label="Designation"
+                value={(current ? current.employeeDesignation : user?.designation) ?? '—'}
+                fullWidth
+                disabled
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Department"
+                value={(current ? current.employeeDepartment : user?.departmentName) ?? '—'}
+                fullWidth
+                disabled
+              />
             </Grid>
           </Grid>
         </HrFormSection>
@@ -166,13 +216,17 @@ export function AttendanceRegularizationCreateView() {
         <Stack direction="row" spacing={1.5} justifyContent="flex-end">
           <Button
             component={RouterLink}
-            href={paths.dashboard.attendanceRegularizations.root}
+            href={
+              current
+                ? paths.dashboard.attendanceRegularizations.details(current.id)
+                : paths.dashboard.attendanceRegularizations.root
+            }
             variant="outlined"
           >
             Cancel
           </Button>
           <Button variant="contained" loading={submitting} onClick={onSubmit}>
-            Submit
+            {current ? 'Save changes' : 'Submit'}
           </Button>
         </Stack>
       </Stack>

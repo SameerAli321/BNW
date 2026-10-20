@@ -26,6 +26,8 @@ export interface AttendanceRegularizationDto {
   hrSignedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Single-form reads only: whether the caller may still edit it (PATCH .../:id).
+  canEdit?: boolean;
 }
 
 const fullName = (user: User | null | undefined) =>

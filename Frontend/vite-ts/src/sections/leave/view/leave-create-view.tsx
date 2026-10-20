@@ -1,3 +1,5 @@
+import type { LeaveRequestDto } from 'src/types/leave';
+
 import { useMemo, useState } from 'react';
 
 import Grid from '@mui/material/Grid';
@@ -14,7 +16,12 @@ import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { useGetLeaveTypes, createLeaveRequest, useGetLeaveBalance } from 'src/actions/leave';
+import {
+  useGetLeaveTypes,
+  createLeaveRequest,
+  updateLeaveRequest,
+  useGetLeaveBalance,
+} from 'src/actions/leave';
 
 import { toast } from 'src/components/snackbar';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
@@ -25,45 +32,65 @@ import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 
-/** Mon–Fri days between two 'YYYY-MM-DD' dates, inclusive — mirrors the backend's count. */
-function countWorkingDays(startDate: string, endDate: string): number {
-  if (!startDate || !endDate || endDate < startDate) return 0;
-  const current = new Date(`${startDate}T00:00:00Z`);
-  const end = new Date(`${endDate}T00:00:00Z`);
-  let days = 0;
-  while (current <= end) {
-    const weekday = current.getUTCDay();
-    if (weekday !== 0 && weekday !== 6) days += 1;
-    current.setUTCDate(current.getUTCDate() + 1);
-  }
-  return days;
-}
+const DAY_MS = 24 * 60 * 60 * 1000;
+const isWeekend = (day: Date) => day.getUTCDay() === 0 || day.getUTCDay() === 6;
 
 /**
- * Leave / holiday application. Shows the remaining balance for the chosen type and a live
- * working-day count; the backend re-checks the balance, overlaps and weekends.
+ * Days of leave between two 'YYYY-MM-DD' dates, inclusive — mirrors the backend's countLeaveDays.
+ * "Sandwich" rule: a weekend between two leave days counts (Fri → Mon = 4), weekend days at the
+ * edges don't (Sat → Mon = 1). The server also adds a weekend that sits between this request and
+ * another leave, so the saved request is the final word.
  */
-export function LeaveCreateView() {
+function countLeaveDays(startDate: string, endDate: string): number {
+  if (!startDate || !endDate || endDate < startDate) return 0;
+  const first = new Date(`${startDate}T00:00:00Z`);
+  const last = new Date(`${endDate}T00:00:00Z`);
+  while (first <= last && isWeekend(first)) first.setUTCDate(first.getUTCDate() + 1);
+  while (last >= first && isWeekend(last)) last.setUTCDate(last.getUTCDate() - 1);
+  if (first > last) return 0;
+  return Math.round((last.getTime() - first.getTime()) / DAY_MS) + 1;
+}
+
+type Props = {
+  // Editing an existing request (nobody has acted on it yet) instead of applying.
+  current?: LeaveRequestDto;
+};
+
+/**
+ * Leave / holiday application — also the edit form while the request is still untouched. Shows
+ * the remaining balance for the chosen type and a live day count; the backend re-checks the
+ * balance, overlaps, weekends and leave next to other leave.
+ */
+export function LeaveCreateView({ current }: Props) {
   const router = useRouter();
   const { user } = useAuthContext();
   const { leaveTypes } = useGetLeaveTypes();
+  const isEdit = !!current;
 
-  const [leaveTypeId, setLeaveTypeId] = useState<number | ''>('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [halfDay, setHalfDay] = useState(false);
-  const [reason, setReason] = useState('');
-  const [contactDuringLeave, setContactDuringLeave] = useState('');
+  const [leaveTypeId, setLeaveTypeId] = useState<number | ''>(current?.leaveTypeId ?? '');
+  const [startDate, setStartDate] = useState(current?.startDate ?? '');
+  const [endDate, setEndDate] = useState(current?.endDate ?? '');
+  const [halfDay, setHalfDay] = useState(current?.halfDay ?? false);
+  const [reason, setReason] = useState(current?.reason ?? '');
+  const [contactDuringLeave, setContactDuringLeave] = useState(current?.contactDuringLeave ?? '');
   const [submitting, setSubmitting] = useState(false);
 
   const year = startDate ? Number(startDate.slice(0, 4)) : new Date().getFullYear();
-  const { balances } = useGetLeaveBalance(user?.id, year);
+  const { balances } = useGetLeaveBalance(current?.employeeId ?? user?.id, year);
   const balance = balances.find((b) => b.leaveTypeId === leaveTypeId);
+  // When editing, this request's own days are already counted as pending — give them back.
+  const ownDays =
+    current &&
+    current.leaveTypeId === leaveTypeId &&
+    current.startDate.slice(0, 4) === String(year)
+      ? current.days
+      : 0;
+  const remaining = balance && balance.remaining !== null ? balance.remaining + ownDays : null;
 
   const singleDay = !!startDate && startDate === endDate;
-  const workingDays = useMemo(() => countWorkingDays(startDate, endDate), [startDate, endDate]);
-  const days = singleDay && halfDay ? 0.5 : workingDays;
-  const overBalance = !!balance && balance.remaining !== null && days > balance.remaining;
+  const leaveDays = useMemo(() => countLeaveDays(startDate, endDate), [startDate, endDate]);
+  const days = singleDay && halfDay ? 0.5 : leaveDays;
+  const overBalance = remaining !== null && days > remaining;
 
   const onSubmit = async () => {
     if (leaveTypeId === '') {
@@ -80,18 +107,29 @@ export function LeaveCreateView() {
     }
     setSubmitting(true);
     try {
-      const created = await createLeaveRequest({
+      const payload = {
         leaveTypeId,
         startDate,
         endDate,
         halfDay: singleDay && halfDay,
         reason,
-        ...(contactDuringLeave.trim() ? { contactDuringLeave } : {}),
-      });
+      };
+      const saved = current
+        ? await updateLeaveRequest(current.id, { ...payload, contactDuringLeave })
+        : await createLeaveRequest({
+            ...payload,
+            ...(contactDuringLeave.trim() ? { contactDuringLeave } : {}),
+          });
+      // The server may add a weekend that sits between this and another leave.
+      const savedDays = `${saved.days} day${saved.days === 1 ? '' : 's'}`;
+      const weekendNote =
+        saved.days > days ? ' (includes the weekend next to your other leave)' : '';
       toast.success(
-        created.managerId ? 'Sent to your manager for approval!' : 'Sent to HR for approval!'
+        isEdit
+          ? `Leave request updated — ${savedDays}${weekendNote}`
+          : `${saved.managerId ? 'Sent to your manager for approval' : 'Sent to HR for approval'} — ${savedDays}${weekendNote}`
       );
-      router.push(paths.dashboard.leaveRequests.details(created.id));
+      router.push(paths.dashboard.leaveRequests.details(saved.id));
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : 'Submit failed!');
@@ -100,23 +138,43 @@ export function LeaveCreateView() {
     }
   };
 
+  const backHref = current
+    ? paths.dashboard.leaveRequests.details(current.id)
+    : paths.dashboard.leaveRequests.root;
+
   return (
     <DashboardContent maxWidth="md">
       <CustomBreadcrumbs
-        heading="Apply for leave"
+        heading={isEdit ? 'Edit leave request' : 'Apply for leave'}
         links={[
           { name: 'Dashboard', href: paths.dashboard.root },
           { name: 'Requests & Forms', href: paths.dashboard.requestsForms },
           { name: 'Leave & Holidays', href: paths.dashboard.leaveRequests.root },
-          { name: 'Apply' },
+          ...(current
+            ? [
+                { name: `#${current.id}`, href: paths.dashboard.leaveRequests.details(current.id) },
+                { name: 'Edit' },
+              ]
+            : [{ name: 'Apply' }]),
         ]}
         sx={{ mb: 3 }}
       />
 
-      {!user?.managerId && (
+      {current ? (
         <Alert severity="info" sx={{ mb: 3 }}>
-          You have no manager on record, so this will go straight to HR for approval.
+          {current.employeeId === user?.id
+            ? 'You can change this request until it is reviewed.'
+            : `You are editing ${current.employeeName}'s request.`}{' '}
+          {current.status === 'PENDING_MANAGER'
+            ? `${current.managerName ?? 'The line manager'} will be told about the change.`
+            : 'HR will be told about the change.'}
         </Alert>
+      ) : (
+        !user?.managerId && (
+          <Alert severity="info" sx={{ mb: 3 }}>
+            You have no manager on record, so this will go straight to HR for approval.
+          </Alert>
+        )
       )}
 
       <Stack spacing={3}>
@@ -129,10 +187,10 @@ export function LeaveCreateView() {
             fullWidth
             helperText={
               balance
-                ? balance.remaining === null
+                ? remaining === null
                   ? 'No yearly limit'
-                  : `${balance.remaining} of ${balance.annualQuota} day(s) left in ${year}` +
-                    (balance.pending ? ` (${balance.pending} pending)` : '')
+                  : `${remaining} of ${balance.annualQuota} day(s) left in ${year}` +
+                    (balance.pending - ownDays > 0 ? ` (${balance.pending - ownDays} pending)` : '')
                 : ' '
             }
           >
@@ -185,15 +243,18 @@ export function LeaveCreateView() {
           )}
 
           {startDate && endDate && (
-            <Alert severity={workingDays === 0 || overBalance ? 'warning' : 'success'}>
-              {workingDays === 0
+            <Alert severity={leaveDays === 0 || overBalance ? 'warning' : 'success'}>
+              {leaveDays === 0
                 ? 'Those dates are all weekend days — no leave is needed.'
-                : `${days} working day(s) of leave (Monday–Friday).` +
-                  (overBalance
-                    ? ` That's more than your ${balance?.remaining} remaining day(s).`
-                    : '')}
+                : `${days} day(s) of leave.` +
+                  (overBalance ? ` That's more than your ${remaining} remaining day(s).` : '')}
             </Alert>
           )}
+          <Alert severity="info" variant="outlined">
+            Weekends between leave days count as leave (Fri + Mon = 4 days). That includes leave
+            that starts on a Monday right after other leave ending on Friday (or ends on a Friday
+            right before other leave) — the saved request shows the final count.
+          </Alert>
 
           <TextField
             label="Reason for leave"
@@ -215,20 +276,16 @@ export function LeaveCreateView() {
         </HrFormSection>
 
         <Stack direction="row" spacing={1.5} justifyContent="flex-end">
-          <Button
-            component={RouterLink}
-            href={paths.dashboard.leaveRequests.root}
-            variant="outlined"
-          >
+          <Button component={RouterLink} href={backHref} variant="outlined">
             Cancel
           </Button>
           <Button
             variant="contained"
             loading={submitting}
-            disabled={workingDays === 0 && !!startDate && !!endDate}
+            disabled={leaveDays === 0 && !!startDate && !!endDate}
             onClick={onSubmit}
           >
-            Submit
+            {isEdit ? 'Save changes' : 'Submit'}
           </Button>
         </Stack>
       </Stack>

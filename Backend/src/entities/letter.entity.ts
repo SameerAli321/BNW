@@ -12,6 +12,7 @@ import { LetterTemplateType } from '../common/enums/letter-template-type.enum';
 import { LetterStatus } from '../common/enums/letter-status.enum';
 import { LetterTemplate } from './letter-template.entity';
 import { User } from './user.entity';
+import { Candidate } from './candidate.entity';
 
 @Entity('letters')
 export class Letter {
@@ -30,13 +31,24 @@ export class Letter {
   @Column({ type: 'enum', enum: LetterTemplateType })
   type: LetterTemplateType;
 
+  // Null while the letter belongs to a hiring candidate who has no account yet; set when the
+  // candidate is converted. A DB CHECK requires at least one of subjectUserId / subjectCandidateId.
   @Index()
-  @Column({ name: 'subject_user_id', type: 'int' })
-  subjectUserId: number;
+  @Column({ name: 'subject_user_id', type: 'int', nullable: true })
+  subjectUserId: number | null;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'subject_user_id' })
-  subjectUser: User;
+  subjectUser: User | null;
+
+  // The candidate the letter was prepared for (kept after conversion, for history).
+  @Index()
+  @Column({ name: 'subject_candidate_id', type: 'int', nullable: true })
+  subjectCandidateId: number | null;
+
+  @ManyToOne(() => Candidate, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'subject_candidate_id' })
+  subjectCandidate: Candidate | null;
 
   @Column({ name: 'prepared_by', type: 'int' })
   preparedBy: number;

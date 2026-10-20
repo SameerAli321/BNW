@@ -69,6 +69,65 @@ export class CreateWorkOrderDto {
   neededBy?: string;
 }
 
+// On edit, '' means "clear this optional field" (null); a field that isn't sent keeps its value.
+const emptyToNull = ({ value }: { value: unknown }) => (value === '' ? null : value);
+
+/**
+ * PATCH /work-orders/:id — multipart/form-data, editable until the first decision. Same fields as
+ * CreateWorkOrderDto except `type` (fixed once submitted), all optional. A new `receipt` file
+ * replaces the old one; `removeReceipt=true` drops it.
+ */
+export class UpdateWorkOrderDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(200)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  category?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(5000)
+  description?: string;
+
+  @Transform(emptyToNull)
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Enter the amount in rupees' })
+  @Min(1, { message: 'The amount must be more than zero' })
+  @Max(100_000_000)
+  amount?: number | null;
+
+  @Transform(emptyToNull)
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Enter the date you spent the money' })
+  expenseDate?: string | null;
+
+  @Transform(emptyToNull)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1000)
+  quantity?: number | null;
+
+  @Transform(emptyToNull)
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'neededBy must be YYYY-MM-DD' })
+  neededBy?: string | null;
+
+  @Transform(({ value }: { value: unknown }) => value === true || value === 'true')
+  @IsOptional()
+  @IsBoolean()
+  removeReceipt?: boolean;
+}
+
 /** Manager and CEO decisions. */
 export class WorkOrderDecisionDto {
   @IsBoolean()

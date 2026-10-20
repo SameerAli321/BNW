@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { RoleName } from '../../common/enums/role.enum';
 import { UserStatus } from '../../common/enums/user-status.enum';
+import { EmploymentType } from '../../common/enums/employment-type.enum';
 
 export class QueryUsersDto {
   @IsOptional()
@@ -15,6 +16,10 @@ export class QueryUsersDto {
   @IsOptional()
   @IsEnum(UserStatus)
   status?: UserStatus;
+
+  @IsOptional()
+  @IsEnum(EmploymentType)
+  employmentType?: EmploymentType;
 
   @IsOptional()
   @Type(() => Number)

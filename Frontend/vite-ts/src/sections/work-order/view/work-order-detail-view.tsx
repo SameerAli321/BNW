@@ -8,9 +8,11 @@ import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 import { useParams } from 'src/routes/hooks';
+import { RouterLink } from 'src/routes/components';
 
 import { fDate, fDateTime } from 'src/utils/format-time';
 
+import { endpoints } from 'src/lib/axios';
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
   fPkr,
@@ -26,6 +28,7 @@ import {
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { PdfViewerDialog } from 'src/components/pdf-viewer';
 import { EmptyContent } from 'src/components/empty-content';
 import { LoadingScreen } from 'src/components/loading-screen';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
@@ -54,6 +57,7 @@ export function WorkOrderDetailView() {
   const { user } = useAuthContext();
   const { workOrder: order, workOrderLoading, workOrderError } = useGetWorkOrder(id);
   const [busy, setBusy] = useState<'pdf' | 'receipt' | 'cancel' | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [reference, setReference] = useState('');
 
   if (workOrderLoading) {
@@ -113,6 +117,16 @@ export function WorkOrderDetailView() {
         action={
           <Stack direction="row" alignItems="center" flexWrap="wrap" sx={{ gap: 1.5 }}>
             <WorkOrderStatusLabel status={order.status} type={order.type} />
+            {order.canEdit && (
+              <Button
+                component={RouterLink}
+                href={paths.dashboard.workOrders.edit(order.id)}
+                variant="outlined"
+                startIcon={<Iconify icon="solar:pen-bold" />}
+              >
+                Edit
+              </Button>
+            )}
             {canCancel && (
               <Button
                 color="error"
@@ -127,6 +141,13 @@ export function WorkOrderDetailView() {
                 Cancel request
               </Button>
             )}
+            <Button
+              variant="outlined"
+              startIcon={<Iconify icon="solar:eye-bold" />}
+              onClick={() => setViewerOpen(true)}
+            >
+              View PDF
+            </Button>
             <Button
               variant="outlined"
               loading={busy === 'pdf'}
@@ -278,6 +299,14 @@ export function WorkOrderDetailView() {
           </Typography>
         )}
       </Stack>
+
+      <PdfViewerDialog
+        open={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+        title="Work order"
+        url={endpoints.workOrders.pdf(order.id)}
+        filename={`work-order-${order.id}.pdf`}
+      />
     </DashboardContent>
   );
 }
