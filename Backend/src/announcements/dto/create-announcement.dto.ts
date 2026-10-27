@@ -1,5 +1,9 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
   IsBoolean,
   IsEnum,
   IsInt,
@@ -30,11 +34,15 @@ export class CreateAnnouncementDto {
   @IsEnum(AnnouncementAudience)
   audience?: AnnouncementAudience;
 
-  // Required when audience = DEPARTMENT.
+  // Required when audience = DEPARTMENT — one or more departments.
   @ValidateIf((dto: CreateAnnouncementDto) => dto.audience === AnnouncementAudience.DEPARTMENT)
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Choose at least one department' })
+  @ArrayMaxSize(50)
+  @ArrayUnique()
   @Type(() => Number)
-  @IsInt()
-  departmentId?: number | null;
+  @IsInt({ each: true })
+  departmentIds?: number[];
 
   @IsOptional()
   @IsBoolean()

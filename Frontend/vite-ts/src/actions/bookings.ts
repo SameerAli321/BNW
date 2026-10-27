@@ -11,7 +11,10 @@ import axiosInstance, { fetcher, endpoints } from 'src/lib/axios';
 // Bookings are confirmed instantly; clashes are rejected by the backend. All times are Pakistan
 // time (PKT) — see src/sections/booking/booking-utils.ts.
 
-export type BookingType = 'MEETING' | 'MEETING_ROOM' | 'POOL_TABLE';
+export type BookingType = 'MEETING' | 'MEETING_ROOM' | 'POOL_TABLE' | 'OTHER';
+
+/** Repeat a new booking; each day becomes its own booking in the same series. */
+export type BookingRepeat = 'DAILY' | 'WEEKDAYS' | 'WEEKLY';
 export type BookingStatus = 'CONFIRMED' | 'CANCELLED';
 export type BookingResourceType = 'MEETING_ROOM' | 'POOL_TABLE';
 
@@ -39,8 +42,10 @@ export interface BookingDto {
   id: number;
   type: BookingType;
   status: BookingStatus;
-  /** A meeting the viewer isn't part of — only its room's busy time is shown. */
+  /** A meeting / "Others" block the viewer isn't part of — only the busy time is shown. */
   isPrivate: boolean;
+  /** Shared by every occurrence of a repeating booking; null for a one-off. */
+  seriesId: string | null;
   title: string;
   purpose: string | null;
   description: string | null;
@@ -227,10 +232,7 @@ export function useGetBookingPeople(enabled: boolean) {
     fetcher,
     { revalidateOnFocus: false }
   );
-  return useMemo(
-    () => ({ people: data?.data ?? [], peopleLoading: isLoading }),
-    [data, isLoading]
-  );
+  return useMemo(() => ({ people: data?.data ?? [], peopleLoading: isLoading }), [data, isLoading]);
 }
 
 /** "Calendar of" picker — the viewer + whoever's calendar they may view (team / everyone). */
@@ -256,16 +258,15 @@ export function useGetCalendarLeaves(
       ? [endpoints.bookings.calendarLeaves, { params: clean(params) }]
       : null;
   const { data, isLoading } = useSWR<Envelope<CalendarLeave[]>>(key, fetcher, liveOptions);
-  return useMemo(
-    () => ({ leaves: data?.data ?? [], leavesLoading: isLoading }),
-    [data, isLoading]
-  );
+  return useMemo(() => ({ leaves: data?.data ?? [], leavesLoading: isLoading }), [data, isLoading]);
 }
 
-export function useGetBookingResources(options: {
-  type?: BookingResourceType;
-  includeInactive?: boolean;
-} = {}) {
+export function useGetBookingResources(
+  options: {
+    type?: BookingResourceType;
+    includeInactive?: boolean;
+  } = {}
+) {
   const { data, isLoading } = useSWR<Envelope<BookingResource[]>>(
     [endpoints.bookings.resources, { params: clean(options) }],
     fetcher,
@@ -291,7 +292,10 @@ function revalidateBookings() {
 }
 
 export async function createBooking(
-  payload: BookingPayload & { type: BookingType }
+  payload: BookingPayload & {
+    type: BookingType;
+    repeat?: { frequency: BookingRepeat; until: string };
+  }
 ): Promise<BookingDto> {
   const res = await axiosInstance.post(endpoints.bookings.list, payload);
   await revalidateBookings();
@@ -305,8 +309,13 @@ export async function updateBooking(id: number, payload: BookingPayload): Promis
   return res.data.data;
 }
 
-export async function cancelBooking(id: number, reason?: string): Promise<BookingDto> {
-  const res = await axiosInstance.post(endpoints.bookings.cancel(id), { reason });
+/** `scope: 'FOLLOWING'` also cancels the later bookings of a repeating series. */
+export async function cancelBooking(
+  id: number,
+  reason?: string,
+  scope: 'ONE' | 'FOLLOWING' = 'ONE'
+): Promise<BookingDto> {
+  const res = await axiosInstance.post(endpoints.bookings.cancel(id), { reason, scope });
   await mutate(endpoints.bookings.details(id), res.data, false);
   await revalidateBookings();
   return res.data.data;

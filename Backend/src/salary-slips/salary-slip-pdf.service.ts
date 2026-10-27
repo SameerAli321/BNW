@@ -3,6 +3,11 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { PDFDocument, PDFFont, PDFImage, PDFPage, RGB, StandardFonts, rgb } from 'pdf-lib';
 import { SalarySlip } from '../entities/salary-slip.entity';
+import {
+  SalarySlipScheme,
+  SECURITY_DEDUCTION_LABEL,
+  SecurityDeductionMode,
+} from '../common/enums/salary-slip.enum';
 import { formatFormDate } from '../common/pdf/bnw-form-pdf';
 import { BRAND } from '../mail/email-layout';
 import {
@@ -40,6 +45,14 @@ const MARGIN = 40;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 
 type Fonts = { regular: PDFFont; bold: PDFFont };
+
+/** 8.5 → '8.5 days', 1 → '1 day'. */
+const formatDays = (days: number) => `${Number(days.toFixed(2))} ${days === 1 ? 'day' : 'days'}`;
+
+const securityLabel = (mode: SecurityDeductionMode | null) =>
+  mode === SecurityDeductionMode.PERCENT_5 || mode === SecurityDeductionMode.PERCENT_10
+    ? `Security Deduction (${SECURITY_DEDUCTION_LABEL[mode].replace(' of gross', '')})`
+    : 'Security Deduction';
 
 /**
  * A salary slip as a one-page A4 PDF: BNW logo header, employee details, earnings and deductions
@@ -121,28 +134,56 @@ export class SalarySlipPdfService {
 
     // --- Employee details ---------------------------------------------------------------------
     y = draw.sectionTitle('Employee Details', y);
+    const isPayroll = slip.scheme === SalarySlipScheme.PAYROLL;
     const details: [string, string][] = [
       ['Employee Name', slip.employeeName],
-      ['Employee ID', slip.employeeCode ?? '—'],
+      [isPayroll ? 'Staff ID' : 'Employee ID', slip.employeeCode ?? '—'],
       ['Designation', slip.designation ?? '—'],
       ['Department', slip.departmentName ?? '—'],
       ['Salary Month', monthLabel],
       ['Working Days', slip.workingDays !== null ? String(slip.workingDays) : '—'],
+      ...(isPayroll
+        ? ([
+            ['ID Card Number', slip.nationalId ?? '—'],
+            [
+              'Per Day Salary',
+              slip.perDaySalary !== null ? formatSalaryAmount(slip.perDaySalary) : '—',
+            ],
+          ] as [string, string][])
+        : []),
     ];
     y = draw.detailsGrid(details, y);
     y -= 18;
 
     // --- Earnings / deductions ----------------------------------------------------------------
-    const earnings: [string, number][] = [
-      ['Gross Salary', slip.basicSalary],
-      ...slip.allowances.map((item): [string, number] => [item.label, item.amount]),
-      ['Bonus', slip.bonus],
-      ['Overtime', slip.overtime],
-    ];
-    const deductions: [string, number][] = [
-      ...slip.deductions.map((item): [string, number] => [item.label, item.amount]),
-      ['Income Tax', slip.tax],
-    ];
+    const earnings: [string, number][] = isPayroll
+      ? [
+          ['Gross Salary', slip.basicSalary],
+          ['Non-taxable Addition', slip.nonTaxableAddition],
+          ['Taxable Addition', slip.taxableAddition],
+        ]
+      : [
+          ['Gross Salary', slip.basicSalary],
+          ...slip.allowances.map((item): [string, number] => [item.label, item.amount]),
+          ['Bonus', slip.bonus],
+          ['Overtime', slip.overtime],
+        ];
+    const deductions: [string, number][] = isPayroll
+      ? [
+          [`Unpaid Holidays (${formatDays(slip.unpaidDays)})`, slip.unpaidDeduction],
+          [securityLabel(slip.securityMode), slip.securityDeduction],
+          ['Income Tax', slip.tax],
+          [
+            slip.loanInstalmentNo && slip.loanInstalments
+              ? `Loan Deduction (${slip.loanInstalmentNo} of ${slip.loanInstalments})`
+              : 'Loan Deduction',
+            slip.loanDeduction,
+          ],
+        ]
+      : [
+          ...slip.deductions.map((item): [string, number] => [item.label, item.amount]),
+          ['Income Tax', slip.tax],
+        ];
     const gap = 14;
     const columnWidth = (CONTENT_WIDTH - gap) / 2;
     const rows = Math.max(earnings.length, deductions.length);
@@ -194,6 +235,22 @@ export class SalarySlipPdfService {
       draw.text(line, MARGIN + 16, y - 42 - i * 11, { size: 8.5, color: COLORS.text });
     });
     y -= netHeight + 18;
+
+    // Taxable salary and the loan still owed, under the net box.
+    if (isPayroll) {
+      const notes = [
+        slip.taxableSalary !== null
+          ? `Taxable salary: ${formatSalaryAmount(slip.taxableSalary)}`
+          : null,
+        slip.loanBalanceAfter !== null
+          ? `Loan balance after this deduction: ${formatSalaryAmount(slip.loanBalanceAfter)}`
+          : null,
+      ].filter((line): line is string => !!line);
+      if (notes.length) {
+        draw.text(notes.join('     |     '), MARGIN, y + 4, { size: 8.5, color: COLORS.muted });
+        y -= 12;
+      }
+    }
 
     // --- Payment information ------------------------------------------------------------------
     y = draw.sectionTitle('Payment Information', y);

@@ -24,6 +24,8 @@ export const USER_FORM_ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'HR', label: 'HR' },
   { value: 'ADMIN', label: 'Admin' },
   { value: 'MANAGER', label: 'Team Lead' },
+  // Fills in Tax and Paid on the payroll sheet (stored as the PAYROLL role).
+  { value: 'PAYROLL', label: 'Accountant' },
   { value: 'EMPLOYEE', label: 'Team Member' },
 ];
 
@@ -35,9 +37,7 @@ export const USER_CREATE_ROLE_OPTIONS = USER_FORM_ROLE_OPTIONS.filter(
   (option) => option.value !== 'EMPLOYEE'
 );
 
-const OLDER_ROLE_LABELS: Partial<Record<UserRole, string>> = {
-  PAYROLL: 'Payroll (older role)',
-};
+const OLDER_ROLE_LABELS: Partial<Record<UserRole, string>> = {};
 
 /** 'MANAGER' → 'Team Lead' etc. */
 export function userRoleLabel(role: string): string {
@@ -120,11 +120,16 @@ export interface UserDto {
   mustChangePassword: boolean;
   /** Opted in to a notification (in-app + email) for every new request — HR / ADMIN / CEO. */
   notifyAllRequests?: boolean;
+  /** Their own few lines for the Team Hierarchy side panel. */
+  aboutMe?: string | null;
   createdAt: string;
   updatedAt: string;
   // From the employee profile (present on the Users list / detail / E-record).
   contactNumber?: string | null;
   cnic?: string | null;
+  // Salary account (employee profile) — only sent to HR / ADMIN. Shown on the payroll sheet.
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
   // Salary — only sent by the backend to HR / ADMIN.
   currentSalary?: number | null;
   previousSalary?: number | null;
@@ -152,6 +157,8 @@ export type CreateUserDto = {
   leavingDate?: string | null;
   contactNumber?: string | null;
   cnic?: string | null;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
   currentSalary?: number | null;
   previousSalary?: number | null;
   deductionPolicy?: string | null;
@@ -191,6 +198,8 @@ export type IHierarchyNode = {
   avatarUrl: string | null;
   employmentType: EmploymentType;
   company: Company;
+  /** A few lines they wrote about themselves (side panel). */
+  aboutMe: string | null;
 };
 
 /**

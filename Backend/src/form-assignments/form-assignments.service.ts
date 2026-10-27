@@ -10,7 +10,12 @@ import { FormAssignment } from '../entities/form-assignment.entity';
 import { User } from '../entities/user.entity';
 import { UserStatus } from '../common/enums/user-status.enum';
 import { RoleName } from '../common/enums/role.enum';
-import { FORM_ASSIGNMENT_FORMS, FormAssignmentStatus } from '../common/enums/form-assignment.enum';
+import {
+  FORM_ASSIGNMENT_FORMS,
+  FormAssignmentStatus,
+  FormAssignmentType,
+} from '../common/enums/form-assignment.enum';
+import { assertAttendanceRegularizationEnabled } from '../common/features/feature-flags';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { NotifyService } from '../notifications/notify.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -77,6 +82,9 @@ export class FormAssignmentsService {
   }
 
   async create(dto: CreateFormAssignmentDto, caller: JwtUserPayload): Promise<FormAssignmentDto[]> {
+    if (dto.formType === FormAssignmentType.ATTENDANCE_REGULARIZATION) {
+      assertAttendanceRegularizationEnabled();
+    }
     const userIds = [...new Set(dto.userIds)];
     const users = await this.usersRepo.find({
       where: { id: In(userIds), status: UserStatus.ACTIVE },

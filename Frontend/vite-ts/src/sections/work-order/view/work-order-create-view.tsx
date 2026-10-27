@@ -9,9 +9,7 @@ import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import ToggleButton from '@mui/material/ToggleButton';
 import InputAdornment from '@mui/material/InputAdornment';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
@@ -55,9 +53,10 @@ export function WorkOrderCreateView({ current }: Props) {
   const { settings } = useGetWorkOrderSettings();
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const [type, setType] = useState<WorkOrderType>(
-    current?.type ?? (searchParams.get('type') === 'EQUIPMENT' ? 'EQUIPMENT' : 'REIMBURSEMENT')
-  );
+  // Reimbursement claims and equipment requests are separate forms on Requests & Forms (?type=),
+  // so there's no switching between them here.
+  const type: WorkOrderType =
+    current?.type ?? (searchParams.get('type') === 'EQUIPMENT' ? 'EQUIPMENT' : 'REIMBURSEMENT');
   const [title, setTitle] = useState(current?.title ?? '');
   const [category, setCategory] = useState(current?.category ?? '');
   const [description, setDescription] = useState(current?.description ?? '');
@@ -73,7 +72,8 @@ export function WorkOrderCreateView({ current }: Props) {
   const [submitting, setSubmitting] = useState(false);
 
   const isReimbursement = type === 'REIMBURSEMENT';
-  const categories = (isReimbursement ? settings?.reimbursementCategories : settings?.equipmentCategories) ?? [];
+  const categories =
+    (isReimbursement ? settings?.reimbursementCategories : settings?.equipmentCategories) ?? [];
   const amountNumber = Number(amount);
   const needsCeo =
     !!settings && amount !== '' && amountNumber > settings.ceoApprovalLimit && user?.role !== 'CEO';
@@ -101,7 +101,8 @@ export function WorkOrderCreateView({ current }: Props) {
   };
 
   const onSubmit = async () => {
-    if (title.trim().length < 3) return toast.error(isReimbursement ? 'Say what the expense was for' : 'Say what you need');
+    if (title.trim().length < 3)
+      return toast.error(isReimbursement ? 'Say what the expense was for' : 'Say what you need');
     if (!category) return toast.error('Choose a category');
     if (!description.trim()) return toast.error('Add some details');
     if (isReimbursement) {
@@ -119,9 +120,7 @@ export function WorkOrderCreateView({ current }: Props) {
             category,
             description: description.trim(),
             amount: amount === '' ? '' : amountNumber,
-            ...(isReimbursement
-              ? { expenseDate }
-              : { quantity: Number(quantity) || 1, neededBy }),
+            ...(isReimbursement ? { expenseDate } : { quantity: Number(quantity) || 1, neededBy }),
           },
           receipt,
           current.hasReceipt && !receipt && !keptReceiptName
@@ -184,35 +183,30 @@ export function WorkOrderCreateView({ current }: Props) {
       />
 
       <Stack spacing={3}>
-        <ToggleButtonGroup
-          exclusive
-          fullWidth
-          disabled={!!current}
-          value={type}
-          onChange={(_event, value: WorkOrderType | null) => {
-            if (!value) return;
-            setType(value);
-            setCategory('');
-          }}
-        >
-          <ToggleButton value="REIMBURSEMENT" sx={{ gap: 1, py: 1.5 }}>
-            <Iconify icon="solar:wad-of-money-bold" /> Reimbursement — I paid for something
-          </ToggleButton>
-          <ToggleButton value="EQUIPMENT" sx={{ gap: 1, py: 1.5 }}>
-            <Iconify icon="solar:monitor-bold" /> Equipment — I need something
-          </ToggleButton>
-        </ToggleButtonGroup>
+        {current && (current.managerSignedAt || current.ceoSignedAt) && (
+          <Alert severity="warning">
+            This has already been approved. Saving your changes sends it back for approval again.
+          </Alert>
+        )}
 
         <HrFormSection title={isReimbursement ? 'Expense details' : 'What you need'}>
           <TextField
             label={isReimbursement ? 'What was it for?' : 'Item'}
-            placeholder={isReimbursement ? 'e.g. Taxi to the client office in Gulberg' : 'e.g. 24-inch monitor'}
+            placeholder={
+              isReimbursement ? 'e.g. Taxi to the client office in Gulberg' : 'e.g. 24-inch monitor'
+            }
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             slotProps={{ htmlInput: { maxLength: 200 } }}
             fullWidth
           />
-          <TextField select label="Category" value={category} onChange={(event) => setCategory(event.target.value)} fullWidth>
+          <TextField
+            select
+            label="Category"
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+            fullWidth
+          >
             {categories.map((option) => (
               <MenuItem key={option} value={option}>
                 {option}
@@ -260,7 +254,9 @@ export function WorkOrderCreateView({ current }: Props) {
           </Box>
 
           <TextField
-            label={isReimbursement ? 'Details (client, purpose, who attended…)' : 'Why do you need it?'}
+            label={
+              isReimbursement ? 'Details (client, purpose, who attended…)' : 'Why do you need it?'
+            }
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             multiline
@@ -270,9 +266,24 @@ export function WorkOrderCreateView({ current }: Props) {
           />
 
           <Stack direction="row" alignItems="center" flexWrap="wrap" sx={{ gap: 1.5 }}>
-            <input ref={fileInput} type="file" hidden accept="application/pdf,image/png,image/jpeg,image/webp" onChange={onPickFile} />
-            <Button variant="outlined" color="inherit" startIcon={<Iconify icon="eva:attach-2-fill" />} onClick={() => fileInput.current?.click()}>
-              {receipt || keptReceiptName ? 'Change file' : isReimbursement ? 'Attach receipt' : 'Attach quotation (optional)'}
+            <input
+              ref={fileInput}
+              type="file"
+              hidden
+              accept="application/pdf,image/png,image/jpeg,image/webp"
+              onChange={onPickFile}
+            />
+            <Button
+              variant="outlined"
+              color="inherit"
+              startIcon={<Iconify icon="eva:attach-2-fill" />}
+              onClick={() => fileInput.current?.click()}
+            >
+              {receipt || keptReceiptName
+                ? 'Change file'
+                : isReimbursement
+                  ? 'Attach receipt'
+                  : 'Attach quotation (optional)'}
             </Button>
             {!receipt && keptReceiptName ? (
               <Stack direction="row" alignItems="center" spacing={0.5} sx={{ minWidth: 0 }}>
@@ -294,21 +305,31 @@ export function WorkOrderCreateView({ current }: Props) {
               </Stack>
             ) : (
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                PDF or photo, up to 10 MB{isReimbursement ? ' — a receipt makes approval faster' : ''}
+                PDF or photo, up to 10 MB
+                {isReimbursement ? ' — a receipt makes approval faster' : ''}
               </Typography>
             )}
           </Stack>
         </HrFormSection>
 
-        <Alert severity={needsCeo ? 'warning' : 'info'} icon={<Iconify icon="solar:forward-bold" />}>
+        <Alert
+          severity={needsCeo ? 'warning' : 'info'}
+          icon={<Iconify icon="solar:forward-bold" />}
+        >
           <strong>Goes to:</strong> {route.join('  →  ')}
-          {needsCeo && settings ? ` — the CEO approves anything over ${fPkr(settings.ceoApprovalLimit)}.` : ''}
+          {needsCeo && settings
+            ? ` — the CEO approves anything over ${fPkr(settings.ceoApprovalLimit)}.`
+            : ''}
         </Alert>
 
         <Stack direction="row" spacing={1.5} justifyContent="flex-end">
           <Button
             component={RouterLink}
-            href={current ? paths.dashboard.workOrders.details(current.id) : paths.dashboard.workOrders.root}
+            href={
+              current
+                ? paths.dashboard.workOrders.details(current.id)
+                : paths.dashboard.workOrders.root
+            }
             variant="outlined"
             color="inherit"
           >

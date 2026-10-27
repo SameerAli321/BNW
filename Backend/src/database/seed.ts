@@ -43,9 +43,9 @@ import {
   CONTRACT_LETTER_NAME,
 } from '../letters/contract-letter-body';
 
-// The first four are what the user-creation form offers (client feedback); Finance / Engineering
-// are kept for existing data.
-const DEPARTMENTS = ['Personalised', 'Generalised', 'HR', 'Operations', 'Finance', 'Engineering'];
+// The first four are what the user-creation form offers (client feedback); Finance is kept for
+// existing data. Engineering was removed (client CEO, Oct 2026 — migration CeoFeedback).
+const DEPARTMENTS = ['Personalised', 'Generalised', 'HR', 'Operations', 'Finance'];
 
 // Starter document types, per docs/API_CONTRACT_SPRINT2.md "New tables".
 const DOCUMENT_TYPES = [

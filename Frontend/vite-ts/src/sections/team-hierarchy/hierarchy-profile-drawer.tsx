@@ -27,6 +27,8 @@ import { Scrollbar } from 'src/components/scrollbar';
 
 import { companyLabel, userRoleLabel, employmentTypeLabel } from 'src/types/user';
 
+import { AboutMeEditor } from './about-me-editor';
+
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -200,6 +202,27 @@ export function HierarchyProfileDrawer({
                   {employmentTypeLabel(person.employmentType)}
                 </Label>
               </Stack>
+            </Box>
+
+            <Box sx={{ px: 3, pb: 2.5 }}>
+              {isSelf ? (
+                <AboutMeEditor key={person.id} value={person.aboutMe} />
+              ) : (
+                <>
+                  <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+                    About me
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      whiteSpace: 'pre-line',
+                      color: person.aboutMe ? 'text.primary' : 'text.disabled',
+                    }}
+                  >
+                    {person.aboutMe || `${person.name.split(' ')[0]} hasn't written anything yet.`}
+                  </Typography>
+                </>
+              )}
             </Box>
 
             <Stack spacing={1.5} sx={{ px: 3, pb: 3 }}>

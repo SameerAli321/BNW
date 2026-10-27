@@ -29,9 +29,10 @@ export class OnboardingFormPdfService {
       { label: 'Job Title Hired On:', value: user.designation },
       { label: 'Date of Birth:', value: formatFormDate(form.dateOfBirth) },
       { label: 'Social Security Number (if applicable):', value: form.nationalId },
-      { label: 'Date of Joining:', value: formatFormDate(user.joinDate) },
+      { label: 'Date of Joining:', value: formatFormDate(user.joinDate ?? form.dateOfJoining) },
       { label: 'Address Details:', value: address },
-      { label: 'Phone Number:', value: form.phone },
+      { label: 'Mobile Number:', value: form.phone },
+      { label: 'Alternate Number:', value: form.alternatePhone },
       { label: 'Email Address:', value: user.email },
     ]);
     pdf.section('Employment Information', [

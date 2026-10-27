@@ -73,51 +73,55 @@ export function DashboardWelcome({ name, role, avatarUrl }: Props) {
         sx={{ position: 'relative' }}
       >
         <Stack direction="row" alignItems="center" spacing={{ sm: 2.5 }} sx={{ minWidth: 0 }}>
-        <Avatar
-          src={avatarSrc(avatarUrl)}
-          alt={name}
-          sx={(theme) => ({
-            width: 72,
-            height: 72,
-            fontSize: 28,
-            flexShrink: 0,
-            display: { xs: 'none', sm: 'flex' },
-            color: 'primary.main',
-            bgcolor: 'primary.lighter',
-            border: `3px solid ${theme.vars.palette.background.paper}`,
-            boxShadow: `0 4px 12px ${varAlpha(theme.vars.palette.secondary.mainChannel, 0.08)}`,
-          })}
-        >
-          {name.charAt(0).toUpperCase()}
-        </Avatar>
-        <Stack spacing={1.25} sx={{ minWidth: 0 }}>
-          {role && (
-            <Label color="success" variant="soft" sx={{ alignSelf: 'flex-start' }}>
-              {role}
-            </Label>
-          )}
-          <Typography variant="h4" sx={{ wordBreak: 'break-word' }}>
-            {greeting(now.getHours())}, {name}!
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Here&apos;s what&apos;s happening across BNW Chartered Accountants today.
-          </Typography>
-          <Stack
-            direction="row"
-            alignItems="center"
-            spacing={1}
-            sx={{ pt: 0.5, color: 'text.secondary', typography: 'subtitle2' }}
+          <Avatar
+            src={avatarSrc(avatarUrl)}
+            alt={name}
+            sx={(theme) => ({
+              width: 72,
+              height: 72,
+              fontSize: 28,
+              flexShrink: 0,
+              display: { xs: 'none', sm: 'flex' },
+              color: 'primary.main',
+              bgcolor: 'primary.lighter',
+              border: `3px solid ${theme.vars.palette.background.paper}`,
+              boxShadow: `0 4px 12px ${varAlpha(theme.vars.palette.secondary.mainChannel, 0.08)}`,
+            })}
           >
-            <Iconify icon="mingcute:calendar-day-line" width={18} sx={{ color: 'primary.main' }} />
-            <Box component="time" dateTime={fDate(now, 'YYYY-MM-DD')}>
-              {fDate(now)}
-              <Box component="span" sx={{ mx: 1, color: 'text.disabled' }}>
-                |
+            {name.charAt(0).toUpperCase()}
+          </Avatar>
+          <Stack spacing={1.25} sx={{ minWidth: 0 }}>
+            {role && (
+              <Label color="success" variant="soft" sx={{ alignSelf: 'flex-start' }}>
+                {role}
+              </Label>
+            )}
+            <Typography variant="h4" sx={{ wordBreak: 'break-word' }}>
+              {greeting(now.getHours())}, {name}!
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Here&apos;s what&apos;s happening across BNW Chartered Accountants today.
+            </Typography>
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={1}
+              sx={{ pt: 0.5, color: 'text.secondary', typography: 'subtitle2' }}
+            >
+              <Iconify
+                icon="mingcute:calendar-day-line"
+                width={18}
+                sx={{ color: 'primary.main' }}
+              />
+              <Box component="time" dateTime={fDate(now, 'YYYY-MM-DD')}>
+                {fDate(now)}
+                <Box component="span" sx={{ mx: 1, color: 'text.disabled' }}>
+                  |
+                </Box>
+                {fDate(now, 'dddd')}
               </Box>
-              {fDate(now, 'dddd')}
-            </Box>
+            </Stack>
           </Stack>
-        </Stack>
         </Stack>
 
         <Box

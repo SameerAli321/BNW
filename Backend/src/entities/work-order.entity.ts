@@ -147,6 +147,13 @@ export class WorkOrder {
   @Column({ name: 'processed_at', type: 'timestamptz', nullable: true })
   processedAt: Date | null;
 
+  /**
+   * Reimbursements: the payroll month ('YYYY-MM') the approved amount was added to as a
+   * non-taxable addition, or null when it was paid separately.
+   */
+  @Column({ name: 'payroll_month', type: 'varchar', length: 7, nullable: true })
+  payrollMonth: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

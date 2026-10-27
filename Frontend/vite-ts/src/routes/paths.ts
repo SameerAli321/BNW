@@ -197,8 +197,15 @@ export const paths = {
       root: `${ROOTS.DASHBOARD}/salary-slips`,
       new: `${ROOTS.DASHBOARD}/salary-slips/new`,
     },
+    // Salary calculation — the monthly payroll sheet (slips are generated from it) and loans.
+    salaryCalculation: `${ROOTS.DASHBOARD}/salary-calculation`,
     // About us — company details, then the CEO's message with their photo.
     aboutUs: `${ROOTS.DASHBOARD}/about-us`,
+    // About us → CEO's Message (the CEO's photo and message) and the Guide sheet (Employee Policy
+    // Handbook + acknowledgement).
+    aboutCeo: `${ROOTS.DASHBOARD}/about-us/ceo`,
+    guideSheet: `${ROOTS.DASHBOARD}/about-us/guide-sheet`,
+    policyHandbook: `${ROOTS.DASHBOARD}/about-us/guide-sheet/handbook`,
     // Bookings — calendar, my bookings, book (meeting / room / pool table), rooms & tables.
     bookings: {
       root: `${ROOTS.DASHBOARD}/bookings`,

@@ -34,6 +34,8 @@ import { Interview } from './entities/interview.entity';
 import { WorkOrder } from './entities/work-order.entity';
 import { AppSetting } from './entities/app-setting.entity';
 import { SalarySlip } from './entities/salary-slip.entity';
+import { PayrollEntry } from './entities/payroll-entry.entity';
+import { EmployeeLoan } from './entities/employee-loan.entity';
 import { Booking } from './entities/booking.entity';
 import { BookingParticipant } from './entities/booking-participant.entity';
 import { BookingResource } from './entities/booking-resource.entity';
@@ -115,6 +117,8 @@ import { RolesGuard } from './common/guards/roles.guard';
           WorkOrder,
           AppSetting,
           SalarySlip,
+          PayrollEntry,
+          EmployeeLoan,
           Booking,
           BookingParticipant,
           BookingResource,

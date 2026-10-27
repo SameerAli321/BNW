@@ -1,8 +1,11 @@
+import type { ReimbursementPayment } from 'src/actions/work-orders';
+
 import { useState } from 'react';
 
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
@@ -40,6 +43,18 @@ import { useAuthContext } from 'src/auth/hooks';
 
 import { WorkOrderSteps, WorkOrderTypeLabel, WorkOrderStatusLabel } from '../work-order-components';
 
+// 'YYYY-MM' → 'October 2026'; this month as 'YYYY-MM'.
+const fMonth = (month: string) => {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+};
+const thisMonth = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+const fSalary = (amount: number | null) =>
+  amount === null ? '—' : `Rs ${amount.toLocaleString('en-PK', { minimumFractionDigits: 2 })}`;
+
 // ----------------------------------------------------------------------
 
 const decisionText = (approved: boolean | null) =>
@@ -59,6 +74,7 @@ export function WorkOrderDetailView() {
   const [busy, setBusy] = useState<'pdf' | 'receipt' | 'cancel' | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [reference, setReference] = useState('');
+  const [payment, setPayment] = useState<ReimbursementPayment | ''>('');
 
   if (workOrderLoading) {
     return (
@@ -79,7 +95,12 @@ export function WorkOrderDetailView() {
           ]}
           sx={{ mb: 3 }}
         />
-        <EmptyContent filled title="Unable to load this work order" description="It doesn't exist, or you don't have access to it." sx={{ py: 10 }} />
+        <EmptyContent
+          filled
+          title="Unable to load this work order"
+          description="It doesn't exist, or you don't have access to it."
+          sx={{ py: 10 }}
+        />
       </DashboardContent>
     );
   }
@@ -89,10 +110,17 @@ export function WorkOrderDetailView() {
   const canManagerAct = order.status === 'PENDING_MANAGER' && user?.id === order.managerId;
   const canCeoAct = order.status === 'PENDING_CEO' && user?.role === 'CEO';
   const canProcess =
-    order.status === 'PENDING_PROCESSING' && PROCESSOR_ROLES[order.type].includes(user?.role ?? '') && !isOwner;
-  const canCancel = isOwner && ['PENDING_MANAGER', 'PENDING_CEO', 'PENDING_PROCESSING'].includes(order.status);
+    order.status === 'PENDING_PROCESSING' &&
+    PROCESSOR_ROLES[order.type].includes(user?.role ?? '') &&
+    !isOwner;
+  const canCancel =
+    isOwner && ['PENDING_MANAGER', 'PENDING_CEO', 'PENDING_PROCESSING'].includes(order.status);
 
-  const run = async (kind: 'pdf' | 'receipt' | 'cancel', action: () => Promise<unknown>, success?: string) => {
+  const run = async (
+    kind: 'pdf' | 'receipt' | 'cancel',
+    action: () => Promise<unknown>,
+    success?: string
+  ) => {
     setBusy(kind);
     try {
       await action();
@@ -124,7 +152,7 @@ export function WorkOrderDetailView() {
                 variant="outlined"
                 startIcon={<Iconify icon="solar:pen-bold" />}
               >
-                Edit
+                Amend
               </Button>
             )}
             {canCancel && (
@@ -133,12 +161,20 @@ export function WorkOrderDetailView() {
                 variant="outlined"
                 loading={busy === 'cancel'}
                 onClick={() => {
-                  if (window.confirm('Cancel this request?')) {
-                    run('cancel', () => cancelWorkOrder(order.id), 'Request cancelled');
+                  if (
+                    window.confirm(
+                      `Void this ${isReimbursement ? 'claim' : 'request'}? It will be cancelled and no one will need to act on it.`
+                    )
+                  ) {
+                    run(
+                      'cancel',
+                      () => cancelWorkOrder(order.id),
+                      isReimbursement ? 'Claim voided' : 'Request voided'
+                    );
                   }
                 }}
               >
-                Cancel request
+                {isReimbursement ? 'Void claim' : 'Void request'}
               </Button>
             )}
             <Button
@@ -180,13 +216,22 @@ export function WorkOrderDetailView() {
           {isReimbursement ? (
             <>
               <HrFormField label="Amount claimed" value={fPkr(order.amount)} />
-              <HrFormField label="Date of expense" value={order.expenseDate ? fDate(order.expenseDate) : null} />
+              <HrFormField
+                label="Date of expense"
+                value={order.expenseDate ? fDate(order.expenseDate) : null}
+              />
             </>
           ) : (
             <>
               <HrFormField label="Quantity" value={String(order.quantity ?? 1)} />
-              <HrFormField label="Needed by" value={order.neededBy ? fDate(order.neededBy) : null} />
-              <HrFormField label="Estimated cost" value={order.amount !== null ? fPkr(order.amount) : null} />
+              <HrFormField
+                label="Needed by"
+                value={order.neededBy ? fDate(order.neededBy) : null}
+              />
+              <HrFormField
+                label="Estimated cost"
+                value={order.amount !== null ? fPkr(order.amount) : null}
+              />
             </>
           )}
           <HrFormField label="Details" value={order.description} />
@@ -216,19 +261,31 @@ export function WorkOrderDetailView() {
             {canManagerAct ? (
               <LeaveDecisionForm
                 key={order.updatedAt}
-                approveLabel={order.ceoRequired ? 'Approve & send to CEO' : `Approve & send to ${isReimbursement ? 'Payroll' : 'HR'}`}
+                approveLabel={
+                  order.ceoRequired
+                    ? 'Approve & send to CEO'
+                    : `Approve & send to ${isReimbursement ? 'Payroll' : 'HR'}`
+                }
                 signatureLabel="Signature of line manager"
                 onSubmit={async (payload) => {
                   await submitWorkOrderManagerDecision(order.id, payload);
-                  toast.success(payload.approved ? 'Approved and sent on!' : 'Marked as not approved');
+                  toast.success(
+                    payload.approved ? 'Approved and sent on!' : 'Marked as not approved'
+                  );
                 }}
               />
             ) : (
               <>
                 <HrFormField label="Line manager" value={order.managerName} />
-                <HrFormField label="Decision" value={decisionText(order.managerApproved) ?? 'Waiting'} />
+                <HrFormField
+                  label="Decision"
+                  value={decisionText(order.managerApproved) ?? 'Waiting'}
+                />
                 <HrFormField label="Remarks" value={order.managerRemarks} />
-                <HrFormField label="Signature" value={signedBy(order.managerSignatureText, order.managerSignedAt)} />
+                <HrFormField
+                  label="Signature"
+                  value={signedBy(order.managerSignatureText, order.managerSignedAt)}
+                />
               </>
             )}
           </HrFormSection>
@@ -248,42 +305,108 @@ export function WorkOrderDetailView() {
               />
             ) : (
               <>
-                <HrFormField label="Decision" value={decisionText(order.ceoApproved) ?? 'Waiting'} />
+                <HrFormField
+                  label="Decision"
+                  value={decisionText(order.ceoApproved) ?? 'Waiting'}
+                />
                 <HrFormField label="Remarks" value={order.ceoRemarks} />
-                <HrFormField label="Signature" value={signedBy(order.ceoSignatureText, order.ceoSignedAt)} />
+                <HrFormField
+                  label="Signature"
+                  value={signedBy(order.ceoSignatureText, order.ceoSignedAt)}
+                />
               </>
             )}
           </HrFormSection>
         )}
 
-        <HrFormSection title={isReimbursement ? 'For use by Finance / Payroll' : 'For use by the HRD'}>
+        <HrFormSection
+          title={isReimbursement ? 'For use by Finance / Payroll' : 'For use by the HRD'}
+        >
           {canProcess ? (
             <>
               <TextField
-                label={isReimbursement ? 'Payment reference (optional)' : 'Asset tag / serial number (optional)'}
-                placeholder={isReimbursement ? 'e.g. bank transfer ID, or "paid with October salary"' : 'e.g. BNW-LAP-014'}
+                label={
+                  isReimbursement
+                    ? 'Payment reference (optional)'
+                    : 'Asset tag / serial number (optional)'
+                }
+                placeholder={
+                  isReimbursement
+                    ? 'e.g. bank transfer ID, or "paid with October salary"'
+                    : 'e.g. BNW-LAP-014'
+                }
                 value={reference}
                 onChange={(event) => setReference(event.target.value)}
                 slotProps={{ htmlInput: { maxLength: 200 } }}
                 fullWidth
               />
+              {isReimbursement && (
+                <TextField
+                  select
+                  required
+                  label="How is it paid? (if approved)"
+                  value={payment}
+                  onChange={(event) => setPayment(event.target.value as ReimbursementPayment)}
+                  helperText={
+                    payment === 'ADD_TO_PAYROLL'
+                      ? `${fSalary(order.amount)} is added to ${order.employeeName}'s non-taxable addition on the ${fMonth(thisMonth())} payroll sheet.`
+                      : 'Some claims are paid before payroll — choose "Paid separately" for those.'
+                  }
+                  fullWidth
+                >
+                  <MenuItem value="ADD_TO_PAYROLL">
+                    Add to {fMonth(thisMonth())} payroll (non-taxable addition)
+                  </MenuItem>
+                  <MenuItem value="PAID_SEPARATELY">Paid separately</MenuItem>
+                </TextField>
+              )}
               <LeaveDecisionForm
                 key={order.updatedAt}
                 approveLabel={isReimbursement ? 'Approve & mark paid' : 'Approve & mark issued'}
-                signatureLabel={isReimbursement ? 'Payroll — name & signature' : 'Human Resource Department — name & signature'}
+                signatureLabel={
+                  isReimbursement
+                    ? 'Payroll — name & signature'
+                    : 'Human Resource Department — name & signature'
+                }
                 onSubmit={async (payload) => {
-                  await processWorkOrder(order.id, { ...payload, reference: reference.trim() || undefined });
-                  toast.success(payload.approved ? (isReimbursement ? 'Marked as paid!' : 'Marked as issued!') : 'Marked as not approved');
+                  if (payload.approved && isReimbursement && !payment) {
+                    throw new Error('Choose whether to add it to payroll or pay it separately');
+                  }
+                  await processWorkOrder(order.id, {
+                    ...payload,
+                    reference: reference.trim() || undefined,
+                    ...(isReimbursement && payload.approved && payment ? { payment } : {}),
+                  });
+                  toast.success(
+                    payload.approved
+                      ? isReimbursement
+                        ? 'Marked as paid!'
+                        : 'Marked as issued!'
+                      : 'Marked as not approved'
+                  );
                 }}
               />
             </>
           ) : (
             <>
-              <HrFormField label="Decision" value={decisionText(order.processorApproved) ?? 'Waiting'} />
+              <HrFormField
+                label="Decision"
+                value={decisionText(order.processorApproved) ?? 'Waiting'}
+              />
               <HrFormField
                 label={isReimbursement ? 'Payment reference' : 'Asset tag / serial no.'}
                 value={order.processorReference}
               />
+              {isReimbursement && order.processorApproved && (
+                <HrFormField
+                  label="Paid"
+                  value={
+                    order.payrollMonth
+                      ? `Added to the ${fMonth(order.payrollMonth)} payroll (non-taxable addition)`
+                      : 'Separately'
+                  }
+                />
+              )}
               <HrFormField label="Remarks" value={order.processorRemarks} />
               <HrFormField
                 label={isReimbursement ? 'Payroll' : 'Human Resource Department'}
@@ -295,7 +418,7 @@ export function WorkOrderDetailView() {
 
         {order.status === 'CANCELLED' && (
           <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
-            This request was cancelled by the employee.
+            This {isReimbursement ? 'claim' : 'request'} was voided by the employee.
           </Typography>
         )}
       </Stack>

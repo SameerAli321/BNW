@@ -1,7 +1,12 @@
 import { Booking } from '../../entities/booking.entity';
 import { BookingResource } from '../../entities/booking-resource.entity';
 import { User } from '../../entities/user.entity';
-import { BookingResourceType, BookingStatus, BookingType } from '../enums/booking.enum';
+import {
+  BookingResourceType,
+  BookingStatus,
+  BookingType,
+  PERSONAL_BOOKING_TYPES,
+} from '../enums/booking.enum';
 import { RoleName } from '../enums/role.enum';
 import { dateToPkt } from '../../bookings/booking-time';
 
@@ -24,8 +29,10 @@ export interface BookingDto {
   id: number;
   type: BookingType;
   status: BookingStatus;
-  /** A meeting the viewer isn't part of, shown only so a room's busy time is visible. */
+  /** A meeting / "Others" block the viewer isn't part of, shown only as busy time. */
   isPrivate: boolean;
+  /** Shared by every occurrence of a repeating booking; null for a one-off. */
+  seriesId: string | null;
   title: string;
   purpose: string | null;
   description: string | null;
@@ -90,9 +97,14 @@ export function isBookingInvolved(booking: Booking, viewer: BookingViewer): bool
   );
 }
 
-/** Not a meeting, the viewer is part of it, or it involves someone in the viewer's calendar scope. */
+/**
+ * A room / pool-table booking, the viewer is part of it, or it involves someone in the viewer's
+ * calendar scope. Meetings and "Others" blocks are private otherwise.
+ */
 export function canSeeBookingDetails(booking: Booking, viewer: BookingViewer): boolean {
-  if (booking.type !== BookingType.MEETING || isBookingInvolved(booking, viewer)) return true;
+  if (!PERSONAL_BOOKING_TYPES.includes(booking.type) || isBookingInvolved(booking, viewer)) {
+    return true;
+  }
   const scope = viewer.visibleUserIds;
   if (!scope) return false;
   if (scope === 'all') return true;
@@ -116,7 +128,8 @@ export function toBookingDto(booking: Booking, viewer: BookingViewer): BookingDt
     !isPrivate &&
     (booking.organizerId === viewer.sub ||
       booking.createdById === viewer.sub ||
-      (booking.type !== BookingType.MEETING && BOOKING_ADMIN_ROLES.includes(viewer.role)));
+      (!PERSONAL_BOOKING_TYPES.includes(booking.type) &&
+        BOOKING_ADMIN_ROLES.includes(viewer.role)));
   const pkt = dateToPkt(booking.startAt);
 
   return {
@@ -124,7 +137,12 @@ export function toBookingDto(booking: Booking, viewer: BookingViewer): BookingDt
     type: booking.type,
     status: booking.status,
     isPrivate,
-    title: isPrivate ? 'Private meeting' : booking.title,
+    seriesId: booking.seriesId,
+    title: isPrivate
+      ? booking.type === BookingType.OTHER
+        ? 'Busy'
+        : 'Private meeting'
+      : booking.title,
     purpose: isPrivate ? null : booking.purpose,
     description: isPrivate ? null : booking.description,
     startAt: booking.startAt.toISOString(),

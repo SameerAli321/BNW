@@ -88,6 +88,13 @@ function buildUserSchema(isEdit: boolean) {
         .refine((value) => !value || /^\d{13}$/.test(value.replace(/[\s-]/g, '')), {
           message: 'CNIC must be 13 digits, e.g. 35202-1234567-1',
         }),
+      bankName: zod.string().max(150, { message: 'Up to 150 characters' }).optional(),
+      bankAccountNumber: zod
+        .string()
+        .optional()
+        .refine((value) => !value || /^[A-Za-z0-9 -]{4,60}$/.test(value.trim()), {
+          message: 'Account number / IBAN can only have letters, digits, spaces and dashes',
+        }),
       status: zod.string().optional(),
       employmentType: zod.string().min(1, { message: 'Employment type is required!' }),
       company: zod.string().min(1, { message: 'Company is required!' }),
@@ -188,6 +195,8 @@ export function UserNewEditForm({ currentUser }: Props) {
     lastSalaryChangeDate: '',
     email: '',
     cnic: '',
+    bankName: '',
+    bankAccountNumber: '',
     status: 'ACTIVE',
     employmentType: 'PERMANENT',
     company: 'BNW',
@@ -214,6 +223,8 @@ export function UserNewEditForm({ currentUser }: Props) {
             lastSalaryChangeDate: currentUser.lastSalaryChangeDate ?? '',
             email: currentUser.email,
             cnic: currentUser.cnic ?? '',
+            bankName: currentUser.bankName ?? '',
+            bankAccountNumber: currentUser.bankAccountNumber ?? '',
             status: currentUser.status,
             employmentType: currentUser.employmentType ?? 'PERMANENT',
             company: currentUser.company ?? 'BNW',
@@ -284,6 +295,8 @@ export function UserNewEditForm({ currentUser }: Props) {
         leavingDate: toDate(data.leavingDate),
         contactNumber: data.contactNumber?.trim() || null,
         cnic: formatCnic(data.cnic),
+        bankName: data.bankName?.trim() || null,
+        bankAccountNumber: data.bankAccountNumber?.trim() || null,
         currentSalary: toAmount(data.currentSalary),
         previousSalary: toAmount(data.previousSalary),
         deductionPolicy: data.deductionPolicy?.trim() || null,
@@ -440,6 +453,18 @@ export function UserNewEditForm({ currentUser }: Props) {
                 label="CNIC"
                 placeholder="35202-1234567-1"
                 slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 15 } }}
+              />
+
+              <Field.Text
+                name="bankName"
+                label="Bank name"
+                placeholder="e.g. Meezan Bank"
+                helperText="Salary account — shown on the payroll sheet and salary slip"
+              />
+              <Field.Text
+                name="bankAccountNumber"
+                label="Account number / IBAN"
+                placeholder="PK36 MEZN 0000 0000 0000 0000"
               />
 
               <Field.Select name="status" label="Status">

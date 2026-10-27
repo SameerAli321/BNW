@@ -15,14 +15,7 @@ import { useGetBookingAvailability } from 'src/actions/bookings';
 import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
 
-import {
-  fClock,
-  fPktTime,
-  pktToday,
-  pktToDate,
-  fPktRange,
-  overlapsAny,
-} from './booking-utils';
+import { fClock, fPktTime, pktToday, pktToDate, fPktRange, overlapsAny } from './booking-utils';
 
 // ----------------------------------------------------------------------
 
@@ -59,7 +52,9 @@ export function BookingAvailabilityPanel({
   excludeBookingId,
   onPickTime,
 }: Props) {
-  const userIds = [...new Set([...(organizerId ? [organizerId] : []), ...participants.map((p) => p.id)])];
+  const userIds = [
+    ...new Set([...(organizerId ? [organizerId] : []), ...participants.map((p) => p.id)]),
+  ];
   const { availability, availabilityLoading } = useGetBookingAvailability({
     date,
     resourceId: resource?.id,
@@ -74,9 +69,7 @@ export function BookingAvailabilityPanel({
   const peopleBusy = availability?.date === date ? availability.people : [];
 
   const resourceClash = !!(start && end && resource && overlapsAny(start, end, resourceBusy));
-  const busyPeople = start && end
-    ? peopleBusy.filter((p) => overlapsAny(start, end, p.busy))
-    : [];
+  const busyPeople = start && end ? peopleBusy.filter((p) => overlapsAny(start, end, p.busy)) : [];
   const isToday = date === pktToday();
 
   const renderSummary = () => {
@@ -122,8 +115,7 @@ export function BookingAvailabilityPanel({
             const slotEnd = new Date(slotStart.getTime() + 30 * 60_000);
             const booked = overlapsAny(slotStart, slotEnd, resourceBusy);
             const past = isToday && slotStart.getTime() < Date.now();
-            const selected =
-              !!start && !!end && slotStart < end && slotEnd > start;
+            const selected = !!start && !!end && slotStart < end && slotEnd > start;
             const disabled = booked || past;
             return (
               <ButtonBase
@@ -169,9 +161,15 @@ export function BookingAvailabilityPanel({
           })}
         </Box>
         <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
-          <Label color="success" variant="soft">Available</Label>
-          <Label color="error" variant="soft">Booked</Label>
-          <Label color="primary" variant="outlined">Your selection</Label>
+          <Label color="success" variant="soft">
+            Available
+          </Label>
+          <Label color="error" variant="soft">
+            Booked
+          </Label>
+          <Label color="primary" variant="outlined">
+            Your selection
+          </Label>
         </Stack>
         {!!resourceBusy.length && (
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -197,24 +195,25 @@ export function BookingAvailabilityPanel({
       <Stack spacing={1.5}>
         <Typography variant="subtitle2">Participants at this time</Typography>
         {rows.map((p) => {
-            const busy = busyPeople.some((b) => b.userId === p.userId);
-            return (
-              <Stack key={p.userId} direction="row" alignItems="center" spacing={1}>
-                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  <Typography variant="body2" noWrap>
-                    {p.name}
-                    {p.userId === organizerId ? ' (you, organiser)' : ''}
+          const busy = busyPeople.some((b) => b.userId === p.userId);
+          return (
+            <Stack key={p.userId} direction="row" alignItems="center" spacing={1}>
+              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                <Typography variant="body2" noWrap>
+                  {p.name}
+                  {p.userId === organizerId ? ' (you, organiser)' : ''}
+                </Typography>
+                {!!p.busy.length && (
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    In meetings:{' '}
+                    {p.busy.map((b) => `${fPktTime(b.startAt)}–${fPktTime(b.endAt)}`).join(', ')}
                   </Typography>
-                  {!!p.busy.length && (
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                      In meetings: {p.busy.map((b) => `${fPktTime(b.startAt)}–${fPktTime(b.endAt)}`).join(', ')}
-                    </Typography>
-                  )}
-                </Box>
-                <Label color={busy ? 'error' : 'success'}>{busy ? 'Busy' : 'Free'}</Label>
-              </Stack>
-            );
-          })}
+                )}
+              </Box>
+              <Label color={busy ? 'error' : 'success'}>{busy ? 'Busy' : 'Free'}</Label>
+            </Stack>
+          );
+        })}
       </Stack>
     );
   };

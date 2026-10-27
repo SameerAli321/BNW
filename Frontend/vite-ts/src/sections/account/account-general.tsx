@@ -25,6 +25,8 @@ import { Label } from 'src/components/label';
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 
+import { AboutMeEditor } from 'src/sections/team-hierarchy/about-me-editor';
+
 import { useAuthContext } from 'src/auth/hooks';
 
 import { userStatusLabel } from 'src/types/user';
@@ -95,8 +97,21 @@ export function AccountGeneral() {
   return (
     <Grid container spacing={3}>
       <Grid size={{ xs: 12, md: 4 }}>
-        <Card sx={{ pt: { xs: 4, md: 6 }, pb: { xs: 3, md: 5 }, px: { xs: 2, md: 3 }, textAlign: 'center' }}>
-          <input ref={fileInput} type="file" accept={AVATAR_ACCEPT} hidden onChange={onFileChosen} />
+        <Card
+          sx={{
+            pt: { xs: 4, md: 6 },
+            pb: { xs: 3, md: 5 },
+            px: { xs: 2, md: 3 },
+            textAlign: 'center',
+          }}
+        >
+          <input
+            ref={fileInput}
+            type="file"
+            accept={AVATAR_ACCEPT}
+            hidden
+            onChange={onFileChosen}
+          />
           <ButtonBase
             disabled={busy}
             onClick={() => fileInput.current?.click()}
@@ -196,6 +211,16 @@ export function AccountGeneral() {
               }
             />
           </Stack>
+
+          <Box sx={{ mt: 3 }}>
+            <AboutMeEditor
+              key={user?.aboutMe ?? ''}
+              value={user?.aboutMe ?? null}
+              onSaved={async () => {
+                await checkUserSession?.();
+              }}
+            />
+          </Box>
 
           <Typography variant="caption" sx={{ display: 'block', mt: 3, color: 'text.disabled' }}>
             These details are managed by HR/Admin. To update your phone, address, or other personal

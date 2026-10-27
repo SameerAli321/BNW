@@ -1,5 +1,8 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
   IsBoolean,
   IsEnum,
   IsInt,
@@ -33,10 +36,12 @@ export class UpdateAnnouncementDto {
   audience?: AnnouncementAudience;
 
   @IsOptional()
-  @ValidateIf((_, value) => value !== null)
+  @IsArray()
+  @ArrayMaxSize(50)
+  @ArrayUnique()
   @Type(() => Number)
-  @IsInt()
-  departmentId?: number | null;
+  @IsInt({ each: true })
+  departmentIds?: number[];
 
   @IsOptional()
   @IsBoolean()

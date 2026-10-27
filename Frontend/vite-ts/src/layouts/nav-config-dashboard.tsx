@@ -32,6 +32,7 @@ const ICONS = {
   announcement: solarIcon('solar:bell-bing-bold-duotone'),
   activity: solarIcon('solar:notebook-bold-duotone'),
   calendar: solarIcon('solar:calendar-date-bold'),
+  myBookings: solarIcon('solar:list-bold'),
   about: solarIcon('solar:info-circle-bold'),
 };
 
@@ -55,8 +56,10 @@ export const navData: NavSectionProps['data'] = [
     subheader: 'Overview',
     items: [
       { title: 'Dashboard', path: paths.dashboard.root, icon: ICONS.dashboard },
-      // Everyone has their own calendar (Team Leads / HR / Admin / CEO also see others').
+      // Everyone has their own calendar (Team Leads / HR / Admin / CEO also see others'). New
+      // booking and "Rooms & tables" (HR / ADMIN) are buttons on the Calendar page.
       { title: 'Calendar', path: paths.dashboard.bookings.root, icon: ICONS.calendar },
+      { title: 'My Bookings', path: paths.dashboard.bookings.list, icon: ICONS.myBookings },
     ],
   },
   {
@@ -103,24 +106,6 @@ export const navData: NavSectionProps['data'] = [
         icon: ICONS.forms,
       },
       {
-        // Bookings — meetings, meeting rooms and the pool table. No `allowedRoles`: everyone books
-        // rooms / the pool table and sees meetings they're invited to; organising meetings (CEO,
-        // HR / ADMIN, Team Leads) and "Rooms & tables" (HR / ADMIN) are gated inside and by the API.
-        title: 'Bookings',
-        path: paths.dashboard.bookings.root,
-        icon: ICONS.calendar,
-        children: [
-          { title: 'Calendar', path: paths.dashboard.bookings.root },
-          { title: 'My bookings', path: paths.dashboard.bookings.list },
-          { title: 'New booking', path: paths.dashboard.bookings.new },
-          {
-            title: 'Rooms & tables',
-            path: paths.dashboard.bookings.resources,
-            allowedRoles: ['HR', 'ADMIN'],
-          },
-        ],
-      },
-      {
         // Announcement board. No `allowedRoles`: everyone reads it (it's also on every dashboard);
         // the Post / Edit / Delete controls inside only render for CEO / ADMIN / HR.
         title: 'Announcements',
@@ -132,12 +117,6 @@ export const navData: NavSectionProps['data'] = [
   {
     subheader: 'People & Performance',
     items: [
-      {
-        // Org chart of every active user with basic profiles — visible to everyone.
-        title: 'Team Hierarchy',
-        path: paths.dashboard.teamHierarchy,
-        icon: ICONS.team,
-      },
       {
         // Sprint 4 — Appraisals (see docs/API_CONTRACT_SPRINT4.md). No `allowedRoles`: every
         // role can see this item, same reasoning as "Letters" — an employee needs it to find/
@@ -164,16 +143,6 @@ export const navData: NavSectionProps['data'] = [
         icon: ICONS.job,
         allowedRoles: ['HR', 'ADMIN'],
       },
-      {
-        // Sprint 5 — Joining pack. Every employee needs to see and acknowledge their own joining
-        // pack (same reasoning as "My E-record"); HR/ADMIN additionally get manage controls
-        // (add/edit item) inline on the same page. CEO has no joining pack of their own, so it's
-        // hidden from their sidebar.
-        title: 'Joining Pack',
-        path: paths.dashboard.joiningPack,
-        icon: ICONS.product,
-        allowedRoles: ['HR', 'MANAGER', 'PAYROLL', 'ADMIN', 'EMPLOYEE'],
-      },
     ],
   },
   {
@@ -188,6 +157,14 @@ export const navData: NavSectionProps['data'] = [
         icon: ICONS.invoice,
       },
       {
+        // The monthly payroll sheet ("Payroll for IT") and loans — slips are generated here. HR /
+        // ADMIN, plus the accountant (PAYROLL) who fills in Tax and Paid.
+        title: 'Salary Calculation',
+        path: paths.dashboard.salaryCalculation,
+        icon: ICONS.analytics,
+        allowedRoles: ['HR', 'ADMIN', 'PAYROLL'],
+      },
+      {
         // Gap-fix — Audit Log (see docs/API_CONTRACT_GAPS_FIX.md Gap 2). CEO/ADMIN only, same
         // `allowedRoles` pattern as "Staff Summary".
         title: 'Audit Log',
@@ -198,10 +175,22 @@ export const navData: NavSectionProps['data'] = [
     ],
   },
   {
-    subheader: 'Company',
+    subheader: 'About us',
     items: [
-      // Company details + the CEO's message — everyone reads it; CEO / HR / ADMIN edit it there.
-      { title: 'About us', path: paths.dashboard.aboutUs, icon: ICONS.about },
+      // Company details, and the CEO's photo + message — everyone reads them; CEO / HR / ADMIN
+      // edit them there.
+      { title: 'What is BNW', path: paths.dashboard.aboutUs, icon: ICONS.about },
+      { title: "CEO's Message", path: paths.dashboard.aboutCeo, icon: ICONS.user },
+      // The Team Hierarchy org chart — everyone.
+      { title: 'Team', path: paths.dashboard.teamHierarchy, icon: ICONS.team },
+      // The office guide for joiners, then the Employee Policy Handbook everyone reads and signs.
+      // deepMatch keeps it highlighted on the handbook page under it.
+      {
+        title: 'Guide sheet',
+        path: paths.dashboard.guideSheet,
+        icon: ICONS.forms,
+        deepMatch: true,
+      },
     ],
   },
 

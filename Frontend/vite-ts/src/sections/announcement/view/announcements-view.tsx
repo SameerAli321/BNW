@@ -88,8 +88,10 @@ export function AnnouncementsView() {
   const departmentOptions = useMemo(() => {
     const map = new Map<number, string>();
     announcements.forEach((a) => {
-      if (a.audience === 'DEPARTMENT' && a.departmentId !== null) {
-        map.set(a.departmentId, a.departmentName ?? `Department #${a.departmentId}`);
+      if (a.audience === 'DEPARTMENT') {
+        a.departmentIds.forEach((id, i) =>
+          map.set(id, a.departmentNames[i] ?? `Department #${id}`)
+        );
       }
     });
     return [...map.entries()].sort((x, y) => x[1].localeCompare(y[1]));
@@ -101,14 +103,16 @@ export function AnnouncementsView() {
     return announcements.filter((a) => {
       if (
         query &&
-        ![a.title, a.body, a.posterName ?? '', a.departmentName ?? ''].some((text) =>
+        ![a.title, a.body, a.posterName ?? '', ...a.departmentNames].some((text) =>
           text.toLowerCase().includes(query)
         )
       ) {
         return false;
       }
       if (audienceFilter === 'ALL' && a.audience !== 'ALL') return false;
-      if (typeof audienceFilter === 'number' && a.departmentId !== audienceFilter) return false;
+      if (typeof audienceFilter === 'number' && !a.departmentIds.includes(audienceFilter)) {
+        return false;
+      }
       if (floor && dayjs(a.createdAt).isBefore(floor)) return false;
       return true;
     });
@@ -226,7 +230,7 @@ export function AnnouncementsView() {
               hasFilters
                 ? 'Try a different search or clear the filters.'
                 : canPost
-                  ? 'Share news, policies or reminders with everyone or one department.'
+                  ? 'Share news, policies or reminders with everyone or chosen departments.'
                   : 'Notices posted for you or your department will show up here.'
             }
             action={

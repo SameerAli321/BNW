@@ -157,12 +157,7 @@ export function DashboardUpcomingMeetings() {
         )} 0%, transparent 45%)`,
       })}
     >
-      <Stack
-        direction="row"
-        alignItems="center"
-        spacing={1.5}
-        sx={{ px: 2.5, pt: 2.5, pb: 2 }}
-      >
+      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ px: 2.5, pt: 2.5, pb: 2 }}>
         <Box
           sx={{
             width: 40,
@@ -188,8 +183,8 @@ export function DashboardUpcomingMeetings() {
             )}
           </Stack>
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            Meetings you organise or are invited to, and your room / pool-table bookings · times
-            in {PKT_LABEL}
+            Meetings you organise or are invited to, and your room / pool-table bookings · times in{' '}
+            {PKT_LABEL}
           </Typography>
         </Box>
         <Box sx={{ display: { xs: 'none', sm: 'block' } }}>

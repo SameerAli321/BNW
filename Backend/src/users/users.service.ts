@@ -50,6 +50,7 @@ export type HierarchyNodeDto = {
   avatarUrl: string | null;
   employmentType: string;
   company: string;
+  aboutMe: string | null;
 };
 
 /** Today as YYYY-MM-DD (server local time). */
@@ -133,6 +134,7 @@ export class UsersService {
       avatarUrl: user.avatarPath ? `/users/avatars/${user.avatarPath}` : null,
       employmentType: user.employmentType,
       company: user.company,
+      aboutMe: user.aboutMe ?? null,
     }));
   }
 
@@ -176,6 +178,12 @@ export class UsersService {
     user.avatarPath = fileName;
     await this.usersRepo.update(userId, { avatarPath: fileName });
     return toUserDto(user);
+  }
+
+  /** The caller's own "About me" (Team Hierarchy side panel). */
+  async setAboutMe(userId: number, aboutMe: string | null): Promise<UserDto> {
+    await this.usersRepo.update(userId, { aboutMe });
+    return toUserDto(await this.findOneEntity(userId));
   }
 
   /** The caller's "notify me about every new request" switch. */
@@ -311,16 +319,32 @@ export class UsersService {
     return outcome;
   }
 
-  /** Contact number / CNIC live on employee_profiles — create the row on first write. */
+  /** Contact number / CNIC / bank account live on employee_profiles — create the row on first write. */
   private async saveContactDetails(
     userId: number,
-    dto: { contactNumber?: string | null; cnic?: string | null },
+    dto: {
+      contactNumber?: string | null;
+      cnic?: string | null;
+      bankName?: string | null;
+      bankAccountNumber?: string | null;
+    },
   ): Promise<void> {
-    if (dto.contactNumber === undefined && dto.cnic === undefined) return;
+    if (
+      dto.contactNumber === undefined &&
+      dto.cnic === undefined &&
+      dto.bankName === undefined &&
+      dto.bankAccountNumber === undefined
+    ) {
+      return;
+    }
     let profile = await this.employeeProfilesRepo.findOne({ where: { userId } });
     if (!profile) profile = this.employeeProfilesRepo.create({ userId });
     if (dto.contactNumber !== undefined) profile.phone = dto.contactNumber?.trim() || null;
     if (dto.cnic !== undefined) profile.nationalId = dto.cnic || null;
+    if (dto.bankName !== undefined) profile.bankName = dto.bankName?.trim() || null;
+    if (dto.bankAccountNumber !== undefined) {
+      profile.bankAccountNumber = dto.bankAccountNumber?.trim() || null;
+    }
     await this.employeeProfilesRepo.save(profile);
   }
 

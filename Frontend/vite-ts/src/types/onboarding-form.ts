@@ -7,12 +7,14 @@ export type OnboardingFormStatus = 'SUBMITTED' | 'RECORDED';
 /** The fields the employee types in, in form order. */
 export const ONBOARDING_FORM_FIELDS = [
   'dateOfBirth',
+  'dateOfJoining',
   'nationalId',
   'streetAddress',
   'city',
   'state',
   'zipCode',
   'phone',
+  'alternatePhone',
   'reasonForLeaving',
   'workResponsibilities',
   'emergencyContactName',

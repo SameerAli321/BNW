@@ -11,6 +11,7 @@ import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
@@ -71,6 +72,7 @@ export function BookingDetailsView({ id }: Props) {
   const { booking, bookingLoading, bookingError } = useGetBooking(id);
   const confirmCancel = useBoolean();
   const [reason, setReason] = useState('');
+  const [cancelScope, setCancelScope] = useState<'ONE' | 'FOLLOWING'>('ONE');
   const [cancelling, setCancelling] = useState(false);
 
   const breadcrumbs = (heading: string, action?: ReactNode) => (
@@ -120,7 +122,7 @@ export function BookingDetailsView({ id }: Props) {
   const onCancel = async () => {
     setCancelling(true);
     try {
-      await cancelBooking(booking.id, reason.trim() || undefined);
+      await cancelBooking(booking.id, reason.trim() || undefined, cancelScope);
       toast.success(
         isMeeting ? 'Meeting cancelled — participants have been notified' : 'Booking cancelled'
       );
@@ -171,7 +173,15 @@ export function BookingDetailsView({ id }: Props) {
               <Stack spacing={1.75}>
                 <Row label="When">{fPktRange(booking.startAt, booking.endAt)}</Row>
                 <Row label="Duration">{fDuration(booking.durationMinutes)}</Row>
-                <Row label={isMeeting ? 'Room / location' : booking.type === 'POOL_TABLE' ? 'Pool table' : 'Room'}>
+                <Row
+                  label={
+                    isMeeting
+                      ? 'Room / location'
+                      : booking.type === 'POOL_TABLE'
+                        ? 'Pool table'
+                        : 'Room'
+                  }
+                >
                   {bookingPlace(booking) || '—'}
                   {booking.resource?.location ? ` · ${booking.resource.location}` : ''}
                 </Row>
@@ -201,7 +211,13 @@ export function BookingDetailsView({ id }: Props) {
               {canChange && (
                 <>
                   <Divider sx={{ borderStyle: 'dashed' }} />
-                  <Stack direction="row" spacing={1.5} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
+                  <Stack
+                    direction="row"
+                    spacing={1.5}
+                    justifyContent="flex-end"
+                    flexWrap="wrap"
+                    useFlexGap
+                  >
                     <Button
                       color="error"
                       variant="outlined"
@@ -236,7 +252,13 @@ export function BookingDetailsView({ id }: Props) {
                   ...(booking.organizer ? [{ ...booking.organizer, organiser: true }] : []),
                   ...booking.participants.map((p) => ({ ...p, organiser: false })),
                 ].map((p) => (
-                  <Stack key={p.id} component="li" direction="row" spacing={1.5} alignItems="center">
+                  <Stack
+                    key={p.id}
+                    component="li"
+                    direction="row"
+                    spacing={1.5}
+                    alignItems="center"
+                  >
                     <Avatar sx={{ width: 36, height: 36, fontSize: 14 }}>{initials(p.name)}</Avatar>
                     <Box sx={{ minWidth: 0, flexGrow: 1 }}>
                       <Typography variant="subtitle2" noWrap>
@@ -280,6 +302,18 @@ export function BookingDetailsView({ id }: Props) {
                 ? `${booking.title} (${fPktRange(booking.startAt, booking.endAt)}) will be cancelled and all ${booking.participants.length} participant(s) will be notified. The room becomes free again.`
                 : `The slot (${fPktRange(booking.startAt, booking.endAt)}) becomes free for others.`}
             </Typography>
+            {booking.seriesId && (
+              <TextField
+                select
+                label="This booking repeats"
+                value={cancelScope}
+                onChange={(e) => setCancelScope(e.target.value as 'ONE' | 'FOLLOWING')}
+                fullWidth
+              >
+                <MenuItem value="ONE">Cancel only this one</MenuItem>
+                <MenuItem value="FOLLOWING">Cancel this and all later ones</MenuItem>
+              </TextField>
+            )}
             <TextField
               label="Reason (optional)"
               value={reason}

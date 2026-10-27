@@ -26,6 +26,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
 import { UpdateEmployeeProfileDto } from './dto/update-employee-profile.dto';
 import { NotificationPreferencesDto } from './dto/notification-preferences.dto';
+import { AboutMeDto } from './dto/about-me.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RoleName } from '../common/enums/role.enum';
 import { CurrentUser, JwtUserPayload } from '../common/decorators/current-user.decorator';
@@ -108,6 +109,12 @@ export class UsersController {
   }
 
   // HR / ADMIN / CEO — "notify me about every new request" switch on the Notifications page.
+  // Everyone — your own short "About me" for the Team Hierarchy side panel.
+  @Patch('me/about')
+  async updateAboutMe(@Body() dto: AboutMeDto, @CurrentUser() caller: JwtUserPayload) {
+    return this.usersService.setAboutMe(caller.sub, dto.aboutMe ?? null);
+  }
+
   @Roles(RoleName.HR, RoleName.ADMIN, RoleName.CEO)
   @Patch('me/notification-preferences')
   async updateNotificationPreferences(

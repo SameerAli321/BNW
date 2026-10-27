@@ -8,6 +8,7 @@ import { paths } from 'src/routes/paths';
 
 import { fPercent } from 'src/utils/format-number';
 
+import { FEATURES } from 'src/features';
 import { useGetUsers } from 'src/actions/users';
 import { useGetDashboard } from 'src/actions/dashboard';
 import { useGetLetterTemplates } from 'src/actions/letters';
@@ -184,13 +185,17 @@ export function AdminOverviewView({ announcements, quickActions }: DashboardShar
                 icon: 'solar:chat-round-dots-bold',
                 color: 'error',
               },
-              {
-                label: 'Attendance forms with HR',
-                count: company.pending.attendanceHr,
-                href: paths.dashboard.attendanceRegularizations.root,
-                icon: 'solar:clock-circle-bold',
-                color: 'info',
-              },
+              ...(FEATURES.attendanceRegularization
+                ? [
+                    {
+                      label: 'Attendance forms with HR',
+                      count: company.pending.attendanceHr,
+                      href: paths.dashboard.attendanceRegularizations.root,
+                      icon: 'solar:clock-circle-bold' as const,
+                      color: 'info' as const,
+                    },
+                  ]
+                : []),
               {
                 label: 'Onboarding forms to record',
                 count: company.pending.onboardingToRecord,

@@ -1,11 +1,6 @@
 import type { DateClickArg } from '@fullcalendar/interaction';
 import type { EventInput, DatesSetArg, EventClickArg } from '@fullcalendar/core';
-import type {
-  BookingDto,
-  BookingType,
-  BookingStatus,
-  CalendarLeave,
-} from 'src/actions/bookings';
+import type { BookingDto, BookingType, BookingStatus, CalendarLeave } from 'src/actions/bookings';
 
 import Calendar from '@fullcalendar/react';
 import listPlugin from '@fullcalendar/list';
@@ -159,7 +154,8 @@ export function BookingCalendarView() {
   const { resources } = useGetBookingResources();
   const { calendarPeople } = useGetCalendarPeople(canPickCalendar);
   // "Only mine" narrows leave to the viewer's own, like it does for bookings.
-  const leavesUserId = filters.userId || (filters.scope === 'mine' && user?.id ? Number(user.id) : '');
+  const leavesUserId =
+    filters.userId || (filters.scope === 'mine' && user?.id ? Number(user.id) : '');
   const { leaves: fetchedLeaves, leavesLoading } = useGetCalendarLeaves(
     { from: range?.from, to: range?.to, userId: leavesUserId },
     !!range && filters.showLeaves
@@ -194,7 +190,8 @@ export function BookingCalendarView() {
           end: toPktWallClock(booking.endAt),
           backgroundColor: hexAlpha(color, booking.status === 'CANCELLED' ? 0.12 : 0.18),
           borderColor: color,
-          textColor: theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.text.primary,
+          textColor:
+            theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.text.primary,
           classNames: [
             'bnw-booking',
             booking.status === 'CANCELLED' ? 'bnw-booking--cancelled' : '',
@@ -366,7 +363,9 @@ export function BookingCalendarView() {
           label="Calendar of"
           value={filters.userId}
           onChange={(e) => setFilter('userId', e.target.value === '' ? '' : Number(e.target.value))}
-          slotProps={{ select: { MenuProps: { slotProps: { paper: { sx: { maxHeight: 320 } } } } } }}
+          slotProps={{
+            select: { MenuProps: { slotProps: { paper: { sx: { maxHeight: 320 } } } } },
+          }}
         >
           <MenuItem value="">{viewsAll ? 'Everyone' : 'My team (all)'}</MenuItem>
           {calendarPeople.map((p) => (
@@ -405,7 +404,9 @@ export function BookingCalendarView() {
         size="small"
         label="Room / table"
         value={filters.resourceId}
-        onChange={(e) => setFilter('resourceId', e.target.value === '' ? '' : Number(e.target.value))}
+        onChange={(e) =>
+          setFilter('resourceId', e.target.value === '' ? '' : Number(e.target.value))
+        }
       >
         <MenuItem value="">All rooms & tables</MenuItem>
         {resources.map((r) => (
@@ -496,8 +497,8 @@ export function BookingCalendarView() {
   return (
     <DashboardContent maxWidth="xl">
       <CustomBreadcrumbs
-        heading="Bookings"
-        links={[{ name: 'Dashboard', href: paths.dashboard.root }, { name: 'Bookings' }]}
+        heading="Calendar"
+        links={[{ name: 'Dashboard', href: paths.dashboard.root }, { name: 'Calendar' }]}
         action={
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
             {isAdmin && (

@@ -162,7 +162,7 @@ export class PolicyService {
         type: 'POLICY_ACKNOWLEDGEMENT',
         title: `${fullName(user)} acknowledged the Employee Policy Handbook`,
         body: 'They have read the handbook and signed the acknowledgement.',
-        link: '/dashboard/about-us?tab=acknowledgements',
+        link: '/dashboard/about-us/guide-sheet/handbook?tab=acknowledgements',
         rows,
       },
     );
@@ -170,7 +170,7 @@ export class PolicyService {
       type: 'POLICY_ACKNOWLEDGEMENT',
       title: 'You acknowledged the Employee Policy Handbook',
       body: sentTo.length ? `A copy was sent to ${sentTo.join(', ')}.` : null,
-      link: '/dashboard/about-us',
+      link: '/dashboard/about-us/guide-sheet/handbook',
       rows,
     });
     return this.mine(caller);
@@ -230,8 +230,8 @@ export class PolicyService {
     await this.notifier.send(pending, {
       type: 'POLICY_ACKNOWLEDGEMENT',
       title: 'Please read and acknowledge the Employee Policy Handbook',
-      body: 'Open About us, read the handbook and sign the acknowledgement at the end.',
-      link: '/dashboard/about-us',
+      body: 'Open About us → Guide sheet, read the handbook and sign the acknowledgement at the end.',
+      link: '/dashboard/about-us/guide-sheet/handbook',
     });
     return { reminded: pending.length };
   }

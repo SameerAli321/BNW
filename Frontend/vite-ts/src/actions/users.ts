@@ -184,6 +184,18 @@ export function avatarSrc(avatarUrl?: string | null): string | undefined {
 export const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // matches the backend's 2MB cap
 export const AVATAR_ACCEPT = 'image/jpeg,image/png,image/webp';
 
+/** "About me" limit — same as the backend (users/dto/about-me.dto.ts). */
+export const ABOUT_ME_MAX_WORDS = 50;
+
+export const countAboutMeWords = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
+
+/** PATCH /users/me/about — the caller's own "About me" (null clears it). */
+export async function updateMyAboutMe(aboutMe: string | null): Promise<UserDto> {
+  const res = await axiosInstance.patch(endpoints.users.myAbout, { aboutMe });
+  await mutate(endpoints.users.hierarchy);
+  return res.data.data;
+}
+
 /** POST /users/me/avatar — upload / replace the caller's profile picture. */
 export async function uploadMyAvatar(file: File): Promise<UserDto> {
   const formData = new FormData();

@@ -12,7 +12,16 @@ import { BookingParticipant } from '../entities/booking-participant.entity';
 import { BookingResource } from '../entities/booking-resource.entity';
 import { LeaveRequest } from '../entities/leave-request.entity';
 import { User } from '../entities/user.entity';
-import { BookingResourceType, BookingStatus, BookingType } from '../common/enums/booking.enum';
+import { randomUUID } from 'crypto';
+import {
+  BOOKING_REPEAT_MAX_DAYS,
+  BOOKING_REPEAT_MAX_OCCURRENCES,
+  BookingRepeat,
+  BookingResourceType,
+  BookingStatus,
+  BookingType,
+  PERSONAL_BOOKING_TYPES,
+} from '../common/enums/booking.enum';
 import { LeaveRequestStatus } from '../common/enums/leave-request-status.enum';
 import { RoleName } from '../common/enums/role.enum';
 import { UserStatus } from '../common/enums/user-status.enum';
@@ -33,6 +42,7 @@ import {
   AvailabilityQueryDto,
   CalendarLeavesQueryDto,
   CreateBookingDto,
+  BookingRepeatDto,
   CreateBookingResourceDto,
   QueryBookingResourcesDto,
   QueryBookingsDto,
@@ -96,17 +106,53 @@ export interface CalendarLeaveDto {
   canOpen: boolean;
 }
 
-/** Which kind of resource each booking type uses. */
-const RESOURCE_TYPE_FOR: Record<BookingType, BookingResourceType> = {
+/** Which kind of resource each booking type uses ("Others" never uses one). */
+const RESOURCE_TYPE_FOR: Record<BookingType, BookingResourceType | null> = {
   [BookingType.MEETING]: BookingResourceType.MEETING_ROOM,
   [BookingType.MEETING_ROOM]: BookingResourceType.MEETING_ROOM,
   [BookingType.POOL_TABLE]: BookingResourceType.POOL_TABLE,
+  [BookingType.OTHER]: null,
+};
+
+const DAY_MS = 86_400_000;
+
+/** The dates (YYYY-MM-DD) a booking from `first` repeats on, `first` included. */
+export function repeatDates(first: string, repeat: BookingRepeatDto): string[] {
+  const start = Date.parse(`${first}T00:00:00Z`);
+  const until = Date.parse(`${repeat.until}T00:00:00Z`);
+  if (Number.isNaN(until) || until < start) {
+    throw new BadRequestException('"Repeat until" must be on or after the first day');
+  }
+  if ((until - start) / DAY_MS > BOOKING_REPEAT_MAX_DAYS) {
+    throw new BadRequestException('A booking can repeat for up to 6 months');
+  }
+  const step = repeat.frequency === BookingRepeat.WEEKLY ? 7 : 1;
+  const dates: string[] = [];
+  for (let t = start; t <= until; t += step * DAY_MS) {
+    const weekday = new Date(t).getUTCDay();
+    if (repeat.frequency === BookingRepeat.WEEKDAYS && (weekday === 0 || weekday === 6)) continue;
+    dates.push(new Date(t).toISOString().slice(0, 10));
+  }
+  if (!dates.length) throw new BadRequestException('That repeat has no days in it');
+  if (dates.length > BOOKING_REPEAT_MAX_OCCURRENCES) {
+    throw new BadRequestException(
+      `That would make ${dates.length} bookings — at most ${BOOKING_REPEAT_MAX_OCCURRENCES} at a time`,
+    );
+  }
+  return dates;
+}
+
+const REPEAT_LABEL: Record<BookingRepeat, string> = {
+  [BookingRepeat.DAILY]: 'every day',
+  [BookingRepeat.WEEKDAYS]: 'every weekday',
+  [BookingRepeat.WEEKLY]: 'every week',
 };
 
 const TYPE_LABEL: Record<BookingType, string> = {
   [BookingType.MEETING]: 'Meeting',
   [BookingType.MEETING_ROOM]: 'Meeting room',
   [BookingType.POOL_TABLE]: 'Pool table',
+  [BookingType.OTHER]: 'Other',
 };
 
 // pg_advisory_xact_lock(class, id) keys — serialise bookings per room/table and per person, so two
@@ -243,10 +289,10 @@ export class BookingsService {
     // HR / Admin / CEO see every booking; Team Leads their team's meetings; others their own.
     let visible: string;
     if (scope === 'all') visible = 'TRUE';
-    else if (scope.length <= 1) visible = `(b.type <> 'MEETING' OR ${involved()})`;
+    else if (scope.length <= 1) visible = `(b.type NOT IN ('MEETING', 'OTHER') OR ${involved()})`;
     else {
       const ids = param(scope);
-      visible = `(b.type <> 'MEETING' OR b.organizer_id = ANY(${ids}::int[])
+      visible = `(b.type NOT IN ('MEETING', 'OTHER') OR b.organizer_id = ANY(${ids}::int[])
         OR b.created_by_id = ANY(${ids}::int[]) OR EXISTS (
         SELECT 1 FROM booking_participants sp WHERE sp.booking_id = b.id
           AND sp.user_id = ANY(${ids}::int[])))`;
@@ -437,7 +483,7 @@ export class BookingsService {
            SELECT b.organizer_id AS user_id
            UNION SELECT bp.user_id FROM booking_participants bp WHERE bp.booking_id = b.id
          ) x ON true
-         WHERE b.type = 'MEETING' AND b.status = 'CONFIRMED'
+         WHERE b.type IN ('MEETING', 'OTHER') AND b.status = 'CONFIRMED'
            AND b.start_at < $2 AND b.end_at > $1
            AND ($3::int IS NULL OR b.id <> $3) AND x.user_id = ANY($4::int[])
          ORDER BY b.start_at`,
@@ -477,7 +523,9 @@ export class BookingsService {
     }
 
     let resource: BookingResource | null = null;
-    if (dto.resourceId) {
+    if (type === BookingType.OTHER) {
+      if (dto.resourceId) throw new BadRequestException('"Others" bookings don\'t use a room');
+    } else if (dto.resourceId) {
       resource = await this.resourcesRepo.findOne({ where: { id: dto.resourceId } });
       if (!resource || resource.type !== RESOURCE_TYPE_FOR[type]) {
         throw new BadRequestException(
@@ -494,6 +542,9 @@ export class BookingsService {
     }
 
     const title = dto.title?.trim() ?? '';
+    if (type === BookingType.OTHER && !title) {
+      throw new BadRequestException('Say what it is for, e.g. Namaz, lunch or Masjid');
+    }
     let participantIds: number[] = [];
     if (type === BookingType.MEETING) {
       if (!title) throw new BadRequestException('Give the meeting a title');
@@ -557,7 +608,7 @@ export class BookingsService {
       }
     }
 
-    if (plan.type === BookingType.MEETING) {
+    if (PERSONAL_BOOKING_TYPES.includes(plan.type)) {
       const people = [plan.organizerId, ...plan.participantIds].sort((a, b) => a - b);
       for (const id of people) {
         await manager.query('SELECT pg_advisory_xact_lock($1, $2)', [LOCK_USER, id]);
@@ -569,7 +620,7 @@ export class BookingsService {
            UNION SELECT bp.user_id FROM booking_participants bp WHERE bp.booking_id = b.id
          ) x ON true
          JOIN users u ON u.id = x.user_id
-         WHERE b.type = 'MEETING' AND b.status = 'CONFIRMED'
+         WHERE b.type IN ('MEETING', 'OTHER') AND b.status = 'CONFIRMED'
            AND b.start_at < $2 AND b.end_at > $1
            AND ($3::int IS NULL OR b.id <> $3) AND x.user_id = ANY($4::int[])`,
         [plan.startAt, plan.endAt, excludeId, people],
@@ -577,7 +628,9 @@ export class BookingsService {
       if (busy.length) {
         const names = busy.map((u) => `${u.first_name} ${u.last_name}`).join(', ');
         throw new ConflictException(
-          `Already in another meeting at this time: ${names}. Pick another time or remove them.`,
+          plan.type === BookingType.OTHER
+            ? 'You already have something booked at this time. Pick another time.'
+            : `Already busy at this time: ${names}. Pick another time or remove them.`,
         );
       }
     }
@@ -587,41 +640,65 @@ export class BookingsService {
     if (dto.type === BookingType.MEETING && !MEETING_ORGANIZER_ROLES.includes(caller.role)) {
       throw new ForbiddenException('Only the CEO, HR / Admin and Team Leads can organise meetings');
     }
-    const plan = await this.plan(dto.type, dto, caller.sub, null);
+    // A repeating booking is one booking per day, sharing a series id; all or none are saved.
+    const dates = dto.repeat ? repeatDates(dto.date, dto.repeat) : [dto.date];
+    const plans: BookingPlan[] = [];
+    for (const date of dates)
+      plans.push(await this.plan(dto.type, { ...dto, date }, caller.sub, null));
+    const seriesId = dates.length > 1 ? randomUUID() : null;
 
     const id = await this.dataSource.transaction(async (manager) => {
-      await this.lockAndCheck(manager, plan, null);
       const repo = manager.getRepository(Booking);
-      const saved = await repo.save(
-        repo.create({
-          type: plan.type,
-          title: plan.title,
-          purpose: plan.purpose,
-          description: plan.description,
-          resourceId: plan.resource?.id ?? null,
-          location: plan.location,
-          startAt: plan.startAt,
-          endAt: plan.endAt,
-          status: BookingStatus.CONFIRMED,
-          organizerId: plan.organizerId,
-          createdById: caller.sub,
-        }),
-      );
-      if (plan.participantIds.length) {
-        const participants = manager.getRepository(BookingParticipant);
-        await participants.save(
-          plan.participantIds.map((userId) => participants.create({ bookingId: saved.id, userId })),
+      const participants = manager.getRepository(BookingParticipant);
+      let firstId: number | null = null;
+      for (const [i, plan] of plans.entries()) {
+        try {
+          await this.lockAndCheck(manager, plan, null);
+        } catch (error) {
+          if (error instanceof ConflictException && seriesId) {
+            throw new ConflictException(`${dates[i]}: ${error.message}`);
+          }
+          throw error;
+        }
+        const saved = await repo.save(
+          repo.create({
+            type: plan.type,
+            title: plan.title,
+            purpose: plan.purpose,
+            description: plan.description,
+            resourceId: plan.resource?.id ?? null,
+            location: plan.location,
+            startAt: plan.startAt,
+            endAt: plan.endAt,
+            status: BookingStatus.CONFIRMED,
+            organizerId: plan.organizerId,
+            createdById: caller.sub,
+            seriesId,
+          }),
         );
+        if (plan.participantIds.length) {
+          await participants.save(
+            plan.participantIds.map((userId) =>
+              participants.create({ bookingId: saved.id, userId }),
+            ),
+          );
+        }
+        firstId ??= saved.id;
       }
-      return saved.id;
+      return firstId!;
     });
 
     const booking = await this.load(id);
     if (booking.type === BookingType.MEETING) {
+      // One invitation for the whole series, not one per day.
       await this.notifyMeeting(
         booking,
         booking.participants.map((p) => p.userId),
         'invited',
+        undefined,
+        dto.repeat && seriesId
+          ? ` Repeats ${REPEAT_LABEL[dto.repeat.frequency]} until ${dto.repeat.until} (${dates.length} meetings).`
+          : '',
       );
     }
     return toBookingDto(booking, caller);
@@ -629,7 +706,8 @@ export class BookingsService {
 
   private assertCanManage(booking: Booking, caller: JwtUserPayload): void {
     const own = booking.organizerId === caller.sub || booking.createdById === caller.sub;
-    const admin = booking.type !== BookingType.MEETING && BOOKING_ADMIN_ROLES.includes(caller.role);
+    const admin =
+      !PERSONAL_BOOKING_TYPES.includes(booking.type) && BOOKING_ADMIN_ROLES.includes(caller.role);
     if (!own && !admin) {
       throw new ForbiddenException(
         booking.type === BookingType.MEETING
@@ -711,10 +789,32 @@ export class BookingsService {
     id: number,
     reason: string | undefined,
     caller: JwtUserPayload,
+    scope: 'ONE' | 'FOLLOWING' = 'ONE',
   ): Promise<BookingDto> {
     const booking = await this.load(id);
     this.assertCanManage(booking, caller);
     this.assertChangeable(booking);
+
+    // "This and following" in a repeating booking: cancel the later ones quietly, then this one
+    // below (which sends the usual notice once).
+    if (scope === 'FOLLOWING' && booking.seriesId) {
+      await this.bookingsRepo
+        .createQueryBuilder()
+        .update(Booking)
+        .set({
+          status: BookingStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancelledById: caller.sub,
+          cancelReason: reason?.trim() || null,
+          sequence: () => 'sequence + 1',
+        })
+        .where('series_id = :series AND start_at > :start AND status = :status', {
+          series: booking.seriesId,
+          start: booking.startAt,
+          status: BookingStatus.CONFIRMED,
+        })
+        .execute();
+    }
 
     // Conditional update: two clicks / two people cancelling at once only cancel (and notify) once.
     const result = await this.bookingsRepo
@@ -755,6 +855,7 @@ export class BookingsService {
     userIds: number[],
     notice: MeetingNotice,
     before?: Booking,
+    extra = '',
   ): Promise<void> {
     if (!userIds.length) return;
     const when = formatBookingWhen(booking.startAt, booking.endAt);
@@ -764,7 +865,7 @@ export class BookingsService {
     const copy: Record<MeetingNotice, { title: string; body: string }> = {
       invited: {
         title: `Meeting invite: ${booking.title}`,
-        body: `${organizer} invited you to a meeting on ${when}.`,
+        body: `${organizer} invited you to a meeting on ${when}.${extra}`,
       },
       rescheduled: {
         title: `Meeting updated: ${booking.title}`,

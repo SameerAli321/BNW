@@ -7,10 +7,14 @@ import { Notification } from '../entities/notification.entity';
 import { WorkOrdersController } from './work-orders.controller';
 import { WorkOrdersService } from './work-orders.service';
 import { WorkOrdersPdfService } from './work-orders-pdf.service';
+import { SalarySlipsModule } from '../salary-slips/salary-slips.module';
 
 /** Work orders: reimbursement claims + equipment requests with an approval chain. */
 @Module({
-  imports: [TypeOrmModule.forFeature([WorkOrder, AppSetting, User, Notification])],
+  imports: [
+    TypeOrmModule.forFeature([WorkOrder, AppSetting, User, Notification]),
+    SalarySlipsModule,
+  ],
   controllers: [WorkOrdersController],
   providers: [WorkOrdersService, WorkOrdersPdfService],
 })

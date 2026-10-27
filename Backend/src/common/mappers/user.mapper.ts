@@ -25,11 +25,16 @@ export interface UserDto {
   mustChangePassword: boolean;
   /** Opted in to a notification for every new request (HR / Admin / CEO). */
   notifyAllRequests: boolean;
+  /** Written by the person themselves — shown on the Team Hierarchy side panel. */
+  aboutMe: string | null;
   createdAt: string;
   updatedAt: string;
   // From employee_profiles — only present when the profile was loaded (see `profile` option).
   contactNumber?: string | null;
   cnic?: string | null;
+  // Salary account — with the profile, HR / ADMIN callers only (alongside compensation).
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
   // Compensation — only present for HR / ADMIN callers (see `includeCompensation`).
   currentSalary?: number | null;
   previousSalary?: number | null;
@@ -74,12 +79,17 @@ export function toUserDto(user: User, options: UserDtoOptions = {}): UserDto {
     avatarUrl: user.avatarPath ? `/users/avatars/${user.avatarPath}` : null,
     mustChangePassword: user.mustChangePassword,
     notifyAllRequests: !!user.notifyAllRequests,
+    aboutMe: user.aboutMe ?? null,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };
   if (options.profile !== undefined) {
     dto.contactNumber = options.profile?.phone ?? null;
     dto.cnic = options.profile?.nationalId ?? null;
+  }
+  if (options.includeCompensation && options.profile !== undefined) {
+    dto.bankName = options.profile?.bankName ?? null;
+    dto.bankAccountNumber = options.profile?.bankAccountNumber ?? null;
   }
   if (options.includeCompensation) {
     dto.currentSalary = user.currentSalary ?? null;

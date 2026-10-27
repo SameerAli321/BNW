@@ -3,6 +3,7 @@ import type { SWRConfiguration } from 'swr';
 import { useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 
+import { FEATURES } from 'src/features';
 import axiosInstance, { fetcher, endpoints } from 'src/lib/axios';
 
 // ----------------------------------------------------------------------
@@ -21,8 +22,11 @@ export type FormAssignmentType =
 
 export type FormAssignmentStatus = 'PENDING' | 'COMPLETED' | 'CANCELLED';
 
-/** Same labels as the backend's FORM_ASSIGNMENT_FORMS (the DTO also carries `formLabel`). */
-export const FORM_ASSIGNMENT_TYPE_OPTIONS: { value: FormAssignmentType; label: string }[] = [
+/**
+ * Same labels as the backend's FORM_ASSIGNMENT_FORMS (the DTO also carries `formLabel`).
+ * Attendance regularization is left out while that section is switched off (src/features.ts).
+ */
+const ALL_FORM_ASSIGNMENT_TYPE_OPTIONS: { value: FormAssignmentType; label: string }[] = [
   { value: 'LEAVE', label: 'Leave request' },
   { value: 'COMPLAINT', label: 'Complaint' },
   { value: 'ATTENDANCE_REGULARIZATION', label: 'Attendance regularization' },
@@ -31,6 +35,10 @@ export const FORM_ASSIGNMENT_TYPE_OPTIONS: { value: FormAssignmentType; label: s
   { value: 'REIMBURSEMENT', label: 'Reimbursement claim' },
   { value: 'EQUIPMENT', label: 'Equipment request' },
 ];
+
+export const FORM_ASSIGNMENT_TYPE_OPTIONS = ALL_FORM_ASSIGNMENT_TYPE_OPTIONS.filter(
+  (option) => FEATURES.attendanceRegularization || option.value !== 'ATTENDANCE_REGULARIZATION'
+);
 
 export const FORM_ASSIGNMENT_STATUS_COLOR: Record<
   FormAssignmentStatus,

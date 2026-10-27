@@ -16,6 +16,7 @@ import TextField from '@mui/material/TextField';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
 import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { fDate } from 'src/utils/format-time';
@@ -43,6 +44,13 @@ import { OnboardingFormDetails, OnboardingFormStatusLabel } from '../onboarding-
 // ----------------------------------------------------------------------
 
 type Values = Record<OnboardingFormField, string>;
+
+const PHONE_PATTERN = /^\+?[0-9][0-9\s-]{6,19}$/;
+
+function phoneError(value: string, label: string): string | null {
+  if (!value.trim()) return `Enter your ${label.toLowerCase()}`;
+  return PHONE_PATTERN.test(value.trim()) ? null : `${label}: digits only, e.g. 0300-1234567`;
+}
 
 function initialValues(
   form: OnboardingFormDto | null,
@@ -80,12 +88,19 @@ type EditorProps = {
 };
 
 function OnboardingFormEditor({ myForm, prefill }: EditorProps) {
+  const router = useRouter();
   const { user } = useAuthContext();
   const [values, setValues] = useState<Values>(() => initialValues(myForm, prefill));
   const [acknowledged, setAcknowledged] = useState(false);
   const [signatureText, setSignatureText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [triedSubmit, setTriedSubmit] = useState(false);
+
+  const phoneErrors = {
+    phone: phoneError(values.phone, 'Mobile number'),
+    alternatePhone: phoneError(values.alternatePhone, 'Alternate number'),
+  };
 
   const recorded = myForm?.status === 'RECORDED';
 
@@ -98,6 +113,12 @@ function OnboardingFormEditor({ myForm, prefill }: EditorProps) {
   });
 
   const onSubmit = async () => {
+    setTriedSubmit(true);
+    const phoneProblem = phoneErrors.phone ?? phoneErrors.alternatePhone;
+    if (phoneProblem) {
+      toast.error(phoneProblem);
+      return;
+    }
     if (!acknowledged) {
       toast.error('Tick the acknowledgment to confirm the information is accurate');
       return;
@@ -110,6 +131,7 @@ function OnboardingFormEditor({ myForm, prefill }: EditorProps) {
     try {
       await submitMyOnboardingForm({ ...values, acknowledged, signatureText });
       toast.success(myForm ? 'Onboarding form updated!' : 'Onboarding form submitted to HR!');
+      router.push(paths.dashboard.root);
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : 'Submit failed!');
@@ -211,10 +233,10 @@ function OnboardingFormEditor({ myForm, prefill }: EditorProps) {
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
+                    type="date"
                     label="Date of joining"
-                    value={user?.joinDate ? fDate(user.joinDate) : '—'}
-                    fullWidth
-                    disabled
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    {...field('dateOfJoining')}
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
@@ -246,9 +268,24 @@ function OnboardingFormEditor({ myForm, prefill }: EditorProps) {
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
-                    label="Phone number"
-                    slotProps={{ htmlInput: { maxLength: 30 } }}
+                    required
+                    label="Mobile number"
+                    placeholder="0300-1234567"
+                    error={triedSubmit && !!phoneErrors.phone}
+                    helperText={triedSubmit ? phoneErrors.phone : undefined}
+                    slotProps={{ htmlInput: { maxLength: 30, inputMode: 'tel' } }}
                     {...field('phone')}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    required
+                    label="Alternate number"
+                    placeholder="0321-7654321"
+                    error={triedSubmit && !!phoneErrors.alternatePhone}
+                    helperText={triedSubmit ? phoneErrors.alternatePhone : undefined}
+                    slotProps={{ htmlInput: { maxLength: 30, inputMode: 'tel' } }}
+                    {...field('alternatePhone')}
                   />
                 </Grid>
               </Grid>

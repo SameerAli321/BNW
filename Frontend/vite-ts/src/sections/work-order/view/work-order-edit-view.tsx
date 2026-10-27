@@ -35,10 +35,14 @@ export function WorkOrderEditView() {
       <DashboardContent>
         <EmptyContent
           filled
-          title={workOrder ? 'This work order can no longer be edited' : 'Unable to load this work order'}
+          title={
+            workOrder
+              ? 'This work order can no longer be amended'
+              : 'Unable to load this work order'
+          }
           description={
             workOrder
-              ? 'An approver has already acted on it.'
+              ? 'It has already been paid / issued, rejected or voided.'
               : "Either it doesn't exist, or you don't have permission to view it."
           }
           action={

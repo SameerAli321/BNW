@@ -13,8 +13,14 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
-import { BookingResourceType, BookingStatus, BookingType } from '../../common/enums/booking.enum';
+import {
+  BookingRepeat,
+  BookingResourceType,
+  BookingStatus,
+  BookingType,
+} from '../../common/enums/booking.enum';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -22,7 +28,10 @@ const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? val
 
 /** Edit / reschedule (PATCH /bookings/:id) — the booking's type can't change. */
 export class UpdateBookingDto {
-  /** Required for meetings; rooms / pool table get a default title when it's left empty. */
+  /**
+   * Required for meetings and "Others" (the activity, e.g. "Namaz"); rooms / pool table get a
+   * default title when it's left empty.
+   */
   @IsOptional()
   @Transform(trim)
   @IsString()
@@ -76,10 +85,25 @@ export class UpdateBookingDto {
   participantIds?: number[];
 }
 
+/** Repeat a new booking daily / on weekdays / weekly up to and including `until`. */
+export class BookingRepeatDto {
+  @IsEnum(BookingRepeat, { message: 'Repeat must be daily, weekdays or weekly' })
+  frequency: BookingRepeat;
+
+  /** Last day (Pakistan time), 'YYYY-MM-DD'. */
+  @Matches(DATE, { message: 'Repeat until must be YYYY-MM-DD' })
+  until: string;
+}
+
 /** POST /bookings */
 export class CreateBookingDto extends UpdateBookingDto {
   @IsEnum(BookingType)
   type: BookingType;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => BookingRepeatDto)
+  repeat?: BookingRepeatDto;
 }
 
 export class CancelBookingDto {
@@ -88,6 +112,11 @@ export class CancelBookingDto {
   @IsString()
   @MaxLength(1000)
   reason?: string;
+
+  /** For a repeating booking: just this one (default), or this one and every later one. */
+  @IsOptional()
+  @IsIn(['ONE', 'FOLLOWING'])
+  scope?: 'ONE' | 'FOLLOWING';
 }
 
 /** GET /bookings — calendar range and list filters. */

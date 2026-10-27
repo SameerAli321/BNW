@@ -52,8 +52,16 @@ export class OnboardingForm {
   @Column({ name: 'zip_code', type: 'varchar', length: 20, nullable: true })
   zipCode: string | null;
 
+  /** Mobile number. */
   @Column({ type: 'varchar', length: 30, nullable: true })
   phone: string | null;
+
+  @Column({ name: 'alternate_phone', type: 'varchar', length: 30, nullable: true })
+  alternatePhone: string | null;
+
+  /** As the employee entered it; the account's join date is the official one once HR sets it. */
+  @Column({ name: 'date_of_joining', type: 'date', nullable: true })
+  dateOfJoining: string | null;
 
   // Employment information
   @Column({ name: 'reason_for_leaving', type: 'text', nullable: true })

@@ -122,6 +122,10 @@ export class User {
   @Column({ name: 'notify_all_requests', type: 'boolean', default: false })
   notifyAllRequests: boolean;
 
+  /** A few lines about themselves, written by the person (Team Hierarchy side panel). */
+  @Column({ name: 'about_me', type: 'varchar', length: 400, nullable: true })
+  aboutMe: string | null;
+
   @Column({ name: 'must_change_password', type: 'boolean', default: true })
   mustChangePassword: boolean;
 

@@ -100,9 +100,10 @@ const QUICK_ACTIONS: QuickAction[] = [
 
 /** Shortcut tiles to the pages this role uses most — only routes the role can open. */
 export function DashboardQuickActions({ role }: { role?: string }) {
-  const actions = QUICK_ACTIONS.filter(
-    (a) => !a.roles || (!!role && a.roles.includes(role))
-  ).slice(0, 4);
+  const actions = QUICK_ACTIONS.filter((a) => !a.roles || (!!role && a.roles.includes(role))).slice(
+    0,
+    4
+  );
   // Forms HR / Admin sent the caller that are still waiting — shown as a badge on "Requests".
   const { myFormAssignments } = useGetMyFormAssignments('PENDING');
   const pendingForms = myFormAssignments.length;

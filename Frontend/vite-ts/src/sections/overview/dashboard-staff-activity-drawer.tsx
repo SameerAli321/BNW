@@ -33,19 +33,21 @@ import { EmptyContent } from 'src/components/empty-content';
 
 type PaletteColor = 'primary' | 'secondary' | 'info' | 'success' | 'warning' | 'error';
 
-const KIND_META: Record<StaffActivityKind, { label: string; icon: IconifyName; color: PaletteColor }> =
-  {
-    LEAVE: { label: 'Leave', icon: 'solar:calendar-date-bold', color: 'warning' },
-    ATTENDANCE: { label: 'Attendance', icon: 'solar:clock-circle-bold', color: 'info' },
-    WORK_ORDER: { label: 'Work orders', icon: 'solar:bill-list-bold', color: 'secondary' },
-    APPRAISAL: { label: 'Appraisals', icon: 'solar:cup-star-bold', color: 'primary' },
-    LETTER: { label: 'Letters', icon: 'solar:letter-bold', color: 'primary' },
-    COMPLAINT: { label: 'Complaints', icon: 'solar:chat-round-dots-bold', color: 'error' },
-    FORM: { label: 'Forms sent', icon: 'solar:file-check-bold-duotone', color: 'info' },
-    MEETING: { label: 'Meetings', icon: 'solar:users-group-rounded-bold', color: 'success' },
-    DAILY_LOG: { label: 'Daily log', icon: 'solar:notebook-bold-duotone', color: 'secondary' },
-    DOCUMENT: { label: 'Documents', icon: 'solar:file-text-bold', color: 'info' },
-  };
+const KIND_META: Record<
+  StaffActivityKind,
+  { label: string; icon: IconifyName; color: PaletteColor }
+> = {
+  LEAVE: { label: 'Leave', icon: 'solar:calendar-date-bold', color: 'warning' },
+  ATTENDANCE: { label: 'Attendance', icon: 'solar:clock-circle-bold', color: 'info' },
+  WORK_ORDER: { label: 'Work orders', icon: 'solar:bill-list-bold', color: 'secondary' },
+  APPRAISAL: { label: 'Appraisals', icon: 'solar:cup-star-bold', color: 'primary' },
+  LETTER: { label: 'Letters', icon: 'solar:letter-bold', color: 'primary' },
+  COMPLAINT: { label: 'Complaints', icon: 'solar:chat-round-dots-bold', color: 'error' },
+  FORM: { label: 'Forms sent', icon: 'solar:file-check-bold-duotone', color: 'info' },
+  MEETING: { label: 'Meetings', icon: 'solar:users-group-rounded-bold', color: 'success' },
+  DAILY_LOG: { label: 'Daily log', icon: 'solar:notebook-bold-duotone', color: 'secondary' },
+  DOCUMENT: { label: 'Documents', icon: 'solar:file-text-bold', color: 'info' },
+};
 
 /** 'PENDING_MANAGER' → 'Pending manager'. */
 const statusText = (status: string) =>
@@ -242,7 +244,9 @@ export function DashboardStaffActivityDrawer({ person, onClose }: Props) {
                 <EmptyContent
                   title={items.length ? 'Nothing here' : 'No activity yet'}
                   description={
-                    items.length ? 'Try another filter.' : 'Requests, letters and meetings will show here.'
+                    items.length
+                      ? 'Try another filter.'
+                      : 'Requests, letters and meetings will show here.'
                   }
                   sx={{ py: 6 }}
                 />

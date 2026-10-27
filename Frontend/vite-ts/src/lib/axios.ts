@@ -31,6 +31,7 @@ export const endpoints = {
     resetPassword: (id: number | string) => `/users/${id}/reset-password`,
     // Own profile picture — POST (multipart 'file') to upload / replace, DELETE to remove.
     myAvatar: '/users/me/avatar',
+    myAbout: '/users/me/about',
     // HR / ADMIN — someone else's profile picture.
     avatar: (id: number | string) => `/users/${id}/avatar`,
     // PATCH { notifyAllRequests } — HR / ADMIN / CEO opt in to a notification for every new request.
@@ -180,6 +181,19 @@ export const endpoints = {
     details: (id: number | string) => `/salary-slips/${id}`,
     pdf: (id: number | string) => `/salary-slips/${id}/pdf`,
     send: (id: number | string) => `/salary-slips/${id}/send`,
+  },
+  // Monthly payroll sheet — HR / ADMIN edit every cell, the accountant (PAYROLL) Tax and Paid.
+  payroll: {
+    sheet: '/payroll',
+    workingDays: '/payroll/working-days',
+    export: '/payroll/export',
+    entry: (employeeId: number | string) => `/payroll/${employeeId}`,
+    generate: (employeeId: number | string) => `/payroll/${employeeId}/generate`,
+  },
+  // Employee loans repaid in monthly instalments from salary.
+  loans: {
+    list: '/loans',
+    cancel: (id: number | string) => `/loans/${id}/cancel`,
   },
   // About us — company details + CEO message (CEO / HR / ADMIN edit; photo upload is multipart 'file').
   about: {

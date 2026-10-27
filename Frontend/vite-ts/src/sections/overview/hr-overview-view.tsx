@@ -6,6 +6,7 @@ import { useTheme } from '@mui/material/styles';
 
 import { paths } from 'src/routes/paths';
 
+import { FEATURES } from 'src/features';
 import { useGetDashboard } from 'src/actions/dashboard';
 
 import { DashboardStatCard } from './dashboard-stat-card';
@@ -119,13 +120,17 @@ export function HrOverviewView({ announcements, quickActions }: DashboardSharedB
                 icon: 'solar:calendar-date-bold',
                 color: 'primary',
               },
-              {
-                label: 'Attendance forms to record',
-                count: pending.attendanceHr,
-                href: paths.dashboard.attendanceRegularizations.root,
-                icon: 'solar:clock-circle-bold',
-                color: 'info',
-              },
+              ...(FEATURES.attendanceRegularization
+                ? [
+                    {
+                      label: 'Attendance forms to record',
+                      count: pending.attendanceHr,
+                      href: paths.dashboard.attendanceRegularizations.root,
+                      icon: 'solar:clock-circle-bold' as const,
+                      color: 'info' as const,
+                    },
+                  ]
+                : []),
               {
                 label: 'Open complaints',
                 count: pending.complaintsOpen,

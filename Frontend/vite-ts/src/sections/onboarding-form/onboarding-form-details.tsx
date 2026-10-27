@@ -45,7 +45,8 @@ export function OnboardingFormDetails({ form, hideHrSection }: Props) {
           value={form.dateOfJoining && fDate(form.dateOfJoining)}
         />
         <HrFormField label="Address" value={address} />
-        <HrFormField label="Phone number" value={form.phone} />
+        <HrFormField label="Mobile number" value={form.phone} />
+        <HrFormField label="Alternate number" value={form.alternatePhone} />
         <HrFormField label="Email address" value={form.email} />
       </HrFormSection>
 

@@ -15,18 +15,24 @@ import { SalaryLineItem, SalarySlip } from '../entities/salary-slip.entity';
 import { User } from '../entities/user.entity';
 import { EmployeeProfile } from '../entities/employee-profile.entity';
 import { Notification } from '../entities/notification.entity';
-import { SalarySlipEmailStatus } from '../common/enums/salary-slip.enum';
+import {
+  SalarySlipEmailStatus,
+  SalarySlipScheme,
+  SecurityDeductionMode,
+} from '../common/enums/salary-slip.enum';
 import { RoleName } from '../common/enums/role.enum';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { UPLOADS_ROOT_DIR } from '../employees/employee-documents.storage';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { MailService } from '../mail/mail.service';
-import { CreateSalarySlipDto, QuerySalarySlipsDto, SalaryLineItemDto } from './dto/salary-slip.dto';
+import { CreateSalarySlipDto, QuerySalarySlipsDto } from './dto/salary-slip.dto';
+import { LoansService } from './loans.service';
+import { PayrollEntriesService } from './payroll-entries.service';
 import { SalarySlipPdfService } from './salary-slip-pdf.service';
 import { ensureSalarySlipsDirExists, SALARY_SLIPS_DIR } from './salary-slip.storage';
 import { renderSalarySlipEmail } from './salary-slip-email';
 import {
-  calculateSalary,
+  calculatePayroll,
   daysInMonth,
   formatSalaryAmount,
   formatSalaryMonth,
@@ -39,9 +45,14 @@ export const SALARY_SLIP_MANAGER_ROLES: string[] = [RoleName.HR, RoleName.ADMIN]
 export const canManageSalarySlips = (caller: JwtUserPayload) =>
   SALARY_SLIP_MANAGER_ROLES.includes(caller.role);
 
+/** Who can open the payroll sheet and any slip on it: managers plus the accountant (PAYROLL). */
+export const PAYROLL_SHEET_ROLES: string[] = [...SALARY_SLIP_MANAGER_ROLES, RoleName.PAYROLL];
+
+export const canViewPayroll = (caller: JwtUserPayload) => PAYROLL_SHEET_ROLES.includes(caller.role);
+
 const fullName = (u: Pick<User, 'firstName' | 'lastName'>) => `${u.firstName} ${u.lastName}`.trim();
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
-const slipReference = (slip: Pick<SalarySlip, 'id' | 'revision'>) =>
+export const slipReference = (slip: Pick<SalarySlip, 'id' | 'revision'>) =>
   `SS-${String(slip.id).padStart(6, '0')}${slip.revision > 1 ? `-R${slip.revision}` : ''}`;
 
 export interface SalarySlipDto {
@@ -62,6 +73,21 @@ export interface SalarySlipDto {
   overtime: number;
   deductions: SalaryLineItem[];
   tax: number;
+  scheme: SalarySlipScheme;
+  nationalId: string | null;
+  unpaidDays: number;
+  perDaySalary: number | null;
+  unpaidDeduction: number;
+  securityMode: SecurityDeductionMode | null;
+  securityDeduction: number;
+  loanDeduction: number;
+  loanId: number | null;
+  loanInstalmentNo: number | null;
+  loanInstalments: number | null;
+  loanBalanceAfter: number | null;
+  nonTaxableAddition: number;
+  taxableAddition: number;
+  taxableSalary: number | null;
   totalAllowances: number;
   grossSalary: number;
   totalDeductions: number;
@@ -105,6 +131,21 @@ export function toSalarySlipDto(row: SalarySlip, viewer?: JwtUserPayload): Salar
     overtime: row.overtime,
     deductions: row.deductions ?? [],
     tax: row.tax,
+    scheme: row.scheme,
+    nationalId: row.nationalId,
+    unpaidDays: row.unpaidDays,
+    perDaySalary: row.perDaySalary,
+    unpaidDeduction: row.unpaidDeduction,
+    securityMode: row.securityMode,
+    securityDeduction: row.securityDeduction,
+    loanDeduction: row.loanDeduction,
+    loanId: row.loanId,
+    loanInstalmentNo: row.loanInstalmentNo,
+    loanInstalments: row.loanInstalments,
+    loanBalanceAfter: row.loanBalanceAfter,
+    nonTaxableAddition: row.nonTaxableAddition,
+    taxableAddition: row.taxableAddition,
+    taxableSalary: row.taxableSalary,
     totalAllowances: row.totalAllowances,
     grossSalary: row.grossSalary,
     totalDeductions: row.totalDeductions,
@@ -135,9 +176,6 @@ const currentMonth = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 };
 
-const cleanItems = (items: SalaryLineItemDto[] | undefined): SalaryLineItem[] =>
-  (items ?? []).map((item) => ({ label: item.label.trim(), amount: Number(item.amount) }));
-
 /**
  * Salary slips: HR / Admin pick an employee and month, enter the figures (pre-filled from the last
  * slip), and the server calculates the totals, stores the slip and renders its PDF. The PDF is
@@ -159,6 +197,8 @@ export class SalarySlipsService {
     private readonly pdf: SalarySlipPdfService,
     private readonly mail: MailService,
     private readonly auditLog: AuditLogService,
+    private readonly loans: LoansService,
+    private readonly entries: PayrollEntriesService,
   ) {}
 
   // --------------------------------------------------------------------------------------------
@@ -191,6 +231,12 @@ export class SalarySlipsService {
       relations: ['generatedBy'],
       order: { salaryMonth: 'DESC', createdAt: 'DESC' },
     });
+    const [payroll, loan, workingDays] = await Promise.all([
+      this.entries.inputsFor([employee], month),
+      this.loans.instalmentFor(employeeId, month),
+      this.entries.workingDaysFor(month),
+    ]);
+    const row = payroll.get(employeeId)!;
     return {
       employee: {
         id: employee.id,
@@ -203,11 +249,18 @@ export class SalarySlipsService {
         joinDate: employee.joinDate,
         bankName: profile?.bankName ?? null,
         bankAccountNumberMasked: maskAccountNumber(profile?.bankAccountNumber ?? null),
+        nationalId: profile?.nationalId ?? null,
         currentSalary: employee.currentSalary,
         deductionPolicy: employee.deductionPolicy,
       },
       salaryMonth: month,
       daysInMonth: daysInMonth(month),
+      /** The sheet's working days for the month. */
+      workingDays,
+      /** This month's row on the payroll sheet (saved, or the starting values). */
+      payroll: { ...row.inputs, saved: !!row.entry },
+      /** The loan instalment due this month, if the employee is repaying one. */
+      loan,
       existing: existing ? toSalarySlipDto(existing) : null,
       previous: previous ? toSalarySlipDto(previous) : null,
     };
@@ -256,7 +309,7 @@ export class SalarySlipsService {
   async findForViewer(id: number, caller: JwtUserPayload): Promise<SalarySlip> {
     const slip = await this.repo.findOne({ where: { id }, relations: ['generatedBy'] });
     if (!slip) throw new NotFoundException('Salary slip not found');
-    if (canManageSalarySlips(caller)) return slip;
+    if (canViewPayroll(caller)) return slip;
     if (slip.employeeId !== caller.sub || slip.supersededAt !== null) {
       // Same answer as "not found" so ids can't be probed.
       throw new NotFoundException('Salary slip not found');
@@ -317,29 +370,76 @@ export class SalarySlipsService {
         `${fullName(employee)} joined on ${employee.joinDate} — choose a month from then onwards`,
       );
     }
-    if (dto.workingDays !== undefined && dto.workingDays > daysInMonth(dto.salaryMonth)) {
+    if (dto.workingDays > daysInMonth(dto.salaryMonth)) {
       throw new BadRequestException(
         `${formatSalaryMonth(dto.salaryMonth)} only has ${daysInMonth(dto.salaryMonth)} days`,
       );
     }
+    const unpaidDays = Number(dto.unpaidDays ?? 0);
+    if (unpaidDays > dto.workingDays) {
+      throw new BadRequestException('Unpaid holidays cannot be more than the working days');
+    }
 
-    const inputs = {
-      basicSalary: Number(dto.basicSalary),
-      allowances: cleanItems(dto.allowances),
-      bonus: Number(dto.bonus ?? 0),
-      overtime: Number(dto.overtime ?? 0),
-      deductions: cleanItems(dto.deductions),
-      tax: Number(dto.tax ?? 0),
+    // Loan: the scheduled instalment unless a different amount was typed in for this month.
+    const loan = await this.loans.instalmentFor(employee.id, dto.salaryMonth);
+    const loanDeduction =
+      dto.loanDeduction !== undefined ? Number(dto.loanDeduction) : (loan?.amount ?? 0);
+    this.loans.assertLoanDeduction(loanDeduction, loan, fullName(employee));
+
+    // Tax is entered by the accountant on the payroll sheet — the slip always takes it from there.
+    const savedRow = (await this.entries.forMonth([employee.id], dto.salaryMonth)).get(employee.id);
+    const securityMode = dto.securityMode ?? SecurityDeductionMode.NONE;
+    const payrollInputs = {
+      grossSalary: Number(dto.basicSalary),
+      workingDays: dto.workingDays,
+      unpaidDays,
+      securityMode,
+      securityAmount:
+        securityMode === SecurityDeductionMode.MANUAL ? Number(dto.securityAmount ?? 0) : 0,
+      tax: savedRow?.tax ?? 0,
+      loanDeduction,
+      nonTaxableAddition: Number(dto.nonTaxableAddition ?? 0),
+      taxableAddition: Number(dto.taxableAddition ?? 0),
+      paid: 0,
     };
-    const totals = calculateSalary(inputs);
-    if (totals.grossSalary <= 0) {
+    const totals = calculatePayroll(payrollInputs);
+    if (totals.totalEarnings <= 0) {
       throw new BadRequestException('Total earnings must be more than zero');
     }
     if (totals.netSalary < 0) {
       throw new BadRequestException(
-        `Deductions (${formatSalaryAmount(totals.totalDeductions)}) are more than the total earnings (${formatSalaryAmount(totals.grossSalary)})`,
+        `Deductions (${formatSalaryAmount(totals.totalDeductions)}) are more than the total earnings (${formatSalaryAmount(totals.totalEarnings)})`,
       );
     }
+    const usesLoan = !!loan && loanDeduction > 0;
+    const slipFigures = {
+      scheme: SalarySlipScheme.PAYROLL,
+      basicSalary: payrollInputs.grossSalary,
+      allowances: [] as SalaryLineItem[],
+      bonus: 0,
+      overtime: 0,
+      deductions: [] as SalaryLineItem[],
+      tax: payrollInputs.tax,
+      unpaidDays,
+      perDaySalary: totals.perDaySalary,
+      unpaidDeduction: totals.unpaidDeduction,
+      securityMode,
+      securityDeduction: totals.securityDeduction,
+      loanDeduction,
+      loanId: usesLoan ? loan.loanId : null,
+      loanInstalmentNo: usesLoan ? loan.instalmentNo : null,
+      loanInstalments: usesLoan ? loan.instalments : null,
+      loanBalanceAfter: usesLoan
+        ? (Math.round(loan.remainingBefore * 100) - Math.round(loanDeduction * 100)) / 100
+        : null,
+      nonTaxableAddition: payrollInputs.nonTaxableAddition,
+      taxableAddition: payrollInputs.taxableAddition,
+      taxableSalary: totals.taxableSalary,
+      totalAllowances: totals.totalAdditions,
+      grossSalary: totals.totalEarnings,
+      totalDeductions: totals.totalDeductions,
+      netSalary: totals.netSalary,
+    };
 
     const profile = await this.profilesRepo.findOne({ where: { userId: employee.id } });
     const monthLabel = formatSalaryMonth(dto.salaryMonth);
@@ -375,6 +475,28 @@ export class SalarySlipsService {
           await repo.update(existing.id, { supersededAt: new Date() });
           replaced = existing;
         }
+        await this.entries.upsert(
+          employee.id,
+          dto.salaryMonth,
+          {
+            grossSalary: payrollInputs.grossSalary,
+            workingDays: payrollInputs.workingDays,
+            unpaidDays,
+            securityMode,
+            securityAmount: payrollInputs.securityAmount,
+            tax: payrollInputs.tax,
+            // Only remember an override when it differs from the loan schedule.
+            loanOverride:
+              dto.loanDeduction !== undefined && loanDeduction !== (loan?.amount ?? 0)
+                ? loanDeduction
+                : null,
+            nonTaxableAddition: payrollInputs.nonTaxableAddition,
+            taxableAddition: payrollInputs.taxableAddition,
+            paid: savedRow?.paid ?? 0,
+          },
+          caller.sub,
+          manager,
+        );
         return repo.save(
           repo.create({
             employeeId: employee.id,
@@ -384,14 +506,14 @@ export class SalarySlipsService {
             employeeCode: employee.employeeCode,
             designation: employee.designation,
             departmentName: employee.department?.name ?? null,
-            ...inputs,
-            ...totals,
+            nationalId: profile?.nationalId ?? null,
+            ...slipFigures,
             paymentDate: dto.paymentDate ?? null,
             paymentMethod:
               dto.paymentMethod ?? (profile?.bankAccountNumber ? 'Bank transfer' : null),
             bankName: profile?.bankName ?? null,
             bankAccountNumber: profile?.bankAccountNumber ?? null,
-            workingDays: dto.workingDays ?? null,
+            workingDays: dto.workingDays,
             notes: dto.notes?.trim() || null,
             emailStatus: SalarySlipEmailStatus.NOT_SENT,
             generatedById: caller.sub,

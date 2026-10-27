@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  IsIn,
   IsBoolean,
   IsEnum,
   IsInt,
@@ -151,6 +152,14 @@ export class ProcessWorkOrderDto extends WorkOrderDecisionDto {
   @IsString()
   @MaxLength(200)
   reference?: string;
+
+  /**
+   * Approving a reimbursement: add it to this month's payroll (non-taxable addition on the
+   * payroll sheet) or pay it separately. Required then; ignored otherwise.
+   */
+  @IsOptional()
+  @IsIn(['ADD_TO_PAYROLL', 'PAID_SEPARATELY'])
+  payment?: 'ADD_TO_PAYROLL' | 'PAID_SEPARATELY';
 }
 
 export class QueryWorkOrdersDto {

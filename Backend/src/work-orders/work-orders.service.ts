@@ -10,6 +10,7 @@ import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { Brackets, In, Repository } from 'typeorm';
 import { WorkOrder } from '../entities/work-order.entity';
+import { PayrollEntriesService } from '../salary-slips/payroll-entries.service';
 import { AppSetting } from '../entities/app-setting.entity';
 import { User } from '../entities/user.entity';
 import { Notification } from '../entities/notification.entity';
@@ -99,6 +100,8 @@ export interface WorkOrderDto {
   processorApproved: boolean | null;
   processorRemarks: string | null;
   processorReference: string | null;
+  /** Reimbursements: the payroll month it was added to, or null (paid separately / not yet). */
+  payrollMonth: string | null;
   processorSignatureText: string | null;
   processedAt: string | null;
   createdAt: string;
@@ -144,6 +147,7 @@ export function toWorkOrderDto(row: WorkOrder): WorkOrderDto {
     processorApproved: row.processorApproved,
     processorRemarks: row.processorRemarks,
     processorReference: row.processorReference,
+    payrollMonth: row.payrollMonth,
     processorSignatureText: row.processorSignatureText,
     processedAt: iso(row.processedAt),
     createdAt: row.createdAt.toISOString(),
@@ -157,6 +161,12 @@ type ListScope =
   | { kind: 'queue'; caller: JwtUserPayload }
   | { kind: 'all'; caller: JwtUserPayload };
 
+/** This month as 'YYYY-MM' — where an approved claim goes on the payroll sheet. */
+const currentPayrollMonth = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
 /**
  * Work orders — reimbursement claims and equipment requests. Employee submits → line manager →
  * CEO (only when the amount is over the limit in app_settings) → Payroll pays a reimbursement /
@@ -165,6 +175,7 @@ type ListScope =
 @Injectable()
 export class WorkOrdersService {
   constructor(
+    private readonly payrollEntries: PayrollEntriesService,
     @InjectRepository(WorkOrder) private readonly repo: Repository<WorkOrder>,
     @InjectRepository(AppSetting) private readonly settingsRepo: Repository<AppSetting>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
@@ -356,18 +367,19 @@ export class WorkOrdersService {
   // --------------------------------------------------------------------------------------------
   // Edit
 
-  /** Why it can't be edited any more, or null while it's pending and nobody has decided yet. */
+  /**
+   * Why it can't be edited any more, or null while it's still pending. It can be amended until
+   * the final step (paid / issued); amending after a manager or CEO approval sends it back for
+   * approval again (client CEO, Oct 2026).
+   */
   private editBlocker(row: WorkOrder): string | null {
-    if (!PENDING.includes(row.status)) {
-      return `This work order is already ${row.status.toLowerCase().replace(/_/g, ' ')} — it can no longer be edited`;
-    }
-    if (row.managerSignedAt || row.ceoSignedAt || row.processedAt) {
-      return 'An approver has already acted on this work order — it can no longer be edited';
+    if (!PENDING.includes(row.status) || row.processedAt) {
+      return `This work order is already ${row.status.toLowerCase().replace(/_/g, ' ')} — it can no longer be amended`;
     }
     return null;
   }
 
-  /** The requester, or HR / Admin on their behalf, until the first decision. */
+  /** The requester, or HR / Admin on their behalf, until the final step. */
   private canEdit(row: WorkOrder, caller: JwtUserPayload): boolean {
     const allowed =
       row.employeeId === caller.sub ||
@@ -433,12 +445,27 @@ export class WorkOrdersService {
         merged.amount !== null &&
         merged.amount > ceoApprovalLimit &&
         row.employee.role !== RoleName.CEO;
+      // Amending after an approval starts the approvals again from the first step.
+      const reapprove = !!(row.managerSignedAt || row.ceoSignedAt);
       const status =
-        row.status === WorkOrderStatus.PENDING_MANAGER
-          ? row.status
+        row.managerId && (reapprove || row.status === WorkOrderStatus.PENDING_MANAGER)
+          ? WorkOrderStatus.PENDING_MANAGER
           : ceoRequired
             ? WorkOrderStatus.PENDING_CEO
             : WorkOrderStatus.PENDING_PROCESSING;
+      const clearApprovals: Partial<WorkOrder> = reapprove
+        ? {
+            managerApproved: null,
+            managerRemarks: null,
+            managerSignatureText: null,
+            managerSignedAt: null,
+            ceoUserId: null,
+            ceoApproved: null,
+            ceoRemarks: null,
+            ceoSignatureText: null,
+            ceoSignedAt: null,
+          }
+        : {};
 
       const receiptPatch: Partial<WorkOrder> = receipt
         ? {
@@ -453,7 +480,7 @@ export class WorkOrdersService {
       // Only while it's still in the same status — a decision landing at the same moment wins.
       const result = await this.repo.update(
         { id, status: row.status },
-        { ...merged, ceoRequired, status, ...receiptPatch },
+        { ...merged, ceoRequired, status, ...receiptPatch, ...clearApprovals },
       );
       if (!result.affected) {
         throw new ConflictException('This work order was just updated by someone else — refresh');
@@ -465,7 +492,7 @@ export class WorkOrdersService {
       if (ids.length) {
         await this.notify(
           ids,
-          `${fullName(updated.employee)} edited their ${TYPE_LABEL[updated.type]} "${updated.title}" — please review the updated details`,
+          `${fullName(updated.employee)} ${reapprove ? 'amended' : 'edited'} their ${TYPE_LABEL[updated.type]} "${updated.title}"${reapprove ? ' after it was approved' : ''} — please review the updated details`,
           updated,
           { heading: 'Request updated — needs your approval', emailToo: true },
         );
@@ -581,7 +608,25 @@ export class WorkOrdersService {
     if (row.employeeId === caller.sub) {
       throw new ForbiddenException('You cannot approve your own request — ask a colleague');
     }
+    const addToPayroll =
+      dto.approved && row.type === WorkOrderType.REIMBURSEMENT && dto.payment === 'ADD_TO_PAYROLL';
+    if (dto.approved && row.type === WorkOrderType.REIMBURSEMENT && !dto.payment) {
+      throw new BadRequestException(
+        "Choose whether to add it to this month's payroll or pay it separately",
+      );
+    }
+    const payrollMonth = addToPayroll ? currentPayrollMonth() : null;
+    if (addToPayroll) {
+      if (!row.amount) throw new BadRequestException('This claim has no amount to add to payroll');
+      await this.payrollEntries.addNonTaxable(
+        row.employeeId,
+        payrollMonth!,
+        row.amount,
+        caller.sub,
+      );
+    }
     await this.repo.update(id, {
+      payrollMonth,
       processorId: caller.sub,
       processorApproved: dto.approved,
       processorRemarks: dto.remarks?.trim() || null,

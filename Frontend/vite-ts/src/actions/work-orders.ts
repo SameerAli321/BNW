@@ -76,11 +76,16 @@ export interface WorkOrderDto {
   processorReference: string | null;
   processorSignatureText: string | null;
   processedAt: string | null;
+  /** Reimbursements: the payroll month ('YYYY-MM') it was added to, or null. */
+  payrollMonth: string | null;
   createdAt: string;
   updatedAt: string;
-  // Detail reads only: the caller may still edit it (no decision recorded yet).
+  // Detail reads only: the caller may still amend it (until the final step).
   canEdit?: boolean;
 }
+
+/** How an approved reimbursement is paid. */
+export type ReimbursementPayment = 'ADD_TO_PAYROLL' | 'PAID_SEPARATELY';
 
 export type WorkOrderSettings = {
   ceoApprovalLimit: number;
@@ -225,7 +230,10 @@ export const submitWorkOrderManagerDecision = (id: number, body: WorkOrderDecisi
 export const submitWorkOrderCeoDecision = (id: number, body: WorkOrderDecision) =>
   decide(endpoints.workOrders.ceoDecision(id), body);
 
-export const processWorkOrder = (id: number, body: WorkOrderDecision & { reference?: string }) =>
+export const processWorkOrder = (
+  id: number,
+  body: WorkOrderDecision & { reference?: string; payment?: ReimbursementPayment }
+) =>
   decide(endpoints.workOrders.process(id), body);
 
 export const cancelWorkOrder = (id: number) => decide(endpoints.workOrders.cancel(id), {});

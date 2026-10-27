@@ -479,10 +479,16 @@ export function BarChartCard({
     chart: { stacked },
     colors: colors ?? categoricalColors(theme),
     xaxis: { categories },
-    yaxis: horizontal ? {} : { forceNiceScale: true, labels: { formatter: (v: number) => fNumber(v) } },
+    yaxis: horizontal
+      ? {}
+      : { forceNiceScale: true, labels: { formatter: (v: number) => fNumber(v) } },
     legend: { show: multi && !distributed, position: 'top', horizontalAlign: 'right' },
     tooltip: { y: { formatter: format } },
-    dataLabels: { enabled: horizontal && !stacked, formatter: (v: number) => format(v), offsetX: 16 },
+    dataLabels: {
+      enabled: horizontal && !stacked,
+      formatter: (v: number) => format(v),
+      offsetX: 16,
+    },
     plotOptions: {
       bar: {
         horizontal,
@@ -556,7 +562,12 @@ export function MonthlyTrendCard({
       {empty ? (
         <EmptyChart label={emptyLabel} height={height} />
       ) : (
-        <Chart type={type} series={data.series} options={chartOptions} sx={{ height, px: 1.5, pb: 1.5 }} />
+        <Chart
+          type={type}
+          series={data.series}
+          options={chartOptions}
+          sx={{ height, px: 1.5, pb: 1.5 }}
+        />
       )}
     </ChartCard>
   );
@@ -729,7 +740,12 @@ export function OnLeaveTodayCard({
                 <Typography variant="subtitle2" noWrap>
                   {item.employeeName}
                 </Typography>
-                <Typography variant="caption" noWrap component="div" sx={{ color: 'text.secondary' }}>
+                <Typography
+                  variant="caption"
+                  noWrap
+                  component="div"
+                  sx={{ color: 'text.secondary' }}
+                >
                   {item.leaveTypeName}
                 </Typography>
               </Box>

@@ -37,6 +37,7 @@ import {
   fSalary,
   useGetSalarySlips,
   EMAIL_STATUS_LABEL,
+  PAYROLL_SHEET_ROLES,
   SALARY_SLIP_MANAGER_ROLES,
 } from 'src/actions/salary-slips';
 
@@ -72,6 +73,8 @@ export function SalarySlipListView() {
   const router = useRouter();
   const { user } = useAuthContext();
   const canManage = SALARY_SLIP_MANAGER_ROLES.includes(user?.role ?? '');
+  // Slips are generated on Salary Calculation (HR / Admin / the accountant) — linked from here.
+  const canPayroll = PAYROLL_SHEET_ROLES.includes(user?.role ?? '');
 
   const [scope, setScope] = useState<SalarySlipScope>(canManage ? 'all' : 'mine');
   const isAll = canManage && scope === 'all';
@@ -124,15 +127,14 @@ export function SalarySlipListView() {
         heading="Salary slips"
         links={[{ name: 'Dashboard', href: paths.dashboard.root }, { name: 'Salary slips' }]}
         action={
-          canManage && (
+          canPayroll && (
             <Button
               component={RouterLink}
-              href={paths.dashboard.salarySlips.new}
-              variant="contained"
-              color="primary"
-              startIcon={<Iconify icon="mingcute:add-line" />}
+              href={paths.dashboard.salaryCalculation}
+              variant="outlined"
+              startIcon={<Iconify icon="solar:bill-list-bold" />}
             >
-              Generate salary slip
+              Salary calculation
             </Button>
           )
         }
@@ -140,7 +142,7 @@ export function SalarySlipListView() {
       />
       <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
         {canManage
-          ? 'Generate a salary slip for an employee, check the PDF, then email it to their registered address. Every slip is kept here with its email status.'
+          ? 'Every salary slip with its email status — view, download, print or email them here. Slips are generated from the payroll sheet under Salary Calculation.'
           : 'Your monthly salary slips. Open one to view, download or print it.'}
       </Typography>
 

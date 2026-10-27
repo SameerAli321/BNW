@@ -18,6 +18,8 @@ export type PolicySection = {
   number: string;
   title: string;
   icon: IconifyName;
+  /** One line shown on the topic card, so a new joiner knows what's inside before opening it. */
+  summary: string;
   blocks: PolicyBlock[];
   subsections?: PolicySubsection[];
 };
@@ -30,6 +32,7 @@ export const POLICY_SECTIONS: PolicySection[] = [
     number: '1',
     title: 'Introduction and Purpose',
     icon: 'solar:info-circle-bold',
+    summary: 'What this handbook is and why it matters.',
     blocks: [
       {
         kind: 'p',
@@ -42,6 +45,7 @@ export const POLICY_SECTIONS: PolicySection[] = [
     number: '2',
     title: 'Employee Responsibilities and Prevention of Harassment',
     icon: 'solar:users-group-rounded-bold',
+    summary: 'How we treat each other, and how to raise a concern safely.',
     blocks: [],
     subsections: [
       {
@@ -84,6 +88,7 @@ export const POLICY_SECTIONS: PolicySection[] = [
     number: '3',
     title: 'Employment Administration and Employee Records',
     icon: 'solar:user-id-bold',
+    summary: 'The documents HR needs from you and how your records are kept.',
     blocks: [],
     subsections: [
       {
@@ -131,6 +136,7 @@ export const POLICY_SECTIONS: PolicySection[] = [
     number: '4',
     title: 'Working Hours, Attendance and Timekeeping',
     icon: 'solar:clock-circle-bold',
+    summary: 'Office hours, lunch and prayer breaks.',
     blocks: [],
     subsections: [
       {
@@ -167,6 +173,7 @@ export const POLICY_SECTIONS: PolicySection[] = [
     number: '5',
     title: 'Attendance Records',
     icon: 'solar:check-circle-bold',
+    summary: 'Marking attendance, running late and leaving early.',
     blocks: [
       { kind: 'p', text: "Employees must use the company's designated attendance system." },
       {
@@ -217,6 +224,7 @@ export const POLICY_SECTIONS: PolicySection[] = [
     number: '6',
     title: 'Annual Leave and Paid/Public Holiday Policy',
     icon: 'solar:calendar-date-bold',
+    summary: 'Holidays, annual leave, how to apply and sick leave.',
     blocks: [],
     subsections: [
       {
@@ -336,6 +344,7 @@ export const POLICY_SECTIONS: PolicySection[] = [
     number: '7',
     title: 'Code of Conduct and Professional Behaviour',
     icon: 'solar:verified-check-bold',
+    summary: 'Professional behaviour and how to dress.',
     blocks: [
       {
         kind: 'p',
@@ -382,6 +391,7 @@ export const POLICY_SECTIONS: PolicySection[] = [
     number: '8',
     title: 'Confidentiality and Client Information',
     icon: 'solar:shield-keyhole-bold-duotone',
+    summary: 'Keeping client and company information safe.',
     blocks: [
       {
         kind: 'p',
@@ -418,6 +428,7 @@ export const POLICY_SECTIONS: PolicySection[] = [
     number: '9',
     title: 'Use of Artificial Intelligence and Automation',
     icon: 'solar:atom-bold-duotone',
+    summary: 'Using AI tools safely, and mobile phones at work.',
     blocks: [
       {
         kind: 'p',
@@ -447,6 +458,7 @@ export const POLICY_SECTIONS: PolicySection[] = [
     number: '10',
     title: 'Expenses, Travel and Company Property',
     icon: 'solar:wad-of-money-bold',
+    summary: 'Claiming expenses and looking after company property.',
     blocks: [
       {
         kind: 'p',
@@ -475,6 +487,7 @@ export const POLICY_SECTIONS: PolicySection[] = [
     number: '13',
     title: 'Leaving the Company and Final Settlement',
     icon: 'solar:suitcase-tag-bold',
+    summary: 'Notice period, handover and final settlement.',
     blocks: [
       {
         kind: 'p',
@@ -504,9 +517,10 @@ export const POLICY_SECTIONS: PolicySection[] = [
   },
   {
     id: 'annual-dinner',
-    number: '14',
+    number: '12',
     title: 'Annual Dinner',
     icon: 'solar:confetti-minimalistic-outline',
+    summary: 'Our yearly get-together.',
     blocks: [
       {
         kind: 'p',
@@ -516,9 +530,10 @@ export const POLICY_SECTIONS: PolicySection[] = [
   },
   {
     id: 'innovation',
-    number: '15',
+    number: '11',
     title: 'Innovation & Continuous Improvement Policy',
     icon: 'solar:cup-star-bold',
+    summary: 'Share ideas that improve how we work and get rewarded.',
     blocks: [
       {
         kind: 'highlight',
@@ -536,6 +551,139 @@ export const POLICY_SECTIONS: PolicySection[] = [
     ],
   },
 ];
+
+// ----------------------------------------------------------------------
+
+export type PolicyGroup = {
+  id: string;
+  title: string;
+  description: string;
+  icon: IconifyName;
+  sectionIds: string[];
+};
+
+/** The handbook split into a few themes, so a new joiner isn't faced with one long list. */
+export const POLICY_GROUPS: PolicyGroup[] = [
+  {
+    id: 'start',
+    title: 'Getting started',
+    description: 'Read these first.',
+    icon: 'solar:home-angle-bold-duotone',
+    sectionIds: ['introduction', 'responsibilities', 'records'],
+  },
+  {
+    id: 'time',
+    title: 'Time & leave',
+    description: 'Hours, attendance and time off.',
+    icon: 'solar:calendar-date-bold',
+    sectionIds: ['working-hours', 'attendance', 'leave'],
+  },
+  {
+    id: 'work',
+    title: 'How we work',
+    description: 'Conduct, client data, AI and expenses.',
+    icon: 'solar:case-minimalistic-bold',
+    sectionIds: ['conduct', 'confidentiality', 'ai', 'expenses'],
+  },
+  {
+    id: 'life',
+    title: 'Life at BNW',
+    description: 'Ideas, events and moving on.',
+    icon: 'solar:heart-bold',
+    sectionIds: ['innovation', 'annual-dinner', 'leaving'],
+  },
+];
+
+const sectionById = new Map(POLICY_SECTIONS.map((s) => [s.id, s]));
+
+/** Every section in reading order (group by group). */
+export const POLICY_READING_ORDER: PolicySection[] = POLICY_GROUPS.flatMap((g) =>
+  g.sectionIds.map((id) => sectionById.get(id)!)
+);
+
+export function groupOf(sectionId: string): PolicyGroup | undefined {
+  return POLICY_GROUPS.find((g) => g.sectionIds.includes(sectionId));
+}
+
+export type PolicyQuickFact = {
+  icon: IconifyName;
+  label: string;
+  value: string;
+  detail: string;
+  sectionId: string;
+};
+
+/** The rules people ask about most, so a new joiner gets them without reading everything. */
+export const POLICY_QUICK_FACTS: PolicyQuickFact[] = [
+  {
+    icon: 'solar:clock-circle-bold',
+    label: 'Working hours',
+    value: '1:30 PM – 9:30 PM',
+    detail: '1 hour lunch plus short prayer breaks',
+    sectionId: 'working-hours',
+  },
+  {
+    icon: 'solar:danger-triangle-bold',
+    label: 'Running late?',
+    value: 'Tell your manager & HR',
+    detail: 'Within 15 minutes of your start time. 1:30 hrs late counts as a short leave.',
+    sectionId: 'attendance',
+  },
+  {
+    icon: 'solar:calendar-date-bold',
+    label: 'Annual leave',
+    value: '20 days a year',
+    detail: 'January – December, pro rata if you join mid-year',
+    sectionId: 'leave',
+  },
+  {
+    icon: 'solar:flag-bold',
+    label: 'Public holidays',
+    value: '5 days',
+    detail: 'Eid-ul-Fitr (2), Eid-ul-Adha (2) and Ashura (1)',
+    sectionId: 'leave',
+  },
+  {
+    icon: 'solar:letter-bold',
+    label: 'Leave notice',
+    value: '3 days · 1 week · 2 weeks',
+    detail: 'For 1 day · 2–5 days · more than 5 days off',
+    sectionId: 'leave',
+  },
+  {
+    icon: 'solar:restart-bold',
+    label: 'Carry forward',
+    value: 'Up to 5 days',
+    detail: 'Unused leave above 5 days is not carried over',
+    sectionId: 'leave',
+  },
+  {
+    icon: 'solar:medical-kit-bold',
+    label: 'Off sick',
+    value: "Doctor's note after 1 day",
+    detail: 'Sick days may be adjusted against your paid leave',
+    sectionId: 'leave',
+  },
+  {
+    icon: 'solar:shield-keyhole-bold-duotone',
+    label: 'Client information',
+    value: 'Keep it confidential',
+    detail: 'No personal or freelance accounts, finance or tax work',
+    sectionId: 'confidentiality',
+  },
+  {
+    icon: 'solar:atom-bold-duotone',
+    label: 'AI tools',
+    value: 'No client data',
+    detail: 'Only approved tools, and check every AI output. Phones stay on silent.',
+    sectionId: 'ai',
+  },
+];
+
+/** Rough reading time in minutes. */
+export function readingMinutes(section: PolicySection): number {
+  return Math.max(1, Math.round(sectionText(section).split(/\s+/).length / 200));
+}
 
 /** All the text of a section (for search). */
 export function sectionText(section: PolicySection): string {

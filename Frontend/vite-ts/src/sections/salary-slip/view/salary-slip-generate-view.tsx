@@ -1,5 +1,9 @@
 import type { UserDto } from 'src/types/user';
-import type { SalarySlipDto, SalarySlipDefaults } from 'src/actions/salary-slips';
+import type {
+  SalarySlipDto,
+  SalarySlipDefaults,
+  SecurityDeductionMode,
+} from 'src/actions/salary-slips';
 
 import { useMemo, useState, useEffect } from 'react';
 
@@ -14,7 +18,6 @@ import Checkbox from '@mui/material/Checkbox';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import CardHeader from '@mui/material/CardHeader';
-import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -34,13 +37,14 @@ import { useGetUser, useGetUsers } from 'src/actions/users';
 import {
   fSalary,
   fSalaryMonth,
-  calculateSalary,
+  calculatePayroll,
   createSalarySlip,
   currentSalaryMonth,
   previousSalaryMonth,
   SALARY_PAYMENT_METHODS,
   useGetSalarySlipDefaults,
   SALARY_SLIP_MANAGER_ROLES,
+  SECURITY_DEDUCTION_OPTIONS,
 } from 'src/actions/salary-slips';
 
 import { Label } from 'src/components/label';
@@ -60,65 +64,63 @@ import {
 
 // ----------------------------------------------------------------------
 
-type LineItemField = { key: number; label: string; amount: string };
-
 type FormState = {
-  basicSalary: string;
-  allowances: LineItemField[];
-  bonus: string;
-  overtime: string;
-  deductions: LineItemField[];
+  grossSalary: string;
+  workingDays: string;
+  unpaidDays: string;
+  securityMode: SecurityDeductionMode;
+  securityAmount: string;
   tax: string;
+  /** '' = take the loan schedule's instalment. */
+  loanOverride: string;
+  nonTaxableAddition: string;
+  taxableAddition: string;
   paymentMethod: string;
   paymentDate: string;
-  workingDays: string;
   notes: string;
 };
 
-const MAX_ITEMS = 12;
-let nextKey = 1;
-const item = (label = '', amount = ''): LineItemField => ({ key: nextKey++, label, amount });
-
 const EMPTY_FORM: FormState = {
-  basicSalary: '',
-  allowances: [],
-  bonus: '',
-  overtime: '',
-  deductions: [],
+  grossSalary: '',
+  workingDays: '',
+  unpaidDays: '',
+  securityMode: 'NONE',
+  securityAmount: '',
   tax: '',
+  loanOverride: '',
+  nonTaxableAddition: '',
+  taxableAddition: '',
   paymentMethod: 'Bank transfer',
   paymentDate: '',
-  workingDays: '',
   notes: '',
 };
 
 const num = (value: string) => (value.trim() === '' ? 0 : Number(value));
-const amountText = (value: number) => (value ? String(value) : '');
+const amountText = (value: number | null | undefined) => (value ? String(value) : '');
 
-/** Start from this month's slip (when revising) or the employee's last slip. */
+/**
+ * Start from this month's payroll sheet row (the server fills a new month from the employee's
+ * account — current salary — and last month's security deduction), plus the slip's payment
+ * details when revising.
+ */
 function formFromDefaults(defaults: SalarySlipDefaults): FormState {
-  const source = defaults.existing ?? defaults.previous;
-  if (!source) {
-    return {
-      ...EMPTY_FORM,
-      // No earlier slip — start from the salary on the employee's record.
-      basicSalary: amountText(defaults.employee.currentSalary ?? 0),
-      paymentMethod: defaults.employee.bankAccountNumberMasked ? 'Bank transfer' : '',
-    };
-  }
-  const sameMonth = source.salaryMonth === defaults.salaryMonth;
+  const row = defaults.payroll;
+  const existing = defaults.existing;
+  const source = existing ?? defaults.previous;
   return {
-    basicSalary: amountText(source.basicSalary),
-    allowances: source.allowances.map((a) => item(a.label, String(a.amount))),
-    // Bonus / overtime / working days / payment date / notes change month to month.
-    bonus: sameMonth ? amountText(source.bonus) : '',
-    overtime: sameMonth ? amountText(source.overtime) : '',
-    deductions: source.deductions.map((d) => item(d.label, String(d.amount))),
-    tax: amountText(source.tax),
-    paymentMethod: source.paymentMethod ?? '',
-    paymentDate: sameMonth ? (source.paymentDate ?? '') : '',
-    workingDays: sameMonth && source.workingDays !== null ? String(source.workingDays) : '',
-    notes: sameMonth ? (source.notes ?? '') : '',
+    grossSalary: amountText(row.grossSalary),
+    workingDays: String(row.workingDays || defaults.workingDays),
+    unpaidDays: amountText(row.unpaidDays),
+    securityMode: row.securityMode,
+    securityAmount: amountText(row.securityAmount),
+    tax: amountText(row.tax),
+    loanOverride: row.loanOverride === null ? '' : String(row.loanOverride),
+    nonTaxableAddition: amountText(row.nonTaxableAddition),
+    taxableAddition: amountText(row.taxableAddition),
+    paymentMethod:
+      source?.paymentMethod ?? (defaults.employee.bankAccountNumberMasked ? 'Bank transfer' : ''),
+    paymentDate: existing?.paymentDate ?? '',
+    notes: existing?.notes ?? '',
   };
 }
 
@@ -135,9 +137,10 @@ function amountError(value: string, required = false): string | null {
 // ----------------------------------------------------------------------
 
 /**
- * Generate a salary slip (HR / ADMIN): pick the employee + month → the form is pre-filled from
- * their last slip → totals update live → Generate stores the slip and its PDF → preview, download,
- * print and email it to the employee's registered address from the same page.
+ * Generate a salary slip (HR / ADMIN) with the payroll sheet's formula: pick the employee + month
+ * → the figures come from their payroll sheet row (gross salary, CNIC and bank from their
+ * account; loan instalment from their loan) → totals update live → Generate stores the slip and
+ * shows that employee's PDF to download, print or email.
  */
 export function SalarySlipGenerateView() {
   const router = useRouter();
@@ -187,18 +190,26 @@ export function SalarySlipGenerateView() {
   }, [users, selectedUser]);
   const selectedOption = employeeOptions.find((u) => u.id === employeeId) ?? null;
 
-  const totals = calculateSalary({
-    basicSalary: num(form.basicSalary),
-    allowances: form.allowances.map((a) => ({ label: a.label, amount: num(a.amount) })),
-    bonus: num(form.bonus),
-    overtime: num(form.overtime),
-    deductions: form.deductions.map((d) => ({ label: d.label, amount: num(d.amount) })),
+  const loan = defaults?.loan ?? null;
+  const loanDeduction =
+    form.loanOverride.trim() === '' ? (loan?.amount ?? 0) : num(form.loanOverride);
+  const totals = calculatePayroll({
+    grossSalary: num(form.grossSalary),
+    workingDays: num(form.workingDays),
+    unpaidDays: num(form.unpaidDays),
+    securityMode: form.securityMode,
+    securityAmount: num(form.securityAmount),
     tax: num(form.tax),
+    loanDeduction,
+    nonTaxableAddition: num(form.nonTaxableAddition),
+    taxableAddition: num(form.taxableAddition),
+    paid: 0,
   });
 
   // ---- Validation ----------------------------------------------------------------------------
   const daysInMonth = defaults?.daysInMonth ?? 31;
   const joinMonth = defaults?.employee.joinDate?.slice(0, 7) ?? null;
+  const workingDaysNum = num(form.workingDays);
   const errors = {
     month: !monthValid
       ? 'Choose a month'
@@ -207,37 +218,33 @@ export function SalarySlipGenerateView() {
         : joinMonth && month < joinMonth
           ? `Employee joined ${fDate(defaults?.employee.joinDate)}`
           : null,
-    basicSalary: amountError(form.basicSalary, true),
-    bonus: amountError(form.bonus),
-    overtime: amountError(form.overtime),
-    tax: amountError(form.tax),
+    grossSalary: amountError(form.grossSalary, true),
     workingDays:
-      form.workingDays.trim() === ''
+      !/^\d+$/.test(form.workingDays.trim()) || workingDaysNum < 1 || workingDaysNum > daysInMonth
+        ? `1–${daysInMonth}`
+        : null,
+    unpaidDays:
+      form.unpaidDays.trim() === ''
         ? null
-        : !/^\d+$/.test(form.workingDays.trim()) || Number(form.workingDays) > daysInMonth
-          ? `0–${daysInMonth}`
-          : null,
-    allowances: form.allowances.map((a) => ({
-      label: a.label.trim() ? null : 'Name required',
-      amount: amountError(a.amount, true),
-    })),
-    deductions: form.deductions.map((d) => ({
-      label: d.label.trim() ? null : 'Name required',
-      amount: amountError(d.amount, true),
-    })),
+        : !/^\d+(\.\d{1,2})?$/.test(form.unpaidDays.trim())
+          ? 'Enter days, e.g. 2.5'
+          : num(form.unpaidDays) > workingDaysNum
+            ? 'More than the working days'
+            : null,
+    securityAmount: form.securityMode === 'MANUAL' ? amountError(form.securityAmount, true) : null,
+    loanOverride:
+      amountError(form.loanOverride) ??
+      (form.loanOverride.trim() !== '' && num(form.loanOverride) > 0 && !loan
+        ? 'No loan to repay this month'
+        : loan && num(form.loanOverride) > loan.remainingBefore
+          ? `Only ${fSalary(loan.remainingBefore)} left`
+          : null),
+    nonTaxableAddition: amountError(form.nonTaxableAddition),
+    taxableAddition: amountError(form.taxableAddition),
   };
-  const fieldErrors = [
-    errors.month,
-    errors.basicSalary,
-    errors.bonus,
-    errors.overtime,
-    errors.tax,
-    errors.workingDays,
-    ...errors.allowances.flatMap((e) => [e.label, e.amount]),
-    ...errors.deductions.flatMap((e) => [e.label, e.amount]),
-  ].filter(Boolean);
+  const fieldErrors = Object.values(errors).filter(Boolean);
   const totalsError =
-    totals.grossSalary <= 0
+    totals.totalEarnings <= 0
       ? 'Total earnings must be more than zero.'
       : totals.netSalary < 0
         ? 'Deductions are more than the total earnings.'
@@ -256,19 +263,6 @@ export function SalarySlipGenerateView() {
   // ---- Form helpers --------------------------------------------------------------------------
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
-  const updateItem = (
-    list: 'allowances' | 'deductions',
-    key: number,
-    patch: Partial<LineItemField>
-  ) =>
-    setForm((prev) => ({
-      ...prev,
-      [list]: prev[list].map((entry) => (entry.key === key ? { ...entry, ...patch } : entry)),
-    }));
-  const removeItem = (list: 'allowances' | 'deductions', key: number) =>
-    setForm((prev) => ({ ...prev, [list]: prev[list].filter((entry) => entry.key !== key) }));
-  const addItem = (list: 'allowances' | 'deductions') =>
-    setForm((prev) => ({ ...prev, [list]: [...prev[list], item()] }));
 
   const startOver = () => {
     setResult(null);
@@ -296,23 +290,26 @@ export function SalarySlipGenerateView() {
       const slip = await createSalarySlip({
         employeeId,
         salaryMonth: month,
-        basicSalary: num(form.basicSalary),
-        allowances: form.allowances.map((a) => ({ label: a.label.trim(), amount: num(a.amount) })),
-        bonus: num(form.bonus),
-        overtime: num(form.overtime),
-        deductions: form.deductions.map((d) => ({ label: d.label.trim(), amount: num(d.amount) })),
-        tax: num(form.tax),
+        basicSalary: num(form.grossSalary),
+        workingDays: workingDaysNum,
+        unpaidDays: num(form.unpaidDays),
+        securityMode: form.securityMode,
+        securityAmount: form.securityMode === 'MANUAL' ? num(form.securityAmount) : undefined,
+        loanDeduction: form.loanOverride.trim() === '' ? undefined : num(form.loanOverride),
+        nonTaxableAddition: num(form.nonTaxableAddition),
+        taxableAddition: num(form.taxableAddition),
         paymentMethod: form.paymentMethod || undefined,
         paymentDate: form.paymentDate || undefined,
-        workingDays: form.workingDays.trim() ? Number(form.workingDays) : undefined,
         notes: form.notes.trim() || undefined,
         regenerate: regenerate || undefined,
       });
+      // Straight to the chosen employee's slip.
       setResult(slip);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       toast.success(
         slip.revision > 1
-          ? `Revised salary slip generated (revision ${slip.revision})`
-          : 'Salary slip generated'
+          ? `Revised salary slip generated for ${slip.employeeName} (revision ${slip.revision})`
+          : `Salary slip generated for ${slip.employeeName}`
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not generate the salary slip');
@@ -330,77 +327,26 @@ export function SalarySlipGenerateView() {
 
   // ---- Render --------------------------------------------------------------------------------
   const amountField = (
+    key: keyof FormState,
     label: string,
-    value: string,
-    onChange: (value: string) => void,
     error: string | null,
-    extra: { required?: boolean; helperText?: string } = {}
+    extra: { required?: boolean; helperText?: string; placeholder?: string } = {}
   ) => (
     <TextField
       fullWidth
       label={label}
-      value={value}
+      value={form[key]}
       required={extra.required}
-      onChange={(event) => onChange(event.target.value)}
+      placeholder={extra.placeholder}
+      onChange={(event) => set(key, event.target.value as never)}
       error={!!show(error)}
       helperText={show(error) ?? extra.helperText}
       slotProps={{
         input: { startAdornment: <InputAdornment position="start">Rs</InputAdornment> },
         htmlInput: { inputMode: 'decimal' },
+        ...(extra.placeholder && { inputLabel: { shrink: true } }),
       }}
     />
-  );
-
-  const lineItems = (list: 'allowances' | 'deductions', placeholder: string) => (
-    <Stack spacing={1.5}>
-      {form[list].map((entry, i) => (
-        <Stack
-          key={entry.key}
-          direction="row"
-          alignItems="flex-start"
-          flexWrap={{ xs: 'wrap', sm: 'nowrap' }}
-          sx={{ gap: 1 }}
-        >
-          <TextField
-            size="small"
-            label="Name"
-            placeholder={placeholder}
-            value={entry.label}
-            onChange={(event) => updateItem(list, entry.key, { label: event.target.value })}
-            error={!!show(errors[list][i]?.label)}
-            helperText={show(errors[list][i]?.label)}
-            slotProps={{ htmlInput: { maxLength: 60 } }}
-            sx={{ flex: { xs: '1 1 100%', sm: 1.4 } }}
-          />
-          <TextField
-            size="small"
-            label="Amount"
-            value={entry.amount}
-            onChange={(event) => updateItem(list, entry.key, { amount: event.target.value })}
-            error={!!show(errors[list][i]?.amount)}
-            helperText={show(errors[list][i]?.amount)}
-            slotProps={{
-              input: { startAdornment: <InputAdornment position="start">Rs</InputAdornment> },
-              htmlInput: { inputMode: 'decimal' },
-            }}
-            sx={{ flex: 1 }}
-          />
-          <IconButton color="error" onClick={() => removeItem(list, entry.key)} sx={{ mt: 0.5 }}>
-            <Iconify icon="solar:trash-bin-trash-bold" />
-          </IconButton>
-        </Stack>
-      ))}
-      <Box>
-        <Button
-          size="small"
-          startIcon={<Iconify icon="mingcute:add-line" />}
-          disabled={form[list].length >= MAX_ITEMS}
-          onClick={() => addItem(list)}
-        >
-          {list === 'allowances' ? 'Add allowance' : 'Add deduction'}
-        </Button>
-      </Box>
-    </Stack>
   );
 
   const summaryRow = (
@@ -583,59 +529,133 @@ export function SalarySlipGenerateView() {
                   </CardContent>
                 </Card>
 
-                {/* ---- Step 2: figures ---- */}
+                {/* ---- Step 2: figures (the payroll sheet's columns) ---- */}
                 {defaults && (
                   <Card>
                     <CardHeader
                       title="2. Salary details"
                       subheader={
-                        defaults.existing
-                          ? `Pre-filled from the current ${fSalaryMonth(defaults.salaryMonth)} slip.`
-                          : defaults.previous
-                            ? `Pre-filled from the ${defaults.previous.salaryMonthLabel} slip — check bonus and overtime for this month.`
-                            : defaults.employee.currentSalary !== null
-                              ? 'No earlier salary slip — gross salary starts from the current salary on their record. Add allowances and deductions.'
-                              : 'No earlier salary slip for this employee — enter the figures.'
+                        defaults.payroll.saved
+                          ? `From ${defaults.employee.name}'s row on the ${fSalaryMonth(defaults.salaryMonth)} payroll sheet.`
+                          : defaults.employee.currentSalary !== null
+                            ? 'Gross salary is from the employee’s account. Enter this month’s unpaid holidays and additions; the accountant enters the tax.'
+                            : 'No salary on the employee’s account yet — enter the gross salary.'
                       }
                     />
                     <CardContent>
                       <Stack spacing={3}>
                         <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-                          Earnings
+                          Salary & attendance
                         </Typography>
-                        <Box sx={{ mt: '0 !important' }}>
-                          {amountField(
-                            'Gross salary',
-                            form.basicSalary,
-                            (v) => set('basicSalary', v),
-                            errors.basicSalary,
-                            { required: true }
-                          )}
-                        </Box>
-                        <Box>
-                          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-                            Allowances
-                          </Typography>
-                          {lineItems('allowances', 'e.g. House rent')}
-                        </Box>
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                          {amountField('Bonus', form.bonus, (v) => set('bonus', v), errors.bonus)}
-                          {amountField(
-                            'Overtime',
-                            form.overtime,
-                            (v) => set('overtime', v),
-                            errors.overtime
-                          )}
+                        <Stack
+                          direction={{ xs: 'column', sm: 'row' }}
+                          spacing={2}
+                          sx={{ mt: '0 !important' }}
+                        >
+                          {amountField('grossSalary', 'Gross salary', errors.grossSalary, {
+                            required: true,
+                          })}
+                          <TextField
+                            fullWidth
+                            required
+                            label="Working days"
+                            value={form.workingDays}
+                            onChange={(event) => set('workingDays', event.target.value)}
+                            error={!!show(errors.workingDays)}
+                            helperText={
+                              show(errors.workingDays) ?? `Per day ${fSalary(totals.perDaySalary)}`
+                            }
+                            slotProps={{ htmlInput: { inputMode: 'numeric' } }}
+                          />
+                          <TextField
+                            fullWidth
+                            label="Unpaid holidays"
+                            value={form.unpaidDays}
+                            onChange={(event) => set('unpaidDays', event.target.value)}
+                            error={!!show(errors.unpaidDays)}
+                            helperText={
+                              show(errors.unpaidDays) ??
+                              (totals.unpaidDeduction
+                                ? `− ${fSalary(totals.unpaidDeduction)}`
+                                : 'Days, half days allowed')
+                            }
+                            slotProps={{ htmlInput: { inputMode: 'decimal' } }}
+                          />
                         </Stack>
 
                         <Divider />
                         <Typography variant="overline" sx={{ color: 'text.secondary' }}>
                           Deductions
                         </Typography>
-                        <Box sx={{ mt: '0 !important' }}>
-                          {lineItems('deductions', 'e.g. Provident fund')}
-                        </Box>
-                        {amountField('Income tax', form.tax, (v) => set('tax', v), errors.tax)}
+                        <Stack
+                          direction={{ xs: 'column', sm: 'row' }}
+                          spacing={2}
+                          sx={{ mt: '0 !important' }}
+                        >
+                          <TextField
+                            select
+                            fullWidth
+                            label="Security deduction"
+                            value={form.securityMode}
+                            onChange={(event) =>
+                              set('securityMode', event.target.value as SecurityDeductionMode)
+                            }
+                            helperText={
+                              form.securityMode !== 'MANUAL' && totals.securityDeduction
+                                ? `− ${fSalary(totals.securityDeduction)}`
+                                : ' '
+                            }
+                          >
+                            {SECURITY_DEDUCTION_OPTIONS.map((option) => (
+                              <MenuItem key={option.value} value={option.value}>
+                                {option.label}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                          {form.securityMode === 'MANUAL' &&
+                            amountField(
+                              'securityAmount',
+                              'Security amount',
+                              errors.securityAmount,
+                              {
+                                required: true,
+                              }
+                            )}
+                          <TextField
+                            fullWidth
+                            disabled
+                            label="Tax"
+                            value={fSalary(num(form.tax))}
+                            helperText="Entered by the accountant only, on the payroll sheet"
+                          />
+                        </Stack>
+                        {amountField('loanOverride', 'Loan deduction', errors.loanOverride, {
+                          placeholder: loan ? `${fSalary(loan.amount)} (scheduled)` : 'No loan',
+                          helperText: loan
+                            ? `Instalment ${loan.instalmentNo} of ${loan.instalments} — ${fSalary(loan.remainingBefore)} still owed of ${fSalary(loan.principal)}. Leave empty to take the scheduled instalment.`
+                            : 'No loan for this employee. Add one under Salary slips → Loans.',
+                        })}
+
+                        <Divider />
+                        <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+                          Additions
+                        </Typography>
+                        <Stack
+                          direction={{ xs: 'column', sm: 'row' }}
+                          spacing={2}
+                          sx={{ mt: '0 !important' }}
+                        >
+                          {amountField(
+                            'nonTaxableAddition',
+                            'Non-taxable addition',
+                            errors.nonTaxableAddition
+                          )}
+                          {amountField(
+                            'taxableAddition',
+                            'Taxable addition',
+                            errors.taxableAddition
+                          )}
+                        </Stack>
 
                         <Divider />
                         <Typography variant="overline" sx={{ color: 'text.secondary' }}>
@@ -668,15 +688,6 @@ export function SalarySlipGenerateView() {
                             onChange={(event) => set('paymentDate', event.target.value)}
                             slotProps={{ inputLabel: { shrink: true } }}
                           />
-                          <TextField
-                            fullWidth
-                            label="Working days"
-                            value={form.workingDays}
-                            onChange={(event) => set('workingDays', event.target.value)}
-                            error={!!show(errors.workingDays)}
-                            helperText={show(errors.workingDays) ?? `Out of ${daysInMonth}`}
-                            slotProps={{ htmlInput: { inputMode: 'numeric' } }}
-                          />
                         </Stack>
                         <TextField
                           fullWidth
@@ -700,21 +711,21 @@ export function SalarySlipGenerateView() {
                 <CardHeader title="Salary calculation" />
                 <CardContent>
                   <Stack spacing={1.25}>
-                    {summaryRow('Gross salary', num(form.basicSalary) || 0)}
-                    {summaryRow('Allowances', totals.totalAllowances)}
-                    {summaryRow('Bonus', num(form.bonus) || 0)}
-                    {summaryRow('Overtime', num(form.overtime) || 0)}
+                    {summaryRow('Gross salary', num(form.grossSalary) || 0)}
+                    {summaryRow('Non-taxable addition', num(form.nonTaxableAddition) || 0)}
+                    {summaryRow('Taxable addition', num(form.taxableAddition) || 0)}
                     <Divider sx={{ borderStyle: 'dashed' }} />
-                    {summaryRow('Total earnings', totals.grossSalary, { bold: true })}
-                    {summaryRow('Deductions', totals.totalDeductions - (num(form.tax) || 0), {
-                      negative: true,
-                    })}
-                    {summaryRow('Income tax', num(form.tax) || 0, { negative: true })}
+                    {summaryRow('Total earnings', totals.totalEarnings, { bold: true })}
+                    {summaryRow('Unpaid holidays', totals.unpaidDeduction, { negative: true })}
+                    {summaryRow('Security deduction', totals.securityDeduction, { negative: true })}
+                    {summaryRow('Tax', num(form.tax) || 0, { negative: true })}
+                    {summaryRow('Loan deduction', loanDeduction || 0, { negative: true })}
                     <Divider sx={{ borderStyle: 'dashed' }} />
                     {summaryRow('Total deductions', totals.totalDeductions, {
                       bold: true,
                       negative: true,
                     })}
+                    {summaryRow('Taxable salary', totals.taxableSalary)}
                     <Box
                       sx={{
                         mt: 1,
@@ -734,8 +745,8 @@ export function SalarySlipGenerateView() {
                       </Typography>
                     </Box>
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                      Total earnings = Gross salary + Allowances + Bonus + Overtime. Net = Total earnings − Total
-                      deductions.
+                      Net = Gross − Unpaid holidays − Security − Tax − Loan + Non-taxable addition +
+                      Taxable addition. Unpaid holidays = Gross ÷ Working days × Unpaid days.
                     </Typography>
 
                     {submitted && totalsError && <Alert severity="error">{totalsError}</Alert>}
@@ -786,7 +797,8 @@ export function SalarySlipGenerateView() {
 function EmployeeDetails({ defaults }: { defaults: SalarySlipDefaults }) {
   const { employee } = defaults;
   const rows: [string, string][] = [
-    ['Employee ID', employee.employeeCode ?? '—'],
+    ['Staff ID', employee.employeeCode ?? '—'],
+    ['ID card number', employee.nationalId ?? 'Not on file'],
     ['Designation', employee.designation ?? '—'],
     ['Department', employee.departmentName ?? '—'],
     ['Registered email', employee.email],

@@ -44,7 +44,11 @@ function TrendIndicator({ value }: { value: number }) {
       title="Change vs. 7 days ago"
     >
       {flat ? (
-        <Box component="span" aria-hidden sx={{ width: 10, height: 2, mr: 0.5, bgcolor: 'currentColor' }} />
+        <Box
+          component="span"
+          aria-hidden
+          sx={{ width: 10, height: 2, mr: 0.5, bgcolor: 'currentColor' }}
+        />
       ) : (
         <Iconify icon={up ? 'eva:trending-up-fill' : 'eva:trending-down-fill'} width={16} />
       )}

@@ -44,10 +44,10 @@ export function HierarchyCeoCard({
       id={`hierarchy-node-${person.id}`}
       onClick={onClick}
       sx={{
-        px: 3,
-        py: 2,
-        gap: 2,
-        minWidth: 280,
+        px: 2,
+        py: 1.25,
+        gap: 1.5,
+        minWidth: 220,
         borderRadius: 1.5,
         color: 'common.white',
         bgcolor: CEO_COLOR,
@@ -58,7 +58,7 @@ export function HierarchyCeoCard({
       <Avatar
         alt={person.name}
         src={avatarSrc(person.avatarUrl)}
-        sx={{ width: 64, height: 64, border: '2px solid rgba(255,255,255,0.6)', fontSize: 26 }}
+        sx={{ width: 48, height: 48, border: '2px solid rgba(255,255,255,0.6)', fontSize: 20 }}
       >
         {initial(person.name)}
       </Avatar>
@@ -69,7 +69,13 @@ export function HierarchyCeoCard({
         </Typography>
         <Typography
           variant="caption"
-          sx={{ display: 'block', mt: 0.5, opacity: 0.7, letterSpacing: 0.4, textTransform: 'uppercase' }}
+          sx={{
+            display: 'block',
+            mt: 0.5,
+            opacity: 0.7,
+            letterSpacing: 0.4,
+            textTransform: 'uppercase',
+          }}
         >
           {companyName}
         </Typography>
@@ -84,10 +90,10 @@ export function HierarchyCompanyBand({ company, count }: { company: Company; cou
   return (
     <Box
       sx={{
-        px: 3,
-        py: 1.5,
-        minWidth: 320,
-        maxWidth: 520,
+        px: 2,
+        py: 1,
+        minWidth: 240,
+        maxWidth: 420,
         mx: 'auto',
         borderRadius: 1,
         color: 'common.white',
@@ -115,16 +121,19 @@ export function HierarchyDepartmentBand({ name, company }: { name: string; compa
   return (
     <Box
       sx={{
-        px: 2.5,
-        py: 0.75,
-        minWidth: 200,
+        px: 2,
+        py: 0.5,
+        minWidth: 160,
         borderRadius: 0.75,
         display: 'inline-block',
         color: 'common.white',
         bgcolor: alpha(COMPANY_META[company].color, 0.85),
       }}
     >
-      <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase' }}>
+      <Typography
+        variant="caption"
+        sx={{ fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase' }}
+      >
         {name}
       </Typography>
     </Box>
@@ -141,16 +150,22 @@ type PersonProps = {
 };
 
 /** One person on the chart: photo, name, job title — tinted in their company's colour. */
-export function HierarchyNodeCard({ person, isMe, highlighted, totalReports, onClick }: PersonProps) {
+export function HierarchyNodeCard({
+  person,
+  isMe,
+  highlighted,
+  totalReports,
+  onClick,
+}: PersonProps) {
   const color = COMPANY_META[person.company]?.color ?? COMPANY_META.BNW.color;
   return (
     <ButtonBase
       id={`hierarchy-node-${person.id}`}
       onClick={onClick}
       sx={(theme) => ({
-        p: 1.5,
-        width: 190,
-        gap: 0.75,
+        p: 1,
+        width: 150,
+        gap: 0.5,
         borderRadius: 1,
         flexDirection: 'column',
         position: 'relative',
@@ -188,7 +203,7 @@ export function HierarchyNodeCard({ person, isMe, highlighted, totalReports, onC
       <Avatar
         alt={person.name}
         src={avatarSrc(person.avatarUrl)}
-        sx={{ width: 52, height: 52, border: `2px solid ${alpha(color, 0.5)}` }}
+        sx={{ width: 40, height: 40, border: `2px solid ${alpha(color, 0.5)}` }}
       >
         {initial(person.name)}
       </Avatar>
@@ -200,7 +215,10 @@ export function HierarchyNodeCard({ person, isMe, highlighted, totalReports, onC
       </Typography>
       {(person.employmentType === 'INTERN' || !!totalReports) && (
         <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-          {[person.employmentType === 'INTERN' ? 'Intern' : null, totalReports ? `${totalReports} below` : null]
+          {[
+            person.employmentType === 'INTERN' ? 'Intern' : null,
+            totalReports ? `${totalReports} below` : null,
+          ]
             .filter(Boolean)
             .join(' · ')}
         </Typography>

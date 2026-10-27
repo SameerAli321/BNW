@@ -218,13 +218,17 @@ export function BookingListView() {
                         tabIndex={0}
                         onClick={() => router.push(paths.dashboard.bookings.details(booking.id))}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') router.push(paths.dashboard.bookings.details(booking.id));
+                          if (e.key === 'Enter')
+                            router.push(paths.dashboard.bookings.details(booking.id));
                         }}
                         sx={{ cursor: 'pointer' }}
                       >
                         <TableCell>
                           <Stack direction="row" spacing={1.5} alignItems="center">
-                            <Iconify icon={meta.icon} sx={{ color: `${meta.color}.main`, flexShrink: 0 }} />
+                            <Iconify
+                              icon={meta.icon}
+                              sx={{ color: `${meta.color}.main`, flexShrink: 0 }}
+                            />
                             <Box sx={{ minWidth: 0 }}>
                               <Typography variant="subtitle2" noWrap sx={{ maxWidth: 260 }}>
                                 {booking.title}

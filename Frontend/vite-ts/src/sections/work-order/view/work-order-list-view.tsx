@@ -160,7 +160,9 @@ export function WorkOrderListView() {
       <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
         Reimbursements go to your line manager, then Payroll pays them. Equipment requests go to
         your line manager, then HR issues the item.
-        {settings ? ` Anything over ${fPkr(settings.ceoApprovalLimit)} also needs the CEO's approval.` : ''}
+        {settings
+          ? ` Anything over ${fPkr(settings.ceoApprovalLimit)} also needs the CEO's approval.`
+          : ''}
       </Typography>
 
       <Card>
@@ -248,17 +250,30 @@ export function WorkOrderListView() {
                 const href = paths.dashboard.workOrders.details(row.id);
                 return (
                   <TableRow key={row.id} hover>
-                    <TableCell sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>WO-{row.id}</TableCell>
+                    <TableCell sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                      WO-{row.id}
+                    </TableCell>
                     {showEmployee && (
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.employeeName}</TableCell>
                     )}
                     <TableCell sx={{ maxWidth: 320 }}>
-                      <Link component={RouterLink} href={href} color="inherit" sx={{ fontWeight: 600 }}>
+                      <Link
+                        component={RouterLink}
+                        href={href}
+                        color="inherit"
+                        sx={{ fontWeight: 600 }}
+                      >
                         {row.title}
                       </Link>
-                      <Typography variant="caption" component="div" sx={{ color: 'text.secondary' }}>
+                      <Typography
+                        variant="caption"
+                        component="div"
+                        sx={{ color: 'text.secondary' }}
+                      >
                         {row.category}
-                        {row.type === 'EQUIPMENT' && row.quantity && row.quantity > 1 ? ` · ×${row.quantity}` : ''}
+                        {row.type === 'EQUIPMENT' && row.quantity && row.quantity > 1
+                          ? ` · ×${row.quantity}`
+                          : ''}
                       </Typography>
                     </TableCell>
                     <TableCell>

@@ -8,7 +8,11 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { SalarySlipEmailStatus } from '../common/enums/salary-slip.enum';
+import {
+  SalarySlipEmailStatus,
+  SalarySlipScheme,
+  SecurityDeductionMode,
+} from '../common/enums/salary-slip.enum';
 import { User } from './user.entity';
 
 const money = {
@@ -78,6 +82,118 @@ export class SalarySlip {
 
   @Column({ type: 'numeric', precision: 12, scale: 2, default: 0, transformer: money })
   tax: number;
+
+  // --- Payroll sheet figures (scheme PAYROLL; zero / null on LEGACY slips) ---
+  @Column({ type: 'varchar', length: 10, default: SalarySlipScheme.LEGACY })
+  scheme: SalarySlipScheme;
+
+  /** CNIC at the time of generation ("Id Card Number" on the sheet). */
+  @Column({ name: 'national_id', type: 'varchar', length: 30, nullable: true })
+  nationalId: string | null;
+
+  @Column({
+    name: 'unpaid_days',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    default: 0,
+    transformer: money,
+  })
+  unpaidDays: number;
+
+  @Column({
+    name: 'per_day_salary',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+    transformer: money,
+  })
+  perDaySalary: number | null;
+
+  @Column({
+    name: 'unpaid_deduction',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    transformer: money,
+  })
+  unpaidDeduction: number;
+
+  @Column({ name: 'security_mode', type: 'varchar', length: 12, nullable: true })
+  securityMode: SecurityDeductionMode | null;
+
+  @Column({
+    name: 'security_deduction',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    transformer: money,
+  })
+  securityDeduction: number;
+
+  @Column({
+    name: 'loan_deduction',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    transformer: money,
+  })
+  loanDeduction: number;
+
+  @Index()
+  @Column({ name: 'loan_id', type: 'int', nullable: true })
+  loanId: number | null;
+
+  /** e.g. 2 of 6 — printed next to the loan deduction. */
+  @Column({ name: 'loan_instalment_no', type: 'int', nullable: true })
+  loanInstalmentNo: number | null;
+
+  @Column({ name: 'loan_instalments', type: 'int', nullable: true })
+  loanInstalments: number | null;
+
+  @Column({
+    name: 'loan_balance_after',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+    transformer: money,
+  })
+  loanBalanceAfter: number | null;
+
+  @Column({
+    name: 'non_taxable_addition',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    transformer: money,
+  })
+  nonTaxableAddition: number;
+
+  @Column({
+    name: 'taxable_addition',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    transformer: money,
+  })
+  taxableAddition: number;
+
+  @Column({
+    name: 'taxable_salary',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+    transformer: money,
+  })
+  taxableSalary: number | null;
 
   // --- Totals (computed by the server when the slip is generated) ---
   @Column({

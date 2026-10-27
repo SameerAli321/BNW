@@ -1,5 +1,5 @@
 import type { IconifyName } from 'src/components/iconify';
-import type { BookingDto, BookingType, BusyInterval } from 'src/actions/bookings';
+import type { BookingDto, BookingType, BusyInterval, BookingRepeat } from 'src/actions/bookings';
 
 // ----------------------------------------------------------------------
 // Bookings are in Pakistan time (PKT, UTC+5, no daylight saving), like interviews — whatever the
@@ -83,7 +83,7 @@ export const BOOKING_TYPE_META: Record<
     label: string;
     action: string;
     icon: IconifyName;
-    color: 'primary' | 'info' | 'success';
+    color: 'primary' | 'info' | 'success' | 'warning';
     description: string;
   }
 > = {
@@ -108,9 +108,27 @@ export const BOOKING_TYPE_META: Record<
     color: 'success',
     description: 'Reserve a game slot.',
   },
+  OTHER: {
+    label: 'Others',
+    action: 'Block my time (Others)',
+    icon: 'solar:clock-circle-bold',
+    color: 'warning',
+    description:
+      'Block time on your own calendar for anything else — Namaz, Masjid, lunch. You show as busy; only people who can see your calendar see what it is.',
+  },
 };
 
-export const BOOKING_TYPES: BookingType[] = ['MEETING', 'MEETING_ROOM', 'POOL_TABLE'];
+export const BOOKING_TYPES: BookingType[] = ['MEETING', 'MEETING_ROOM', 'POOL_TABLE', 'OTHER'];
+
+/** Quick picks for an "Others" booking. */
+export const OTHER_ACTIVITY_SUGGESTIONS = ['Namaz', 'Masjid', 'Lunch', 'Doctor visit', 'Personal'];
+
+export const BOOKING_REPEAT_OPTIONS: { value: BookingRepeat | ''; label: string }[] = [
+  { value: '', label: 'Does not repeat' },
+  { value: 'DAILY', label: 'Every day' },
+  { value: 'WEEKDAYS', label: 'Every weekday (Mon–Fri)' },
+  { value: 'WEEKLY', label: 'Every week' },
+];
 
 /** Where it happens: the room / table, or the meeting's free-text location. */
 export function bookingPlace(booking: BookingDto): string {
@@ -144,6 +162,7 @@ export const DURATIONS: number[] = [15, 30, 45, 60, 90, 120, 180, 240, 480];
 /** True when [start, end) overlaps any busy interval. */
 export function overlapsAny(start: Date, end: Date, busy: BusyInterval[]): boolean {
   return busy.some(
-    (b) => new Date(b.startAt).getTime() < end.getTime() && new Date(b.endAt).getTime() > start.getTime()
+    (b) =>
+      new Date(b.startAt).getTime() < end.getTime() && new Date(b.endAt).getTime() > start.getTime()
   );
 }

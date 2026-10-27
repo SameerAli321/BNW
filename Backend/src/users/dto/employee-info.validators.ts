@@ -62,6 +62,21 @@ export class EmployeeInfoFields {
   @Matches(/^\d{5}-\d{7}-\d$/, { message: 'CNIC must be 13 digits, e.g. 35202-1234567-1' })
   cnic?: string | null;
 
+  /** Salary account — shown under "Bank details" on the payroll sheet and the salary slip. */
+  @Transform(emptyToNull)
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  bankName?: string | null;
+
+  @Transform(emptyToNull)
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z0-9 -]{4,60}$/, {
+    message: 'Account number / IBAN can only have letters, digits, spaces and dashes',
+  })
+  bankAccountNumber?: string | null;
+
   @Transform(emptyToNull)
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Current salary must be an amount in rupees' })

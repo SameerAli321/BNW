@@ -18,8 +18,9 @@ export interface AnnouncementDto {
   posterName: string | null;
   posterRole: string | null;
   audience: AnnouncementAudience;
-  departmentId: number | null;
-  departmentName: string | null;
+  /** The departments it's for when audience = DEPARTMENT (empty for everyone). */
+  departmentIds: number[];
+  departmentNames: string[];
   pinned: boolean;
   expiresOn: string | null; // YYYY-MM-DD, last day shown
   isExpired: boolean;
@@ -31,7 +32,7 @@ export type SaveAnnouncementDto = {
   title: string;
   body: string;
   audience: AnnouncementAudience;
-  departmentId?: number | null;
+  departmentIds?: number[];
   pinned: boolean;
   expiresOn?: string | null;
 };

@@ -1,6 +1,8 @@
+import { FEATURES } from 'src/features';
 import { CONFIG } from 'src/global-config';
 
 import { AttendanceRegularizationCreateView } from 'src/sections/attendance-regularization/view';
+import { AttendanceRegularizationDisabled } from 'src/sections/attendance-regularization/attendance-regularization-disabled';
 
 // ----------------------------------------------------------------------
 
@@ -11,7 +13,11 @@ export default function Page() {
     <>
       <title>{metadata.title}</title>
 
-      <AttendanceRegularizationCreateView />
+      {FEATURES.attendanceRegularization ? (
+        <AttendanceRegularizationCreateView />
+      ) : (
+        <AttendanceRegularizationDisabled />
+      )}
     </>
   );
 }

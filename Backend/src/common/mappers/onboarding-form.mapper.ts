@@ -18,6 +18,7 @@ export interface OnboardingFormDto {
   state: string | null;
   zipCode: string | null;
   phone: string | null;
+  alternatePhone: string | null;
   // Employment information
   reasonForLeaving: string | null;
   workResponsibilities: string | null;
@@ -56,7 +57,7 @@ export function toOnboardingFormDto(form: OnboardingForm): OnboardingFormDto {
     fullName: user ? `${user.firstName} ${user.lastName}` : '',
     email: user?.email ?? '',
     jobTitle: user?.designation ?? null,
-    dateOfJoining: user?.joinDate ?? null,
+    dateOfJoining: user?.joinDate ?? form.dateOfJoining ?? null,
     department: user?.department?.name ?? null,
     employeeCode: user?.employeeCode ?? null,
     dateOfBirth: form.dateOfBirth,
@@ -66,6 +67,7 @@ export function toOnboardingFormDto(form: OnboardingForm): OnboardingFormDto {
     state: form.state,
     zipCode: form.zipCode,
     phone: form.phone,
+    alternatePhone: form.alternatePhone,
     reasonForLeaving: form.reasonForLeaving,
     workResponsibilities: form.workResponsibilities,
     emergencyContactName: form.emergencyContactName,

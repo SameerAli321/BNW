@@ -37,12 +37,14 @@ const ONBOARDING_DIR = join(UPLOADS_ROOT_DIR, 'onboarding-forms');
 // The employee-typed columns, in form order.
 const FORM_FIELDS = [
   'dateOfBirth',
+  'dateOfJoining',
   'nationalId',
   'streetAddress',
   'city',
   'state',
   'zipCode',
   'phone',
+  'alternatePhone',
   'reasonForLeaving',
   'workResponsibilities',
   'emergencyContactName',
@@ -95,10 +97,12 @@ export class OnboardingFormsService {
       relations: RELATIONS,
     });
     const profile = await this.profilesRepo.findOne({ where: { userId: caller.sub } });
+    const user = await this.usersRepo.findOne({ where: { id: caller.sub } });
     return {
       data: form ? toOnboardingFormDto(form) : null,
       prefill: {
         dateOfBirth: profile?.dateOfBirth ?? null,
+        dateOfJoining: user?.joinDate ?? null,
         nationalId: profile?.nationalId ?? null,
         streetAddress: profile?.address ?? null,
         phone: profile?.phone ?? null,
@@ -136,6 +140,15 @@ export class OnboardingFormsService {
     const saved = await this.formsRepo.save(form);
 
     await this.syncProfile(caller.sub, saved);
+    // An account with no joining date yet takes the one from the form; one HR set is kept.
+    if (saved.dateOfJoining) {
+      await this.usersRepo
+        .createQueryBuilder()
+        .update()
+        .set({ joinDate: saved.dateOfJoining })
+        .where('id = :id AND join_date IS NULL', { id: caller.sub })
+        .execute();
+    }
     if (isFirstSubmit) {
       await this.notifyHr(caller.sub, saved.id);
       const submitter = await this.usersRepo.findOne({ where: { id: caller.sub } });

@@ -18,6 +18,7 @@ import { RouterLink } from 'src/routes/components';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useGetLetterTemplates } from 'src/actions/letters';
 import { useGetMyAppraisals } from 'src/actions/appraisals';
+import { FEATURES, ATTENDANCE_DISABLED_MESSAGE } from 'src/features';
 
 import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
@@ -45,11 +46,25 @@ type ItemCardProps = {
   flow: string[];
   actions?: Action[];
   children?: ReactNode;
+  /** Greyed out with this note; the buttons can't be used. */
+  disabledNote?: string;
 };
 
-function ItemCard({ kind, title, description, icon, color, flow, actions = [], children }: ItemCardProps) {
+function ItemCard({
+  kind,
+  title,
+  description,
+  icon,
+  color,
+  flow,
+  actions = [],
+  children,
+  disabledNote,
+}: ItemCardProps) {
+  const disabled = !!disabledNote;
   return (
     <Card
+      aria-disabled={disabled || undefined}
       sx={{
         p: { xs: 2, md: 3 },
         height: 1,
@@ -57,7 +72,14 @@ function ItemCard({ kind, title, description, icon, color, flow, actions = [], c
         flexDirection: 'column',
         gap: 2,
         transition: (theme) => theme.transitions.create(['box-shadow', 'transform']),
-        '&:hover': { boxShadow: (theme) => theme.vars.customShadows.z12, transform: 'translateY(-2px)' },
+        ...(disabled
+          ? { opacity: 0.6, filter: 'grayscale(1)', bgcolor: 'background.neutral' }
+          : {
+              '&:hover': {
+                boxShadow: (theme) => theme.vars.customShadows.z12,
+                transform: 'translateY(-2px)',
+              },
+            }),
       }}
     >
       <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
@@ -75,8 +97,11 @@ function ItemCard({ kind, title, description, icon, color, flow, actions = [], c
         >
           <Iconify icon={icon} width={28} />
         </Box>
-        <Label variant="soft" color={kind === 'Letter' ? 'secondary' : 'info'}>
-          {kind}
+        <Label
+          variant="soft"
+          color={disabled ? 'default' : kind === 'Letter' ? 'secondary' : 'info'}
+        >
+          {disabled ? 'Coming soon' : kind}
         </Label>
       </Stack>
 
@@ -116,13 +141,18 @@ function ItemCard({ kind, title, description, icon, color, flow, actions = [], c
 
       {children}
 
+      {disabled && (
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+          {disabledNote}
+        </Typography>
+      )}
+
       {!!actions.length && (
         <Stack direction="row" flexWrap="wrap" sx={{ gap: 1, mt: 'auto', pt: 1 }}>
           {actions.map((action) => (
             <Button
               key={action.label}
-              component={RouterLink}
-              href={action.href}
+              {...(disabled ? { disabled: true } : { component: RouterLink, href: action.href })}
               size="small"
               variant={action.primary ? 'contained' : 'outlined'}
               color={action.primary ? 'primary' : 'inherit'}
@@ -205,7 +235,9 @@ function LetterTemplateRow({ label, template, type, canCreate, canEdit }: Letter
 export function RequestsFormsView() {
   const { user } = useAuthContext();
   const role = user?.role ?? '';
-  const seesLetters = ['HR', 'CEO', 'ADMIN'].includes(role);
+  // Letter cards + "Manage letter templates" are HR / ADMIN only: the CEO has nothing to do here
+  // (they sign letters from the Letters page), so they're hidden from the CEO (client CEO, Oct 2026).
+  const seesLetters = ['HR', 'ADMIN'].includes(role);
   const canCreateLetters = ['HR', 'ADMIN'].includes(role);
   const canEditTemplates = role === 'ADMIN';
   const seesAllForms = ['HR', 'ADMIN', 'CEO'].includes(role);
@@ -271,7 +303,7 @@ export function RequestsFormsView() {
           <ItemCard
             kind="Form"
             title="Leave / Holiday Application"
-            description="Apply for annual, casual, sick or unpaid leave. See how many days you have left, and your holiday record."
+            description="Apply for annual or unpaid leave. See how many days you have left, and your holiday record."
             icon="solar:calendar-date-bold"
             color="primary"
             flow={['You', 'Your manager', 'HR']}
@@ -306,6 +338,9 @@ export function RequestsFormsView() {
             icon="solar:clock-circle-bold"
             color="info"
             flow={['You', 'Head of dept', 'HR']}
+            disabledNote={
+              FEATURES.attendanceRegularization ? undefined : ATTENDANCE_DISABLED_MESSAGE
+            }
             actions={[
               {
                 label: 'New form',
@@ -325,7 +360,11 @@ export function RequestsFormsView() {
             color="success"
             flow={['You', 'HR', 'E-record']}
             actions={[
-              { label: 'My onboarding form', href: paths.dashboard.onboardingForms.mine, primary: true },
+              {
+                label: 'My onboarding form',
+                href: paths.dashboard.onboardingForms.mine,
+                primary: true,
+              },
               ...(seesAllForms
                 ? [{ label: 'All submissions', href: paths.dashboard.onboardingForms.root }]
                 : []),
@@ -347,7 +386,10 @@ export function RequestsFormsView() {
               ]}
             >
               {!appraisalsLoading && (
-                <Label color={canRequestNext ? 'success' : 'warning'} sx={{ alignSelf: 'flex-start' }}>
+                <Label
+                  color={canRequestNext ? 'success' : 'warning'}
+                  sx={{ alignSelf: 'flex-start' }}
+                >
                   {canRequestNext ? 'Available now' : 'Your request is in progress'}
                 </Label>
               )}

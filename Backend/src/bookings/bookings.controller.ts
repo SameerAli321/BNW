@@ -93,7 +93,7 @@ export class BookingsController {
     @Body() dto: CancelBookingDto,
     @CurrentUser() caller: JwtUserPayload,
   ) {
-    return this.service.cancel(id, dto.reason, caller);
+    return this.service.cancel(id, dto.reason, caller, dto.scope);
   }
 }
 

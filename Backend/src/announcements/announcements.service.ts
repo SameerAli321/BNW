@@ -5,8 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Announcement } from '../entities/announcement.entity';
+import { Department } from '../entities/department.entity';
 import { Notification } from '../entities/notification.entity';
 import { User } from '../entities/user.entity';
 import { AnnouncementAudience } from '../common/enums/announcement-audience.enum';
@@ -27,8 +28,9 @@ export interface AnnouncementDto {
   posterName: string | null;
   posterRole: string | null;
   audience: string;
-  departmentId: number | null;
-  departmentName: string | null;
+  /** The departments it's for when audience = DEPARTMENT (empty for everyone). */
+  departmentIds: number[];
+  departmentNames: string[];
   pinned: boolean;
   expiresOn: string | null;
   isExpired: boolean;
@@ -44,6 +46,9 @@ function todayLocal(): string {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
+const departmentsOf = (row: Announcement) =>
+  [...(row.departments ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+
 function toDto(row: Announcement): AnnouncementDto {
   return {
     id: row.id,
@@ -53,8 +58,8 @@ function toDto(row: Announcement): AnnouncementDto {
     posterName: row.poster ? `${row.poster.firstName} ${row.poster.lastName}` : null,
     posterRole: row.poster?.role ?? null,
     audience: row.audience,
-    departmentId: row.departmentId,
-    departmentName: row.department?.name ?? null,
+    departmentIds: departmentsOf(row).map((d) => d.id),
+    departmentNames: departmentsOf(row).map((d) => d.name),
     pinned: row.pinned,
     expiresOn: row.expiresOn,
     isExpired: !!row.expiresOn && row.expiresOn < todayLocal(),
@@ -68,6 +73,7 @@ export class AnnouncementsService {
   constructor(
     @InjectRepository(Announcement) private readonly repo: Repository<Announcement>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
+    @InjectRepository(Department) private readonly departmentsRepo: Repository<Department>,
     @InjectRepository(Notification)
     private readonly notificationsRepo: Repository<Notification>,
   ) {}
@@ -88,14 +94,16 @@ export class AnnouncementsService {
     const qb = this.repo
       .createQueryBuilder('a')
       .leftJoinAndSelect('a.poster', 'poster')
-      .leftJoinAndSelect('a.department', 'department')
+      .leftJoinAndSelect('a.departments', 'department')
       .orderBy('a.pinned', 'DESC')
       .addOrderBy('a.createdAt', 'DESC');
 
     // Posters see every announcement (to manage them); everyone else only what's addressed to them.
     if (!this.canPost(caller)) {
       qb.andWhere(
-        '(a.audience = :all OR (a.audience = :dept AND a.departmentId = :departmentId))',
+        `(a.audience = :all OR (a.audience = :dept AND EXISTS (
+          SELECT 1 FROM announcement_departments ad
+          WHERE ad.announcement_id = a.id AND ad.department_id = :departmentId)))`,
         {
           all: AnnouncementAudience.ALL,
           dept: AnnouncementAudience.DEPARTMENT,
@@ -111,28 +119,42 @@ export class AnnouncementsService {
   }
 
   private async findOrThrow(id: number): Promise<Announcement> {
-    const row = await this.repo.findOne({ where: { id }, relations: ['poster', 'department'] });
+    const row = await this.repo.findOne({ where: { id }, relations: ['poster', 'departments'] });
     if (!row) throw new NotFoundException('Announcement not found');
     return row;
   }
 
+  /** The departments by id — every one must exist. */
+  private async loadDepartments(ids: number[] | undefined): Promise<Department[]> {
+    const unique = [...new Set(ids ?? [])];
+    if (!unique.length) {
+      throw new BadRequestException('Choose at least one department this announcement is for');
+    }
+    const departments = await this.departmentsRepo.find({ where: { id: In(unique) } });
+    if (departments.length !== unique.length) {
+      throw new BadRequestException('One of the chosen departments no longer exists');
+    }
+    return departments;
+  }
+
   async create(dto: CreateAnnouncementDto, caller: JwtUserPayload): Promise<AnnouncementDto> {
     const audience = dto.audience ?? AnnouncementAudience.ALL;
-    if (audience === AnnouncementAudience.DEPARTMENT && !dto.departmentId) {
-      throw new BadRequestException('Choose the department this announcement is for');
-    }
+    const departments =
+      audience === AnnouncementAudience.DEPARTMENT
+        ? await this.loadDepartments(dto.departmentIds)
+        : [];
     const saved = await this.repo.save(
       this.repo.create({
         title: dto.title.trim(),
         body: dto.body.trim(),
         postedBy: caller.sub,
         audience,
-        departmentId: audience === AnnouncementAudience.DEPARTMENT ? dto.departmentId! : null,
+        departments,
         pinned: !!dto.pinned,
         expiresOn: dto.expiresOn ?? null,
       }),
     );
-    await this.notifyAudience(saved);
+    await this.notifyAudience(await this.findOrThrow(saved.id));
     return toDto(await this.findOrThrow(saved.id));
   }
 
@@ -141,7 +163,7 @@ export class AnnouncementsService {
     const recipients = await this.usersRepo.find({
       where:
         row.audience === AnnouncementAudience.DEPARTMENT
-          ? { status: UserStatus.ACTIVE, departmentId: row.departmentId! }
+          ? { status: UserStatus.ACTIVE, departmentId: In(departmentsOf(row).map((d) => d.id)) }
           : { status: UserStatus.ACTIVE },
     });
     const others = recipients.filter((user) => user.id !== row.postedBy);
@@ -183,23 +205,18 @@ export class AnnouncementsService {
     const row = await this.findOrThrow(id);
     this.assertCanManage(row, caller);
     const audience = dto.audience ?? row.audience;
-    const departmentId =
+    const departments =
       audience === AnnouncementAudience.DEPARTMENT
-        ? dto.departmentId !== undefined
-          ? dto.departmentId
-          : row.departmentId
-        : null;
-    if (audience === AnnouncementAudience.DEPARTMENT && !departmentId) {
-      throw new BadRequestException('Choose the department this announcement is for');
-    }
-    await this.repo.update(id, {
-      ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
-      ...(dto.body !== undefined ? { body: dto.body.trim() } : {}),
-      ...(dto.pinned !== undefined ? { pinned: dto.pinned } : {}),
-      ...(dto.expiresOn !== undefined ? { expiresOn: dto.expiresOn } : {}),
-      audience,
-      departmentId,
-    });
+        ? await this.loadDepartments(dto.departmentIds ?? departmentsOf(row).map((d) => d.id))
+        : [];
+    if (dto.title !== undefined) row.title = dto.title.trim();
+    if (dto.body !== undefined) row.body = dto.body.trim();
+    if (dto.pinned !== undefined) row.pinned = dto.pinned;
+    if (dto.expiresOn !== undefined) row.expiresOn = dto.expiresOn;
+    row.audience = audience;
+    row.departments = departments;
+    // save() (not update()) so the department links are rewritten too.
+    await this.repo.save({ ...row, poster: undefined });
     return toDto(await this.findOrThrow(id));
   }
 

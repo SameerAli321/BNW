@@ -15,6 +15,7 @@ import { AttendanceRegularizationPdfService } from './attendance-regularization-
 import { CurrentUser, JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RoleName } from '../common/enums/role.enum';
+import { assertAttendanceRegularizationEnabled } from '../common/features/feature-flags';
 import { CreateAttendanceRegularizationDto } from './dto/create-attendance-regularization.dto';
 import { HodRecommendationDto } from './dto/hod-recommendation.dto';
 import { HrDecisionDto } from './dto/hr-decision.dto';
@@ -34,6 +35,7 @@ export class AttendanceRegularizationsController {
     @Body() dto: CreateAttendanceRegularizationDto,
     @CurrentUser() caller: JwtUserPayload,
   ) {
+    assertAttendanceRegularizationEnabled();
     return this.service.create(dto, caller);
   }
 
@@ -73,6 +75,7 @@ export class AttendanceRegularizationsController {
     @Body() dto: UpdateAttendanceRegularizationDto,
     @CurrentUser() caller: JwtUserPayload,
   ) {
+    assertAttendanceRegularizationEnabled();
     return this.service.update(id, dto, caller);
   }
 
@@ -98,6 +101,7 @@ export class AttendanceRegularizationsController {
     @Body() dto: HodRecommendationDto,
     @CurrentUser() caller: JwtUserPayload,
   ) {
+    assertAttendanceRegularizationEnabled();
     return this.service.hodRecommendation(id, dto, caller);
   }
 
@@ -108,6 +112,7 @@ export class AttendanceRegularizationsController {
     @Body() dto: HrDecisionDto,
     @CurrentUser() caller: JwtUserPayload,
   ) {
+    assertAttendanceRegularizationEnabled();
     return this.service.hrDecision(id, dto, caller);
   }
 }

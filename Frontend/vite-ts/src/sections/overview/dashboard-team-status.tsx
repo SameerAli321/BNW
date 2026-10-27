@@ -25,6 +25,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
 
+import { FEATURES } from 'src/features';
 import { useGetDepartments } from 'src/actions/users';
 import { useGetTeamStatus } from 'src/actions/team-status';
 
@@ -71,7 +72,9 @@ function pendingBreakdown(row: TeamStatusRow): string[] {
   const p = row.pending;
   return [
     p.leave ? `${p.leave} leave request${p.leave > 1 ? 's' : ''}` : null,
-    p.attendance ? `${p.attendance} attendance regularization${p.attendance > 1 ? 's' : ''}` : null,
+    p.attendance && FEATURES.attendanceRegularization
+      ? `${p.attendance} attendance regularization${p.attendance > 1 ? 's' : ''}`
+      : null,
     p.workOrders ? `${p.workOrders} work order${p.workOrders > 1 ? 's' : ''}` : null,
     p.appraisals ? `${p.appraisals} appraisal${p.appraisals > 1 ? 's' : ''}` : null,
     p.lettersToSign ? `${p.lettersToSign} letter${p.lettersToSign > 1 ? 's' : ''} to sign` : null,
@@ -111,7 +114,12 @@ export function DashboardTeamStatus() {
     { value: 'AVAILABLE', label: 'Available', count: summary?.available, color: 'success.main' },
     { value: 'ON_LEAVE', label: 'On leave', count: summary?.onLeave, color: 'warning.main' },
     { value: 'IN_MEETING', label: 'In a meeting', count: summary?.inMeeting, color: 'info.main' },
-    { value: 'PENDING', label: 'Requests pending', count: summary?.withPending, color: 'error.main' },
+    {
+      value: 'PENDING',
+      label: 'Requests pending',
+      count: summary?.withPending,
+      color: 'error.main',
+    },
     { value: 'INACTIVE', label: 'Inactive', count: summary?.inactive, color: 'text.disabled' },
   ];
   const filtersActive = !!quick || !!debounced || departmentId !== '';
@@ -284,8 +292,16 @@ export function DashboardTeamStatus() {
                 <TableRow>
                   <TableCell colSpan={7}>
                     <EmptyContent
-                      title={filtersActive ? 'Nobody matches these filters' : isTeam ? 'No one reports to you yet' : 'No staff yet'}
-                      description={filtersActive ? 'Try another filter or clear the search.' : undefined}
+                      title={
+                        filtersActive
+                          ? 'Nobody matches these filters'
+                          : isTeam
+                            ? 'No one reports to you yet'
+                            : 'No staff yet'
+                      }
+                      description={
+                        filtersActive ? 'Try another filter or clear the search.' : undefined
+                      }
                       sx={{ py: 5 }}
                     />
                   </TableCell>
@@ -303,13 +319,21 @@ export function DashboardTeamStatus() {
                     >
                       <TableCell>
                         <Stack direction="row" spacing={1.5} alignItems="center">
-                          <Avatar sx={{ width: 34, height: 34, fontSize: 13 }}>{initials(row.name)}</Avatar>
+                          <Avatar sx={{ width: 34, height: 34, fontSize: 13 }}>
+                            {initials(row.name)}
+                          </Avatar>
                           <Box sx={{ minWidth: 0 }}>
                             <Typography variant="subtitle2" noWrap>
                               {row.name}
                             </Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary' }} noWrap component="div">
-                              {[row.employeeCode, row.designation].filter(Boolean).join(' · ') || row.email}
+                            <Typography
+                              variant="caption"
+                              sx={{ color: 'text.secondary' }}
+                              noWrap
+                              component="div"
+                            >
+                              {[row.employeeCode, row.designation].filter(Boolean).join(' · ') ||
+                                row.email}
                             </Typography>
                           </Box>
                         </Stack>
@@ -325,14 +349,18 @@ export function DashboardTeamStatus() {
                       <TableCell>
                         <Label color={today.color}>{today.label}</Label>
                         {row.today.detail && row.today.status !== 'INACTIVE' && (
-                          <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mt: 0.5 }}>
+                          <Typography
+                            variant="caption"
+                            sx={{ display: 'block', color: 'text.secondary', mt: 0.5 }}
+                          >
                             {row.today.detail}
                           </Typography>
                         )}
                       </TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>
                         <Typography variant="body2">
-                          {days(row.leave.taken)} approved · <strong>{days(row.leave.remaining)} left</strong>
+                          {days(row.leave.taken)} approved ·{' '}
+                          <strong>{days(row.leave.remaining)} left</strong>
                         </Typography>
                         {row.leave.pendingDays > 0 && (
                           <Typography variant="caption" sx={{ color: 'warning.main' }}>

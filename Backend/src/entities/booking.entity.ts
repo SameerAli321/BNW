@@ -85,6 +85,11 @@ export class Booking {
   @Column({ type: 'int', default: 0 })
   sequence: number;
 
+  /** Shared by every occurrence of a repeating booking; null for a one-off. */
+  @Index()
+  @Column({ name: 'series_id', type: 'uuid', nullable: true })
+  seriesId: string | null;
+
   @Column({ name: 'cancel_reason', type: 'text', nullable: true })
   cancelReason: string | null;
 

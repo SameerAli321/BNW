@@ -92,8 +92,12 @@ const WorkOrderEditPage = lazy(() => import('src/pages/dashboard/work-orders/edi
 // Salary slips (HR / ADMIN generate + email; everyone sees their own)
 const SalarySlipListPage = lazy(() => import('src/pages/dashboard/salary-slips/list'));
 const SalarySlipGeneratePage = lazy(() => import('src/pages/dashboard/salary-slips/new'));
+const SalaryCalculationPage = lazy(() => import('src/pages/dashboard/salary-calculation'));
 // About us (company details + CEO message)
 const AboutUsPage = lazy(() => import('src/pages/dashboard/about-us'));
+const AboutCeoPage = lazy(() => import('src/pages/dashboard/about-ceo'));
+const GuideSheetPage = lazy(() => import('src/pages/dashboard/guide-sheet'));
+const PolicyHandbookPage = lazy(() => import('src/pages/dashboard/policy-handbook'));
 // Bookings (meetings, meeting rooms, pool table)
 const BookingCalendarPage = lazy(() => import('src/pages/dashboard/bookings/calendar'));
 const BookingListPage = lazy(() => import('src/pages/dashboard/bookings/list'));
@@ -238,7 +242,16 @@ export const dashboardRoutes: RouteObject[] = [
           { path: 'new', element: <SalarySlipGeneratePage /> },
         ],
       },
-      { path: 'about-us', element: <AboutUsPage /> },
+      { path: 'salary-calculation', element: <SalaryCalculationPage /> },
+      {
+        path: 'about-us',
+        children: [
+          { index: true, element: <AboutUsPage /> },
+          { path: 'ceo', element: <AboutCeoPage /> },
+          { path: 'guide-sheet', element: <GuideSheetPage /> },
+          { path: 'guide-sheet/handbook', element: <PolicyHandbookPage /> },
+        ],
+      },
       {
         path: 'bookings',
         children: [

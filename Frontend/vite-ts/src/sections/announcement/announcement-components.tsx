@@ -15,6 +15,7 @@ import Dialog from '@mui/material/Dialog';
 import Switch from '@mui/material/Switch';
 import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
+import Checkbox from '@mui/material/Checkbox';
 import MenuItem from '@mui/material/MenuItem';
 import Skeleton from '@mui/material/Skeleton';
 import TextField from '@mui/material/TextField';
@@ -70,18 +71,23 @@ const ROLE_LABEL: Record<string, string> = {
   HR: 'HR',
   CEO: 'CEO',
   ADMIN: 'Admin',
-  PAYROLL: 'Payroll',
+  PAYROLL: 'Accountant',
 };
 
 /** Who the post is for, as a small chip. */
-function AudienceChip({ a }: { a: Pick<AnnouncementDto, 'audience' | 'departmentName'> }) {
+function AudienceChip({ a }: { a: Pick<AnnouncementDto, 'audience' | 'departmentNames'> }) {
   return a.audience === 'DEPARTMENT' ? (
     <Label
       variant="soft"
       color="info"
       startIcon={<Iconify icon="solar:case-minimalistic-bold" width={14} />}
+      title={a.departmentNames.join(', ')}
     >
-      {a.departmentName ?? 'Department'}
+      {a.departmentNames.length === 0
+        ? 'Departments'
+        : a.departmentNames.length <= 2
+          ? a.departmentNames.join(', ')
+          : `${a.departmentNames.length} departments`}
     </Label>
   ) : (
     <Label
@@ -494,7 +500,7 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
   const [title, setTitle] = useState(current?.title ?? '');
   const [body, setBody] = useState(current?.body ?? '');
   const [audience, setAudience] = useState<AnnouncementAudience>(current?.audience ?? 'ALL');
-  const [departmentId, setDepartmentId] = useState<number | ''>(current?.departmentId ?? '');
+  const [departmentIds, setDepartmentIds] = useState<number[]>(current?.departmentIds ?? []);
   const [pinned, setPinned] = useState(current?.pinned ?? false);
   const [expiresOn, setExpiresOn] = useState(current?.expiresOn ?? '');
   const [submitted, setSubmitted] = useState(false);
@@ -504,7 +510,7 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
 
   const titleError = submitted && !title.trim();
   const bodyError = submitted && !body.trim();
-  const departmentError = submitted && audience === 'DEPARTMENT' && departmentId === '';
+  const departmentError = submitted && audience === 'DEPARTMENT' && !departmentIds.length;
 
   const onSave = async () => {
     setSubmitted(true);
@@ -512,15 +518,15 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
       toast.error('Give the announcement a title and a message');
       return;
     }
-    if (audience === 'DEPARTMENT' && departmentId === '') {
-      toast.error('Choose the department');
+    if (audience === 'DEPARTMENT' && !departmentIds.length) {
+      toast.error('Choose at least one department');
       return;
     }
     const payload = {
       title,
       body,
       audience,
-      departmentId: audience === 'DEPARTMENT' ? Number(departmentId) : null,
+      departmentIds: audience === 'DEPARTMENT' ? departmentIds : [],
       pinned,
       expiresOn: expiresOn || null,
     };
@@ -554,8 +560,10 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
     posterName,
     posterRole: current?.posterRole ?? user?.role ?? null,
     audience,
-    departmentId: departmentId === '' ? null : departmentId,
-    departmentName: departments.find((department) => department.id === departmentId)?.name ?? null,
+    departmentIds,
+    departmentNames: departments
+      .filter((department) => departmentIds.includes(department.id))
+      .map((department) => department.name),
     pinned,
     expiresOn: expiresOn || null,
     isExpired: false,
@@ -599,20 +607,42 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
                   fullWidth
                 >
                   <MenuItem value="ALL">Everyone at BNW</MenuItem>
-                  <MenuItem value="DEPARTMENT">One department</MenuItem>
+                  <MenuItem value="DEPARTMENT">Selected departments</MenuItem>
                 </TextField>
                 {audience === 'DEPARTMENT' && (
                   <TextField
                     select
-                    label="Department"
-                    value={departmentId}
-                    onChange={(event) => setDepartmentId(Number(event.target.value))}
+                    label="Departments"
+                    value={departmentIds}
+                    onChange={(event) => {
+                      const value = event.target.value as unknown as number[] | string;
+                      setDepartmentIds(
+                        (typeof value === 'string' ? value.split(',') : value).map(Number)
+                      );
+                    }}
                     error={departmentError}
-                    helperText={departmentError ? 'Choose the department' : undefined}
+                    helperText={
+                      departmentError ? 'Choose at least one department' : 'Pick one or more'
+                    }
+                    slotProps={{
+                      select: {
+                        multiple: true,
+                        renderValue: (selected) =>
+                          departments
+                            .filter((department) => (selected as number[]).includes(department.id))
+                            .map((department) => department.name)
+                            .join(', '),
+                      },
+                    }}
                     fullWidth
                   >
                     {departments.map((department) => (
                       <MenuItem key={department.id} value={department.id}>
+                        <Checkbox
+                          size="small"
+                          checked={departmentIds.includes(department.id)}
+                          sx={{ p: 0, mr: 1 }}
+                        />
                         {department.name}
                       </MenuItem>
                     ))}
@@ -668,7 +698,7 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
               <AnnouncementCard announcement={preview} preview sx={{ height: 'auto' }} />
               <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                 {audience === 'DEPARTMENT'
-                  ? 'Only people in this department will see it and be notified.'
+                  ? 'Only people in the chosen departments will see it and be notified.'
                   : 'Everyone at BNW will see it and be notified.'}
                 {pinned ? ' Pinned posts stay at the top of the board.' : ''}
               </Typography>

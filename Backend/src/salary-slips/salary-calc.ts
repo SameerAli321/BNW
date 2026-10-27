@@ -1,43 +1,110 @@
-import type { SalaryLineItem } from '../entities/salary-slip.entity';
+import { SecurityDeductionMode } from '../common/enums/salary-slip.enum';
 
 /** Work in paisa so 0.1 + 0.2 style float errors never reach a payslip. */
 const toPaisa = (value: number | null | undefined) => Math.round((value ?? 0) * 100);
 const fromPaisa = (paisa: number) => paisa / 100;
 
-export type SalaryInputs = {
-  basicSalary: number;
-  allowances: SalaryLineItem[];
-  bonus: number;
-  overtime: number;
-  deductions: SalaryLineItem[];
+// Slips generated before the payroll sheet (scheme LEGACY) were Gross + Allowances + Bonus +
+// Overtime − (Deductions + Tax); their stored totals are shown as they are.
+
+export type PayrollInputs = {
+  grossSalary: number;
+  workingDays: number;
+  unpaidDays: number;
+  securityMode: SecurityDeductionMode;
+  /** Only used when securityMode is MANUAL. */
+  securityAmount: number;
   tax: number;
+  loanDeduction: number;
+  nonTaxableAddition: number;
+  taxableAddition: number;
+  paid: number;
 };
 
-export type SalaryTotals = {
-  totalAllowances: number;
-  grossSalary: number;
+export type PayrollTotals = {
+  perDaySalary: number;
+  unpaidDeduction: number;
+  securityDeduction: number;
+  taxableSalary: number;
+  totalAdditions: number;
+  /** Gross + additions — "Total earnings" on the slip. */
+  totalEarnings: number;
+  /** Unpaid + security + tax + loan. */
   totalDeductions: number;
   netSalary: number;
+  balance: number;
+};
+
+const SECURITY_PERCENT: Record<SecurityDeductionMode, number | null> = {
+  [SecurityDeductionMode.NONE]: 0,
+  [SecurityDeductionMode.PERCENT_5]: 5,
+  [SecurityDeductionMode.PERCENT_10]: 10,
+  [SecurityDeductionMode.MANUAL]: null,
 };
 
 /**
- * Total earnings (`grossSalary`) = Gross salary (`basicSalary`) + Allowances + Bonus + Overtime.
- * Total deductions = itemised deductions + tax.
- * Net = Total earnings − Total deductions.
- * (UI/PDF labels only — the column names stay basic_salary / gross_salary.)
+ * The "Payroll for IT" sheet, cell for cell:
+ *   Per working day = Gross / Working days                       (B15 = B13/B14)
+ *   Unpaid salary   = Per working day × Unpaid holidays           (B17 = B15*B16)
+ *   Security        = 5% / 10% of Gross, or a manual amount
+ *   Taxable salary  = Gross − Unpaid − Security + Taxable addition (F = E-G-H+L)
+ *   Net salary      = Gross − Unpaid − Security − Tax − Loan
+ *                     + Non-taxable addition + Taxable addition    (M = E-G-H-I-J+K+L)
+ *   Balance         = Net − Paid                                   (O = M-N)
+ * Unpaid is worked out as Gross × days / working days so it is rounded once, not twice.
  */
-export function calculateSalary(input: SalaryInputs): SalaryTotals {
-  const allowances = input.allowances.reduce((sum, item) => sum + toPaisa(item.amount), 0);
-  const gross =
-    toPaisa(input.basicSalary) + allowances + toPaisa(input.bonus) + toPaisa(input.overtime);
-  const deductions =
-    input.deductions.reduce((sum, item) => sum + toPaisa(item.amount), 0) + toPaisa(input.tax);
+export function calculatePayroll(input: PayrollInputs): PayrollTotals {
+  const gross = toPaisa(input.grossSalary);
+  const workingDays = input.workingDays > 0 ? input.workingDays : 0;
+  const unpaid = workingDays ? Math.round((gross * input.unpaidDays) / workingDays) : 0;
+  const percent = SECURITY_PERCENT[input.securityMode];
+  const security =
+    percent === null ? toPaisa(input.securityAmount) : Math.round((gross * percent) / 100);
+  const tax = toPaisa(input.tax);
+  const loan = toPaisa(input.loanDeduction);
+  const nonTaxable = toPaisa(input.nonTaxableAddition);
+  const taxable = toPaisa(input.taxableAddition);
+  const deductions = unpaid + security + tax + loan;
+  const net = gross - deductions + nonTaxable + taxable;
   return {
-    totalAllowances: fromPaisa(allowances),
-    grossSalary: fromPaisa(gross),
+    perDaySalary: workingDays ? Math.round(gross / workingDays) / 100 : 0,
+    unpaidDeduction: fromPaisa(unpaid),
+    securityDeduction: fromPaisa(security),
+    taxableSalary: fromPaisa(gross - unpaid - security + taxable),
+    totalAdditions: fromPaisa(nonTaxable + taxable),
+    totalEarnings: fromPaisa(gross + nonTaxable + taxable),
     totalDeductions: fromPaisa(deductions),
-    netSalary: fromPaisa(gross - deductions),
+    netSalary: fromPaisa(net),
+    balance: fromPaisa(net - toPaisa(input.paid)),
   };
+}
+
+/** Mon–Fri in a 'YYYY-MM' month — the starting "Number of working days" (22 for October 2026). */
+export function weekdaysInMonth(month: string): number {
+  const [year, m] = month.split('-').map(Number);
+  let count = 0;
+  for (let day = 1; day <= daysInMonth(month); day += 1) {
+    const weekday = new Date(Date.UTC(year, m - 1, day)).getUTCDay();
+    if (weekday !== 0 && weekday !== 6) count += 1;
+  }
+  return count;
+}
+
+/**
+ * The next instalment of a loan: an equal share of the principal, except the last one, which takes
+ * whatever is left so rounding never leaves a few paisa outstanding (Rs 100,000 over 6 months →
+ * 5 × 16,666.67 + 16,666.65).
+ */
+export function nextLoanInstalment(
+  principal: number,
+  instalments: number,
+  recovered: number,
+  instalmentsPaid: number,
+): number {
+  const remaining = toPaisa(principal) - toPaisa(recovered);
+  if (remaining <= 0) return 0;
+  if (instalmentsPaid + 1 >= instalments) return fromPaisa(remaining);
+  return fromPaisa(Math.min(Math.round(toPaisa(principal) / instalments), remaining));
 }
 
 /** 'Rs 125,000.00' — slips always show paisa. */

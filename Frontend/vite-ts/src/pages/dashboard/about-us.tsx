@@ -1,17 +1,17 @@
 import { CONFIG } from 'src/global-config';
 
-import { PolicyHandbookView } from 'src/sections/company-about/policy-handbook-view';
+import { AboutUsView } from 'src/sections/company-about/about-us-view';
 
 // ----------------------------------------------------------------------
 
-const metadata = { title: `Employee Policy Handbook | Dashboard - ${CONFIG.appName}` };
+const metadata = { title: `What is BNW | Dashboard - ${CONFIG.appName}` };
 
 export default function Page() {
   return (
     <>
       <title>{metadata.title}</title>
 
-      <PolicyHandbookView />
+      <AboutUsView part="company" />
     </>
   );
 }

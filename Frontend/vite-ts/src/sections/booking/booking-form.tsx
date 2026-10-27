@@ -1,6 +1,7 @@
 import type {
   BookingDto,
   BookingType,
+  BookingRepeat,
   BookingPayload,
   BookingPickerPerson,
 } from 'src/actions/bookings';
@@ -8,6 +9,7 @@ import type {
 import { useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
 import Alert from '@mui/material/Alert';
@@ -47,6 +49,8 @@ import {
   START_TIMES,
   BOOKING_TYPES,
   BOOKING_TYPE_META,
+  BOOKING_REPEAT_OPTIONS,
+  OTHER_ACTIVITY_SUGGESTIONS,
 } from './booking-utils';
 
 // ----------------------------------------------------------------------
@@ -70,6 +74,9 @@ type FormState = {
   resourceId: number | '';
   location: string;
   participants: BookingPickerPerson[];
+  /** New bookings only: '' = once. */
+  repeat: BookingRepeat | '';
+  repeatUntil: string;
 };
 
 /** Next quarter-hour from now in PKT, within the bookable hours. */
@@ -121,6 +128,8 @@ export function BookingForm({ currentBooking, initialType, initialDate, initialT
       designation: p.designation,
       department: null,
     })),
+    repeat: '',
+    repeatUntil: '',
   }));
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -131,6 +140,7 @@ export function BookingForm({ currentBooking, initialType, initialDate, initialT
   };
 
   const isMeeting = form.type === 'MEETING';
+  const isOther = form.type === 'OTHER';
   const resourceType = form.type === 'POOL_TABLE' ? 'POOL_TABLE' : 'MEETING_ROOM';
   const { resources, resourcesLoading } = useGetBookingResources({ type: resourceType });
   const { people, peopleLoading } = useGetBookingPeople(isMeeting && canOrganize);
@@ -162,15 +172,20 @@ export function BookingForm({ currentBooking, initialType, initialDate, initialT
 
   const start = pktToDate(form.date, form.time);
   const startMoved =
-    !currentBooking ||
-    currentBooking.date !== form.date ||
-    currentBooking.time !== form.time;
+    !currentBooking || currentBooking.date !== form.date || currentBooking.time !== form.time;
   const problems: string[] = [];
   if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) problems.push('Pick a date');
-  else if (startMoved && start.getTime() < Date.now()) problems.push('Pick a start time in the future');
+  else if (startMoved && start.getTime() < Date.now())
+    problems.push('Pick a start time in the future');
   if (isMeeting && !form.title.trim()) problems.push('Give the meeting a title');
   if (isMeeting && !form.participants.length) problems.push('Invite at least one employee');
-  if (!isMeeting && form.resourceId === '') {
+  if (isOther && !form.title.trim()) problems.push('Say what it is for, e.g. Namaz or lunch');
+  if (!isEdit && form.repeat && !/^\d{4}-\d{2}-\d{2}$/.test(form.repeatUntil)) {
+    problems.push('Pick the last day it repeats');
+  } else if (!isEdit && form.repeat && form.repeatUntil < form.date) {
+    problems.push('"Repeat until" must be on or after the first day');
+  }
+  if (!isMeeting && !isOther && form.resourceId === '') {
     problems.push(form.type === 'POOL_TABLE' ? 'Pick a pool table' : 'Pick a meeting room');
   }
 
@@ -196,13 +211,19 @@ export function BookingForm({ currentBooking, initialType, initialDate, initialT
     try {
       const saved = isEdit
         ? await updateBooking(currentBooking.id, payload)
-        : await createBooking({ ...payload, type: form.type });
+        : await createBooking({
+            ...payload,
+            type: form.type,
+            ...(form.repeat ? { repeat: { frequency: form.repeat, until: form.repeatUntil } } : {}),
+          });
       toast.success(
         isEdit
           ? 'Booking updated'
           : isMeeting
             ? `Meeting booked — ${form.participants.length} employee(s) invited`
-            : 'Booking confirmed'
+            : form.repeat
+              ? 'Repeating booking confirmed'
+              : 'Booking confirmed'
       );
       router.push(paths.dashboard.bookings.details(saved.id));
     } catch (error) {
@@ -261,13 +282,36 @@ export function BookingForm({ currentBooking, initialType, initialDate, initialT
             </Typography>
 
             <TextField
-              label={isMeeting ? 'Meeting title' : 'Title (optional)'}
-              required={isMeeting}
+              label={isMeeting ? 'Meeting title' : isOther ? 'What is it for?' : 'Title (optional)'}
+              required={isMeeting || isOther}
               value={form.title}
               onChange={(e) => set('title', e.target.value)}
               slotProps={{ htmlInput: { maxLength: 200 } }}
-              placeholder={isMeeting ? 'e.g. Quarterly review' : selectedResource ? `${selectedResource.name} booking` : ''}
+              placeholder={
+                isMeeting
+                  ? 'e.g. Quarterly review'
+                  : isOther
+                    ? 'e.g. Namaz, Masjid, lunch'
+                    : selectedResource
+                      ? `${selectedResource.name} booking`
+                      : ''
+              }
             />
+
+            {isOther && (
+              <Stack direction="row" flexWrap="wrap" sx={{ gap: 1, mt: -1.5 }}>
+                {OTHER_ACTIVITY_SUGGESTIONS.map((activity) => (
+                  <Chip
+                    key={activity}
+                    label={activity}
+                    size="small"
+                    variant={form.title === activity ? 'filled' : 'outlined'}
+                    color={form.title === activity ? 'warning' : 'default'}
+                    onClick={() => set('title', activity)}
+                  />
+                ))}
+              </Stack>
+            )}
 
             {isMeeting && (
               <TextField
@@ -299,7 +343,9 @@ export function BookingForm({ currentBooking, initialType, initialDate, initialT
                 label="Start time (PKT)"
                 value={form.time}
                 onChange={(e) => set('time', e.target.value)}
-                slotProps={{ select: { MenuProps: { slotProps: { paper: { sx: { maxHeight: 320 } } } } } }}
+                slotProps={{
+                  select: { MenuProps: { slotProps: { paper: { sx: { maxHeight: 320 } } } } },
+                }}
               >
                 {(START_TIMES.includes(form.time) ? START_TIMES : [form.time, ...START_TIMES]).map(
                   (t) => (
@@ -326,38 +372,77 @@ export function BookingForm({ currentBooking, initialType, initialDate, initialT
               </TextField>
             </Box>
 
-            <TextField
-              select
-              label={
-                isMeeting
-                  ? 'Meeting room (optional)'
-                  : form.type === 'POOL_TABLE'
-                    ? 'Pool table'
-                    : 'Meeting room'
-              }
-              required={!isMeeting}
-              value={form.resourceId}
-              onChange={(e) => set('resourceId', e.target.value === '' ? '' : Number(e.target.value))}
-              disabled={resourcesLoading}
-              helperText={
-                !resourcesLoading && !resourceOptions.length
-                  ? 'None set up yet — HR / Admin add them under Bookings → Rooms & tables.'
-                  : undefined
-              }
-            >
-              {isMeeting && (
-                <MenuItem value="">
-                  <em>No room — enter a location instead</em>
-                </MenuItem>
-              )}
-              {resourceOptions.map((r) => (
-                <MenuItem key={r.id} value={r.id}>
-                  {r.name}
-                  {r.capacity ? ` · ${r.capacity} seats` : ''}
-                  {r.location ? ` · ${r.location}` : ''}
-                </MenuItem>
-              ))}
-            </TextField>
+            {!isEdit && (
+              <Box
+                sx={{
+                  gap: 2,
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: form.repeat ? '1fr 1fr' : '1fr' },
+                }}
+              >
+                <TextField
+                  select
+                  label="Repeat"
+                  value={form.repeat}
+                  onChange={(e) => set('repeat', e.target.value as BookingRepeat | '')}
+                  helperText={form.repeat ? 'Each day is booked separately' : ' '}
+                >
+                  {BOOKING_REPEAT_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                {form.repeat && (
+                  <TextField
+                    type="date"
+                    label="Repeat until"
+                    required
+                    value={form.repeatUntil}
+                    onChange={(e) => set('repeatUntil', e.target.value)}
+                    helperText="Up to 6 months"
+                    slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: form.date } }}
+                  />
+                )}
+              </Box>
+            )}
+
+            {!isOther && (
+              <TextField
+                select
+                label={
+                  isMeeting
+                    ? 'Meeting room (optional)'
+                    : form.type === 'POOL_TABLE'
+                      ? 'Pool table'
+                      : 'Meeting room'
+                }
+                required={!isMeeting}
+                value={form.resourceId}
+                onChange={(e) =>
+                  set('resourceId', e.target.value === '' ? '' : Number(e.target.value))
+                }
+                disabled={resourcesLoading}
+                helperText={
+                  !resourcesLoading && !resourceOptions.length
+                    ? 'None set up yet — HR / Admin add them under Bookings → Rooms & tables.'
+                    : undefined
+                }
+              >
+                {isMeeting && (
+                  <MenuItem value="">
+                    <em>No room — enter a location instead</em>
+                  </MenuItem>
+                )}
+                {resourceOptions.map((r) => (
+                  <MenuItem key={r.id} value={r.id}>
+                    {r.name}
+                    {r.capacity ? ` · ${r.capacity} seats` : ''}
+                    {r.location ? ` · ${r.location}` : ''}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
 
             {isMeeting && form.resourceId === '' && (
               <TextField

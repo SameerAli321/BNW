@@ -103,12 +103,14 @@ function buildCompanyTree(members: IHierarchyNode[], useDepartments: boolean): C
       ...same.map(personItem),
       ...[...byDept.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([name, deptPeople]): ChartItem => ({
-          kind: 'dept',
-          name,
-          company: deptPeople[0].company,
-          children: deptPeople.map(personItem),
-        })),
+        .map(
+          ([name, deptPeople]): ChartItem => ({
+            kind: 'dept',
+            name,
+            company: deptPeople[0].company,
+            children: deptPeople.map(personItem),
+          })
+        ),
     ];
   }
 
@@ -169,16 +171,22 @@ export function TeamHierarchyView() {
   }, [people, ceos, companyFilter]);
 
   /**
-   * Shrinks the chart to fit the screen width (never above 100%). The automatic fit on load stops
-   * at 80% so names stay readable — scroll sideways for the rest; the Fit button goes further.
+   * Shrinks the chart to fit the screen — width and height — never above 100%, so the whole
+   * hierarchy is visible at once (client CEO, Oct 2026). The automatic fit on load stops at 50% so
+   * names stay readable; the Fit button goes further.
    */
   const fitToScreen = useCallback(
     (minZoom = 0.4) => {
       const viewport = viewportRef.current;
       const chart = chartRef.current;
       if (!viewport || !chart) return;
-      const natural = chart.scrollWidth / zoom;
-      const next = Math.min(1, Math.max(minZoom, (viewport.clientWidth - 32) / natural));
+      const naturalWidth = chart.scrollWidth / zoom;
+      const naturalHeight = chart.scrollHeight / zoom;
+      const fit = Math.min(
+        (viewport.clientWidth - 32) / naturalWidth,
+        (viewport.clientHeight - 64) / naturalHeight
+      );
+      const next = Math.min(1, Math.max(minZoom, fit));
       setZoom(Math.round(next * 100) / 100);
     },
     [zoom]
@@ -189,7 +197,7 @@ export function TeamHierarchyView() {
   useEffect(() => {
     if (fitted.current || peopleLoading || !people.length) return undefined;
     fitted.current = true;
-    const frame = requestAnimationFrame(() => fitToScreen(0.8));
+    const frame = requestAnimationFrame(() => fitToScreen(0.5));
     return () => cancelAnimationFrame(frame);
   }, [peopleLoading, people.length, fitToScreen]);
 
@@ -222,7 +230,12 @@ export function TeamHierarchyView() {
     switch (item.kind) {
       case 'root':
         return (
-          <Stack direction="row" spacing={2} justifyContent="center" sx={{ display: 'inline-flex' }}>
+          <Stack
+            direction="row"
+            spacing={2}
+            justifyContent="center"
+            sx={{ display: 'inline-flex' }}
+          >
             {item.ceos.length ? (
               item.ceos.map((ceo) => (
                 <HierarchyCeoCard
@@ -233,7 +246,9 @@ export function TeamHierarchyView() {
                 />
               ))
             ) : (
-              <Box sx={{ px: 3, py: 2, borderRadius: 1.5, color: 'common.white', bgcolor: '#1B3350' }}>
+              <Box
+                sx={{ px: 3, py: 2, borderRadius: 1.5, color: 'common.white', bgcolor: '#1B3350' }}
+              >
                 <Typography variant="subtitle1">{companyName}</Typography>
               </Box>
             )}
@@ -324,7 +339,9 @@ export function TeamHierarchyView() {
 
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }}>
           <Tooltip title="Zoom out">
-            <IconButton onClick={() => setZoom((z) => Math.max(0.4, Math.round((z - 0.1) * 10) / 10))}>
+            <IconButton
+              onClick={() => setZoom((z) => Math.max(0.4, Math.round((z - 0.1) * 10) / 10))}
+            >
               <Iconify icon="eva:minus-circle-fill" />
             </IconButton>
           </Tooltip>
@@ -332,7 +349,9 @@ export function TeamHierarchyView() {
             {Math.round(zoom * 100)}%
           </Typography>
           <Tooltip title="Zoom in">
-            <IconButton onClick={() => setZoom((z) => Math.min(1.5, Math.round((z + 0.1) * 10) / 10))}>
+            <IconButton
+              onClick={() => setZoom((z) => Math.min(1.5, Math.round((z + 0.1) * 10) / 10))}
+            >
               <Iconify icon="mingcute:add-line" />
             </IconButton>
           </Tooltip>
@@ -400,13 +419,19 @@ export function TeamHierarchyView() {
 
       {!peopleLoading && !peopleError && !!people.length && (
         // Scrolls on its own so a wide chart never widens the page; zoom shrinks it to fit.
-        <Card ref={viewportRef} sx={{ overflow: 'auto', py: 4, px: 2, maxHeight: 'calc(100vh - 160px)' }}>
-          <Box ref={chartRef} sx={{ zoom, minWidth: 'max-content', mx: 'auto', width: 'fit-content' }}>
+        <Card
+          ref={viewportRef}
+          sx={{ overflow: 'auto', py: 4, px: 2, maxHeight: 'calc(100vh - 160px)' }}
+        >
+          <Box
+            ref={chartRef}
+            sx={{ zoom, minWidth: 'max-content', mx: 'auto', width: 'fit-content' }}
+          >
             <OrganizationalChart
               data={root}
-              lineHeight="36px"
+              lineHeight="24px"
               lineWidth="1.5px"
-              nodePadding="10px"
+              nodePadding="6px"
               lineBorderRadius="0px"
               nodeItem={(item: ChartItem) => renderItem(item)}
             />

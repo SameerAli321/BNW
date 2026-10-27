@@ -4,6 +4,8 @@ import Grid from '@mui/material/Grid';
 
 import { paths } from 'src/routes/paths';
 
+import { FEATURES } from 'src/features';
+
 import { DashboardStatCard } from './dashboard-stat-card';
 import {
   CardLink,
@@ -43,13 +45,17 @@ export function DashboardTeamSection({ team }: { team: TeamDashboard }) {
                 icon: 'solar:calendar-date-bold',
                 color: 'primary',
               },
-              {
-                label: 'Attendance regularization forms',
-                count: team.pendingAttendance,
-                href: paths.dashboard.attendanceRegularizations.root,
-                icon: 'solar:clock-circle-bold',
-                color: 'info',
-              },
+              ...(FEATURES.attendanceRegularization
+                ? [
+                    {
+                      label: 'Attendance regularization forms',
+                      count: team.pendingAttendance,
+                      href: paths.dashboard.attendanceRegularizations.root,
+                      icon: 'solar:clock-circle-bold' as const,
+                      color: 'info' as const,
+                    },
+                  ]
+                : []),
             ]}
           />
         </Grid>

@@ -30,7 +30,11 @@ export function workOrderStatusText(status: WorkOrderStatus, type?: WorkOrderTyp
     case 'PENDING_CEO':
       return 'With CEO';
     case 'PENDING_PROCESSING':
-      return type === 'EQUIPMENT' ? 'With HR' : type === 'REIMBURSEMENT' ? 'With Payroll' : 'Final step';
+      return type === 'EQUIPMENT'
+        ? 'With HR'
+        : type === 'REIMBURSEMENT'
+          ? 'With Payroll'
+          : 'Final step';
     case 'COMPLETED':
       return type === 'EQUIPMENT' ? 'Issued' : type === 'REIMBURSEMENT' ? 'Paid' : 'Completed';
     case 'REJECTED':
@@ -51,7 +55,13 @@ const STATUS_COLOR: Record<WorkOrderStatus, LabelColor> = {
   CANCELLED: 'error',
 };
 
-export function WorkOrderStatusLabel({ status, type }: { status: WorkOrderStatus; type?: WorkOrderType }) {
+export function WorkOrderStatusLabel({
+  status,
+  type,
+}: {
+  status: WorkOrderStatus;
+  type?: WorkOrderType;
+}) {
   return (
     <Label variant="soft" color={STATUS_COLOR[status]}>
       {workOrderStatusText(status, type)}
@@ -65,7 +75,9 @@ export function WorkOrderTypeLabel({ type }: { type: WorkOrderType }) {
       variant="soft"
       color={type === 'REIMBURSEMENT' ? 'primary' : 'secondary'}
       startIcon={
-        <Iconify icon={type === 'REIMBURSEMENT' ? 'solar:wad-of-money-bold' : 'solar:monitor-bold'} />
+        <Iconify
+          icon={type === 'REIMBURSEMENT' ? 'solar:wad-of-money-bold' : 'solar:monitor-bold'}
+        />
       }
     >
       {type === 'REIMBURSEMENT' ? 'Reimbursement' : 'Equipment'}
@@ -92,7 +104,11 @@ export function WorkOrderSteps({ order }: { order: WorkOrderDto }) {
     });
   }
   if (order.ceoRequired) {
-    steps.push({ label: 'CEO', state: stepState(order.ceoApproved, s === 'PENDING_CEO'), who: order.ceoName });
+    steps.push({
+      label: 'CEO',
+      state: stepState(order.ceoApproved, s === 'PENDING_CEO'),
+      who: order.ceoName,
+    });
   }
   steps.push({
     label: order.type === 'REIMBURSEMENT' ? 'Payroll — paid' : 'HR — issued',
@@ -102,7 +118,13 @@ export function WorkOrderSteps({ order }: { order: WorkOrderDto }) {
   if (s === 'CANCELLED') steps.forEach((step) => step.state === 'current' && (step.state = 'todo'));
 
   const color = (state: Step['state']) =>
-    state === 'done' ? 'success.main' : state === 'rejected' ? 'error.main' : state === 'current' ? 'warning.main' : 'text.disabled';
+    state === 'done'
+      ? 'success.main'
+      : state === 'rejected'
+        ? 'error.main'
+        : state === 'current'
+          ? 'warning.main'
+          : 'text.disabled';
   const icon = (state: Step['state']) =>
     state === 'done'
       ? 'solar:check-circle-bold'
@@ -115,14 +137,25 @@ export function WorkOrderSteps({ order }: { order: WorkOrderDto }) {
   return (
     <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} sx={{ gap: 1 }}>
       {steps.map((step, index) => (
-        <Stack key={step.label} direction="row" alignItems="center" sx={{ gap: 1, flex: { sm: 1 } }}>
-          <Iconify icon={icon(step.state)} width={24} sx={{ color: color(step.state), flexShrink: 0 }} />
+        <Stack
+          key={step.label}
+          direction="row"
+          alignItems="center"
+          sx={{ gap: 1, flex: { sm: 1 } }}
+        >
+          <Iconify
+            icon={icon(step.state)}
+            width={24}
+            sx={{ color: color(step.state), flexShrink: 0 }}
+          />
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="subtitle2" noWrap>
               {step.label}
             </Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary' }} noWrap component="div">
-              {step.state === 'current' ? 'Waiting' : step.who || (step.state === 'todo' ? 'Not yet' : '')}
+              {step.state === 'current'
+                ? 'Waiting'
+                : step.who || (step.state === 'todo' ? 'Not yet' : '')}
             </Typography>
           </Box>
           {index < steps.length - 1 && (

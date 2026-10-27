@@ -4,6 +4,8 @@ import {
   Entity,
   Index,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -14,7 +16,8 @@ import { User } from './user.entity';
 
 /**
  * Announcement board — guide §3.4 R4, §5.6, §8.1 `announcements`. Posted by the CEO, an ADMIN or
- * HR; shown on every dashboard to everyone (or one department) until it expires or is removed.
+ * HR; shown on every dashboard to everyone (or to the chosen departments) until it expires or is
+ * removed.
  */
 @Entity('announcements')
 export class Announcement {
@@ -37,12 +40,14 @@ export class Announcement {
   @Column({ type: 'enum', enum: AnnouncementAudience, default: AnnouncementAudience.ALL })
   audience: AnnouncementAudience;
 
-  @Column({ name: 'department_id', type: 'int', nullable: true })
-  departmentId: number | null;
-
-  @ManyToOne(() => Department, { onDelete: 'SET NULL', nullable: true })
-  @JoinColumn({ name: 'department_id' })
-  department: Department | null;
+  /** Who it's for when audience = DEPARTMENT — one or more departments. */
+  @ManyToMany(() => Department)
+  @JoinTable({
+    name: 'announcement_departments',
+    joinColumn: { name: 'announcement_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'department_id', referencedColumnName: 'id' },
+  })
+  departments: Department[];
 
   @Column({ type: 'boolean', default: false })
   pinned: boolean;

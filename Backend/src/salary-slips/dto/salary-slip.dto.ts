@@ -1,7 +1,6 @@
+import { applyDecorators } from '@nestjs/common';
 import { Transform, Type } from 'class-transformer';
 import {
-  ArrayMaxSize,
-  IsArray,
   IsBoolean,
   IsEnum,
   IsIn,
@@ -13,10 +12,13 @@ import {
   Max,
   MaxLength,
   Min,
-  MinLength,
-  ValidateNested,
+  ValidateIf,
 } from 'class-validator';
-import { SALARY_PAYMENT_METHODS, SalarySlipEmailStatus } from '../../common/enums/salary-slip.enum';
+import {
+  SALARY_PAYMENT_METHODS,
+  SalarySlipEmailStatus,
+  SecurityDeductionMode,
+} from '../../common/enums/salary-slip.enum';
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 const MAX_AMOUNT = 100_000_000;
@@ -24,22 +26,46 @@ const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? val
 const emptyToUndefined = ({ value }: { value: unknown }) =>
   typeof value === 'string' && value.trim() === '' ? undefined : value;
 
-export class SalaryLineItemDto {
-  @Transform(trim)
-  @IsString()
-  @MinLength(1, { message: 'Give each allowance / deduction a name' })
-  @MaxLength(60)
-  label: string;
+/** An optional rupee amount: number ≥ 0 with up to 2 decimals. */
+const Amount = (message = 'Amounts must be numbers with up to 2 decimals') =>
+  applyDecorators(
+    IsOptional(),
+    Type(() => Number),
+    IsNumber({ maxDecimalPlaces: 2 }, { message }),
+    Min(0, { message: 'Amounts cannot be negative' }),
+    Max(MAX_AMOUNT),
+  );
 
+/**
+ * The payroll sheet's manual inputs, shared by the slip form and the sheet. Unpaid holidays allow
+ * half days (the sample sheet has 2.5 + 6). Tax is not here: only the accountant enters it, on the
+ * sheet (UpdatePayrollEntryDto), and a slip always takes it from there.
+ */
+class PayrollInputsDto {
+  @IsOptional()
   @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Amounts must be numbers with up to 2 decimals' })
-  @Min(0, { message: 'Amounts cannot be negative' })
-  @Max(MAX_AMOUNT)
-  amount: number;
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Unpaid holidays must be a number' })
+  @Min(0)
+  @Max(31)
+  unpaidDays?: number;
+
+  @IsOptional()
+  @IsEnum(SecurityDeductionMode)
+  securityMode?: SecurityDeductionMode;
+
+  /** Used when securityMode is MANUAL. */
+  @Amount()
+  securityAmount?: number;
+
+  @Amount()
+  nonTaxableAddition?: number;
+
+  @Amount()
+  taxableAddition?: number;
 }
 
-/** POST /salary-slips — HR / ADMIN. */
-export class CreateSalarySlipDto {
+/** POST /salary-slips — HR / ADMIN. Calculated with the payroll sheet formula. */
+export class CreateSalarySlipDto extends PayrollInputsDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -48,46 +74,22 @@ export class CreateSalarySlipDto {
   @Matches(MONTH_PATTERN, { message: 'salaryMonth must be YYYY-MM' })
   salaryMonth: string;
 
+  /** Gross salary (the column is basic_salary). */
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Enter the gross salary' })
   @Min(0)
   @Max(MAX_AMOUNT)
   basicSalary: number;
 
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(12, { message: 'Up to 12 allowances and 12 deductions' })
-  @ValidateNested({ each: true })
-  @Type(() => SalaryLineItemDto)
-  allowances?: SalaryLineItemDto[];
-
-  @IsOptional()
   @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  @Max(MAX_AMOUNT)
-  bonus?: number;
+  @IsInt({ message: 'Working days must be a whole number' })
+  @Min(1, { message: 'Working days must be at least 1' })
+  @Max(31)
+  workingDays: number;
 
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  @Max(MAX_AMOUNT)
-  overtime?: number;
-
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(12, { message: 'Up to 12 allowances and 12 deductions' })
-  @ValidateNested({ each: true })
-  @Type(() => SalaryLineItemDto)
-  deductions?: SalaryLineItemDto[];
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  @Max(MAX_AMOUNT)
-  tax?: number;
+  /** Leave out to take the next instalment of the employee's loan; set to override it. */
+  @Amount()
+  loanDeduction?: number;
 
   @Transform(emptyToUndefined)
   @IsOptional()
@@ -98,13 +100,6 @@ export class CreateSalarySlipDto {
   @IsOptional()
   @IsIn(SALARY_PAYMENT_METHODS)
   paymentMethod?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(31)
-  workingDays?: number;
 
   @Transform(emptyToUndefined)
   @IsOptional()
@@ -171,4 +166,117 @@ export class QuerySalarySlipsDto {
   @Min(1)
   @Max(100)
   limit?: number;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Payroll sheet
+
+/** GET /payroll — the sheet for one month. */
+export class PayrollQueryDto {
+  @Matches(MONTH_PATTERN, { message: 'month must be YYYY-MM' })
+  month: string;
+}
+
+/**
+ * PUT /payroll/:employeeId — save one row of the sheet. Send only the cells that changed.
+ * HR / ADMIN may change every cell except `tax`; the accountant (PAYROLL role) only `tax` and
+ * `paid`. Tax is the accountant's alone.
+ */
+export class UpdatePayrollEntryDto extends PayrollInputsDto {
+  @Matches(MONTH_PATTERN, { message: 'month must be YYYY-MM' })
+  month: string;
+
+  @Amount()
+  tax?: number;
+
+  @Amount('Enter the gross salary')
+  grossSalary?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Working days must be a whole number' })
+  @Min(1, { message: 'Working days must be at least 1' })
+  @Max(31)
+  workingDays?: number;
+
+  /** A number overrides this month's loan instalment; null goes back to the loan schedule. */
+  @IsOptional()
+  @ValidateIf((_dto, value) => value !== null)
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Amounts must be numbers with up to 2 decimals' })
+  @Min(0, { message: 'Amounts cannot be negative' })
+  @Max(MAX_AMOUNT)
+  loanOverride?: number | null;
+
+  @Amount()
+  paid?: number;
+}
+
+/** PUT /payroll/working-days — the sheet's "Number of working days", applied to every row. */
+export class PayrollWorkingDaysDto {
+  @Matches(MONTH_PATTERN, { message: 'month must be YYYY-MM' })
+  month: string;
+
+  @Type(() => Number)
+  @IsInt({ message: 'Working days must be a whole number' })
+  @Min(1, { message: 'Working days must be at least 1' })
+  @Max(31)
+  workingDays: number;
+}
+
+/** POST /payroll/:employeeId/generate — generate (or regenerate) the slip from the sheet row. */
+export class GenerateFromPayrollDto {
+  @Matches(MONTH_PATTERN, { message: 'month must be YYYY-MM' })
+  month: string;
+
+  @IsOptional()
+  @IsBoolean()
+  regenerate?: boolean;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Loans
+
+/** POST /loans — e.g. Rs 100,000 over 6 months from 2026-11. */
+export class CreateLoanDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  employeeId: number;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Enter the loan amount' })
+  @Min(1, { message: 'The loan amount must be more than zero' })
+  @Max(MAX_AMOUNT)
+  principal: number;
+
+  @Type(() => Number)
+  @IsInt({ message: 'Choose how many months to repay over' })
+  @Min(1, { message: 'At least 1 month' })
+  @Max(60, { message: 'At most 60 months' })
+  instalments: number;
+
+  @Matches(MONTH_PATTERN, { message: 'startMonth must be YYYY-MM' })
+  startMonth: string;
+
+  @Transform(emptyToUndefined)
+  @Transform(trim)
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
+}
+
+export class QueryLoansDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  employeeId?: number;
+
+  /** Also list loans that were cancelled or fully repaid. */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  includeClosed?: boolean;
 }
