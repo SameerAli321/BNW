@@ -31,7 +31,7 @@ import {
 } from 'src/types/user';
 
 // ----------------------------------------------------------------------
-// `POST /candidates/:id/convert` — ADMIN only. Body is `ConvertCandidateDto`: same shape as
+// `POST /candidates/:id/convert` — HR / ADMIN. Body is `ConvertCandidateDto`: same shape as
 // `CreateUserDto` minus `email`/`firstName`/`lastName` (defaulted from the candidate's own
 // `name`/`email`, HR can override), including the mandatory min-8 `password` field — identical
 // requirement to `UserNewEditForm`'s create mode (see docs/API_CONTRACT_SPRINT5.md).

@@ -16,7 +16,7 @@ export function UserCreateView() {
   const { user } = useAuthContext();
 
   return (
-    <RoleBasedGuard hasContent currentRole={user?.role ?? ''} allowedRoles={['ADMIN']}>
+    <RoleBasedGuard hasContent currentRole={user?.role ?? ''} allowedRoles={['HR', 'ADMIN']}>
       <DashboardContent>
         <CustomBreadcrumbs
           heading="Create a new user"

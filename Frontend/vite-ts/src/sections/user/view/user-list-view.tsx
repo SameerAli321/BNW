@@ -80,8 +80,8 @@ export function UserListView() {
   const { user: currentAuthUser } = useAuthContext();
   const currentRole = currentAuthUser?.role ?? '';
   const canDelete = currentRole === 'ADMIN';
-  // Only Admin creates accounts — HR edits existing users.
-  const canCreate = currentRole === 'ADMIN';
+  // HR and Admin both create accounts.
+  const canCreate = currentRole === 'HR' || currentRole === 'ADMIN';
   const canResetPassword = currentRole === 'ADMIN' || currentRole === 'HR';
 
   const confirmDialog = useBoolean();

@@ -54,6 +54,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
       this.logger.error('Unknown exception', JSON.stringify(exception));
     }
 
+    // The throttler's own text ("ThrottlerException: Too Many Requests") is shown on the login page.
+    if (status === HttpStatus.TOO_MANY_REQUESTS) {
+      error = {
+        code: 'TOO_MANY_REQUESTS',
+        message: 'Too many attempts. Please wait a minute and try again.',
+      };
+    }
+
     response.status(status).json({ error });
   }
 
@@ -69,6 +77,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
         return 'NOT_FOUND';
       case HttpStatus.CONFLICT:
         return 'CONFLICT';
+      case HttpStatus.TOO_MANY_REQUESTS:
+        return 'TOO_MANY_REQUESTS';
       default:
         return 'SERVER_ERROR';
     }

@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
@@ -9,7 +10,12 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // The host (SiteGround) puts nginx in front of the app. Trust that one proxy hop so req.ip is
+  // the visitor's real IP — otherwise every user shares the proxy's IP and the rate limits
+  // (login 10/min, API 100/min) are shared by the whole company.
+  app.set('trust proxy', 1);
 
   app.use(helmet());
   app.use(cookieParser());

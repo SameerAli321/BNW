@@ -49,9 +49,8 @@ export class UsersController {
     return this.usersService.findAll(query);
   }
 
-  // Only Admin creates accounts — HR edits existing users; employees and interns come in through
-  // Hiring → Convert.
-  @Roles(RoleName.ADMIN)
+  // HR and Admin create accounts; employees and interns usually come in through Hiring → Convert.
+  @Roles(RoleName.HR, RoleName.ADMIN)
   @Post()
   async create(@Body() dto: CreateUserDto, @CurrentUser() caller: JwtUserPayload) {
     const { user, welcomeEmail } = await this.usersService.create(dto, caller.sub);

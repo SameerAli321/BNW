@@ -53,7 +53,7 @@ export function CandidateTableRow({ row, nextInterview }: Props) {
 
   const router = useRouter();
   const { user: currentAuthUser } = useAuthContext();
-  const isAdmin = currentAuthUser?.role === 'ADMIN';
+  const canCreateAccount = currentAuthUser?.role === 'HR' || currentAuthUser?.role === 'ADMIN';
 
   const isHired = row.status === 'HIRED';
 
@@ -147,14 +147,14 @@ export function CandidateTableRow({ row, nextInterview }: Props) {
         )}
 
         {!isHired && (
-          // Only Admin creates user accounts (backend enforces it too).
+          // HR and Admin create user accounts (backend enforces it too).
           <Tooltip
-            title={isAdmin ? '' : 'Only Admin can create employee accounts'}
+            title={canCreateAccount ? '' : 'Only HR or Admin can create employee accounts'}
             placement="left"
           >
             <span>
               <MenuItem
-                disabled={!isAdmin}
+                disabled={!canCreateAccount}
                 onClick={() => {
                   convertDialog.onTrue();
                   menuActions.onClose();

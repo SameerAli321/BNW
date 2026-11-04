@@ -135,7 +135,7 @@ export async function downloadCandidateCv(
 }
 
 /**
- * POST /candidates/:id/convert — ADMIN only (only Admin creates user accounts). Body is
+ * POST /candidates/:id/convert — HR / ADMIN (both create user accounts). Body is
  * `ConvertCandidateDto` (same shape as `CreateUserDto` minus `email`/`firstName`/`lastName`,
  * defaulted from the candidate). 409 if `candidate.status === 'HIRED'` already, or the email
  * collides with an existing user. On success: creates the `User`, sets `candidate.status =
