@@ -127,6 +127,13 @@ import { RolesGuard } from './common/guards/roles.guard';
         ],
         synchronize: false, // migrations only — never sync() against a real schema
         autoLoadEntities: true,
+        // In production the app applies pending migrations itself on boot (compiled JS, no ts-node),
+        // and keeps retrying the DB for ~2 minutes so a slow or briefly unavailable DB after a host
+        // restart doesn't leave the API down. Locally, run `npm run migration:run` as before.
+        migrations: [__dirname + '/migrations/*.{ts,js}'],
+        migrationsRun: config.get<string>('NODE_ENV') === 'production',
+        retryAttempts: 24,
+        retryDelay: 5000,
       }),
     }),
     AuthModule,
