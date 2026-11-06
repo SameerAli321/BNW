@@ -25,7 +25,7 @@ export const USER_FORM_ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'ADMIN', label: 'Admin' },
   { value: 'MANAGER', label: 'Team Lead' },
   // Fills in Tax and Paid on the payroll sheet (stored as the PAYROLL role).
-  { value: 'PAYROLL', label: 'Accountant' },
+  { value: 'PAYROLL', label: 'Internal Payroll Team' },
   { value: 'EMPLOYEE', label: 'Team Member' },
 ];
 

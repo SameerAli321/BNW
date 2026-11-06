@@ -257,7 +257,7 @@ export function PayrollSheetPanel() {
       <Box sx={{ px: 2.5, pb: 2 }}>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           {canEditAll
-            ? 'Staff ID, name, ID card number, bank details and gross salary come from each employee’s account. Fill in unpaid holidays, security and additions, then generate each slip from its row. Tax is entered by the accountant only.'
+            ? 'Staff ID, name, ID card number, bank details and gross salary come from each employee’s account. Fill in unpaid holidays, security and additions, then generate each slip from its row. Tax is entered by the Internal Payroll Team only.'
             : 'You fill in Tax (only you can) and Paid. HR generates the salary slips from this sheet.'}
         </Typography>
         {!!outdatedCount && (

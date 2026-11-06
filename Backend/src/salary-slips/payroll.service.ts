@@ -306,13 +306,15 @@ export class PayrollService {
     );
     if (!changed.length) return this.row(employeeId, month);
     if (!isAccountant(caller) && changed.some((key) => ACCOUNTANT_ONLY_FIELDS.includes(key))) {
-      throw new ForbiddenException('Only the accountant can enter Tax on the payroll sheet');
+      throw new ForbiddenException(
+        'Only the Internal Payroll Team can enter Tax on the payroll sheet',
+      );
     }
     if (!canManageSalarySlips(caller)) {
       const blocked = changed.filter((key) => !ACCOUNTANT_FIELDS.includes(key));
       if (blocked.length) {
         throw new ForbiddenException(
-          'Accountants can only fill in Tax and Paid on the payroll sheet',
+          'The Internal Payroll Team can only fill in Tax and Paid on the payroll sheet',
         );
       }
     }
@@ -420,7 +422,9 @@ export class PayrollService {
 
   private assertCanView(caller: JwtUserPayload) {
     if (!canViewPayroll(caller)) {
-      throw new ForbiddenException('Only HR, Admin or the accountant can open the payroll sheet');
+      throw new ForbiddenException(
+        'Only HR, Admin or the Internal Payroll Team can open the payroll sheet',
+      );
     }
   }
 

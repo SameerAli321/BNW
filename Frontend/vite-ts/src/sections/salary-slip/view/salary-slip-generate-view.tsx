@@ -538,7 +538,7 @@ export function SalarySlipGenerateView() {
                         defaults.payroll.saved
                           ? `From ${defaults.employee.name}'s row on the ${fSalaryMonth(defaults.salaryMonth)} payroll sheet.`
                           : defaults.employee.currentSalary !== null
-                            ? 'Gross salary is from the employee’s account. Enter this month’s unpaid holidays and additions; the accountant enters the tax.'
+                            ? 'Gross salary is from the employee’s account. Enter this month’s unpaid holidays and additions; the Internal Payroll Team enters the tax.'
                             : 'No salary on the employee’s account yet — enter the gross salary.'
                       }
                     />
@@ -626,7 +626,7 @@ export function SalarySlipGenerateView() {
                             disabled
                             label="Tax"
                             value={fSalary(num(form.tax))}
-                            helperText="Entered by the accountant only, on the payroll sheet"
+                            helperText="Entered by the Internal Payroll Team only, on the payroll sheet"
                           />
                         </Stack>
                         {amountField('loanOverride', 'Loan deduction', errors.loanOverride, {

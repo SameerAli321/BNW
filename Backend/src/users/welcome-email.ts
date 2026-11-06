@@ -9,7 +9,7 @@ export const ROLE_LABELS: Record<string, string> = {
   [RoleName.EMPLOYEE]: 'Team Member',
   [RoleName.ADMIN]: 'HR/Admin',
   [RoleName.HR]: 'HR',
-  [RoleName.PAYROLL]: 'Accountant',
+  [RoleName.PAYROLL]: 'Internal Payroll Team',
 };
 
 type WelcomeEmailOptions = {

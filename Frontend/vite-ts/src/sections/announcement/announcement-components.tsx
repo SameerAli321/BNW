@@ -71,7 +71,7 @@ const ROLE_LABEL: Record<string, string> = {
   HR: 'HR',
   CEO: 'CEO',
   ADMIN: 'Admin',
-  PAYROLL: 'Accountant',
+  PAYROLL: 'Internal Payroll Team',
 };
 
 /** Who the post is for, as a small chip. */
