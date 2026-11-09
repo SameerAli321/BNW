@@ -375,13 +375,17 @@ export function RequestsFormsView() {
           <Grid size={{ xs: 12, md: 6 }}>
             <ItemCard
               kind="Form"
-              title="Appraisal Request"
+              title="Generate New Appraisal"
               description="Fill in the Self Evaluation Form to request your performance appraisal. You can request a new one once your previous request has been decided."
               icon="solar:cup-star-bold"
               color="success"
               flow={['You', 'Your manager', 'CEO']}
               actions={[
-                { label: 'Request appraisal', href: paths.dashboard.appraisals.new, primary: true },
+                {
+                  label: 'Generate New Appraisal',
+                  href: paths.dashboard.appraisals.new,
+                  primary: true,
+                },
                 { label: 'My appraisals', href: paths.dashboard.appraisals.root },
               ]}
             >
@@ -417,14 +421,14 @@ export function RequestsFormsView() {
         <Grid size={{ xs: 12, md: 6 }}>
           <ItemCard
             kind="Form"
-            title="Equipment Request"
+            title="Generate Equipment Request"
             description="Ask for a laptop, monitor, headset, chair, software licence or anything else you need to do your job."
             icon="solar:monitor-bold"
             color="secondary"
             flow={['You', 'Your manager', 'CEO (large amounts)', 'HR']}
             actions={[
               {
-                label: 'Request equipment',
+                label: 'Generate Equipment Request',
                 href: `${paths.dashboard.workOrders.new}?type=EQUIPMENT`,
                 primary: true,
               },
