@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { ParticipantResponse } from 'src/actions/bookings';
 
 import { useState } from 'react';
 import { useBoolean } from 'minimal-shared/hooks';
@@ -21,7 +22,7 @@ import { RouterLink } from 'src/routes/components';
 import { fDateTime } from 'src/utils/format-time';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { cancelBooking, useGetBooking } from 'src/actions/bookings';
+import { cancelBooking, useGetBooking, respondToMeeting } from 'src/actions/bookings';
 
 import { Label } from 'src/components/label';
 import { toast } from 'src/components/snackbar';
@@ -54,6 +55,15 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+const RESPONSE_META: Record<
+  ParticipantResponse,
+  { label: string; color: 'success' | 'error' | 'warning' }
+> = {
+  ACCEPTED: { label: 'Accepted', color: 'success' },
+  DECLINED: { label: 'Declined', color: 'error' },
+  PENDING: { label: 'Awaiting reply', color: 'warning' },
+};
+
 const initials = (name: string) =>
   name
     .split(' ')
@@ -74,6 +84,9 @@ export function BookingDetailsView({ id }: Props) {
   const [reason, setReason] = useState('');
   const [cancelScope, setCancelScope] = useState<'ONE' | 'FOLLOWING'>('ONE');
   const [cancelling, setCancelling] = useState(false);
+  const confirmDecline = useBoolean();
+  const [declineReason, setDeclineReason] = useState('');
+  const [responding, setResponding] = useState(false);
 
   const breadcrumbs = (heading: string, action?: ReactNode) => (
     <CustomBreadcrumbs
@@ -118,6 +131,36 @@ export function BookingDetailsView({ id }: Props) {
   const status = bookingStatusLabel(booking);
   const isMeeting = booking.type === 'MEETING';
   const canChange = booking.canManage && booking.status === 'CONFIRMED' && !booking.isPast;
+  // The viewer is an invitee of an upcoming meeting: they can accept or decline.
+  const myResponse = booking.myResponse;
+  const canRespond =
+    isMeeting && myResponse !== null && booking.status === 'CONFIRMED' && !booking.isPast;
+  const replyCounts = booking.participants.reduce(
+    (counts, p) => ({ ...counts, [p.response]: counts[p.response] + 1 }),
+    { ACCEPTED: 0, DECLINED: 0, PENDING: 0 } as Record<ParticipantResponse, number>
+  );
+
+  const onRespond = async (response: 'ACCEPTED' | 'DECLINED') => {
+    setResponding(true);
+    try {
+      await respondToMeeting(
+        booking.id,
+        response,
+        response === 'DECLINED' ? declineReason.trim() || undefined : undefined
+      );
+      toast.success(
+        response === 'ACCEPTED'
+          ? 'Accepted — the organiser has been notified'
+          : 'Declined — the organiser has been notified'
+      );
+      confirmDecline.onFalse();
+      setDeclineReason('');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not send your reply');
+    } finally {
+      setResponding(false);
+    }
+  };
 
   const onCancel = async () => {
     setCancelling(true);
@@ -161,6 +204,50 @@ export function BookingDetailsView({ id }: Props) {
                 </Label>
                 <Label color={status.color}>{status.label}</Label>
               </Stack>
+
+              {canRespond && myResponse && (
+                <Alert
+                  severity={
+                    myResponse === 'PENDING'
+                      ? 'info'
+                      : myResponse === 'ACCEPTED'
+                        ? 'success'
+                        : 'warning'
+                  }
+                  action={
+                    <Stack direction="row" spacing={1}>
+                      {myResponse !== 'ACCEPTED' && (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          loading={responding}
+                          onClick={() => onRespond('ACCEPTED')}
+                        >
+                          Accept
+                        </Button>
+                      )}
+                      {myResponse !== 'DECLINED' && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          disabled={responding}
+                          onClick={confirmDecline.onTrue}
+                        >
+                          Decline
+                        </Button>
+                      )}
+                    </Stack>
+                  }
+                >
+                  {myResponse === 'PENDING'
+                    ? `${booking.organizer?.name ?? 'The organiser'} invited you. Will you attend?`
+                    : myResponse === 'ACCEPTED'
+                      ? 'You accepted this meeting.'
+                      : 'You declined this meeting.'}
+                </Alert>
+              )}
 
               {booking.status === 'CANCELLED' && (
                 <Alert severity="error">
@@ -244,12 +331,25 @@ export function BookingDetailsView({ id }: Props) {
         <Grid size={{ xs: 12, md: 4 }}>
           {isMeeting ? (
             <Card sx={{ p: { xs: 2, md: 3 } }}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+              <Typography variant="subtitle1">
                 Participants ({booking.participants.length + 1})
+              </Typography>
+              <Typography variant="caption" component="p" sx={{ color: 'text.secondary', mb: 2 }}>
+                {replyCounts.ACCEPTED} accepted · {replyCounts.DECLINED} declined ·{' '}
+                {replyCounts.PENDING} awaiting reply
               </Typography>
               <Stack spacing={1.5} component="ul" sx={{ m: 0, p: 0, listStyle: 'none' }}>
                 {[
-                  ...(booking.organizer ? [{ ...booking.organizer, organiser: true }] : []),
+                  ...(booking.organizer
+                    ? [
+                        {
+                          ...booking.organizer,
+                          organiser: true,
+                          response: null,
+                          declineReason: null,
+                        },
+                      ]
+                    : []),
                   ...booking.participants.map((p) => ({ ...p, organiser: false })),
                 ].map((p) => (
                   <Stack
@@ -267,8 +367,22 @@ export function BookingDetailsView({ id }: Props) {
                       <Typography variant="caption" sx={{ color: 'text.secondary' }} noWrap>
                         {p.designation ?? '—'}
                       </Typography>
+                      {p.declineReason && (
+                        <Typography
+                          variant="caption"
+                          component="p"
+                          sx={{ color: 'error.main', wordBreak: 'break-word' }}
+                        >
+                          “{p.declineReason}”
+                        </Typography>
+                      )}
                     </Box>
                     {p.organiser && <Label color="primary">Organiser</Label>}
+                    {p.response && (
+                      <Label color={RESPONSE_META[p.response].color}>
+                        {RESPONSE_META[p.response].label}
+                      </Label>
+                    )}
                   </Stack>
                 ))}
               </Stack>
@@ -328,6 +442,40 @@ export function BookingDetailsView({ id }: Props) {
         action={
           <Button variant="contained" color="error" loading={cancelling} onClick={onCancel}>
             Yes, cancel it
+          </Button>
+        }
+      />
+
+      <ConfirmDialog
+        open={confirmDecline.value}
+        onClose={confirmDecline.onFalse}
+        title="Decline this meeting?"
+        content={
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Typography variant="body2">
+              {booking.organizer?.name ?? 'The organiser'} will be told you can&apos;t attend{' '}
+              {booking.title} ({fPktRange(booking.startAt, booking.endAt)}). Your time becomes free
+              for other bookings.
+            </Typography>
+            <TextField
+              label="Reason (optional)"
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              multiline
+              minRows={2}
+              fullWidth
+              slotProps={{ htmlInput: { maxLength: 300 } }}
+            />
+          </Stack>
+        }
+        action={
+          <Button
+            variant="contained"
+            color="error"
+            loading={responding}
+            onClick={() => onRespond('DECLINED')}
+          >
+            Decline
           </Button>
         }
       />

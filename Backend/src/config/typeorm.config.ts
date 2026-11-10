@@ -39,6 +39,7 @@ import { BookingParticipant } from '../entities/booking-participant.entity';
 import { BookingResource } from '../entities/booking-resource.entity';
 import { FormAssignment } from '../entities/form-assignment.entity';
 import { PolicyAcknowledgement } from '../entities/policy-acknowledgement.entity';
+import { OffDay } from '../entities/off-day.entity';
 
 loadEnv();
 
@@ -93,6 +94,7 @@ export const typeOrmDataSourceOptions: DataSourceOptions = {
     BookingResource,
     FormAssignment,
     PolicyAcknowledgement,
+    OffDay,
   ],
   migrations: [__dirname + '/../migrations/*.{ts,js}'],
   synchronize: false,

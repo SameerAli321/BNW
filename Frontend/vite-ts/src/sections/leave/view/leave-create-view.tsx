@@ -15,6 +15,7 @@ import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { useGetOffDays } from 'src/actions/bookings';
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
   useGetLeaveTypes,
@@ -38,15 +39,17 @@ const isWeekend = (day: Date) => day.getUTCDay() === 0 || day.getUTCDay() === 6;
 /**
  * Days of leave between two 'YYYY-MM-DD' dates, inclusive — mirrors the backend's countLeaveDays.
  * "Sandwich" rule: a weekend between two leave days counts (Fri → Mon = 4), weekend days at the
- * edges don't (Sat → Mon = 1). The server also adds a weekend that sits between this request and
- * another leave, so the saved request is the final word.
+ * edges don't (Sat → Mon = 1). Office off days are treated like weekend days. The server also adds
+ * a weekend that sits between this request and another leave, so the saved request is the final
+ * word.
  */
-function countLeaveDays(startDate: string, endDate: string): number {
+function countLeaveDays(startDate: string, endDate: string, offDays: Set<string>): number {
   if (!startDate || !endDate || endDate < startDate) return 0;
   const first = new Date(`${startDate}T00:00:00Z`);
   const last = new Date(`${endDate}T00:00:00Z`);
-  while (first <= last && isWeekend(first)) first.setUTCDate(first.getUTCDate() + 1);
-  while (last >= first && isWeekend(last)) last.setUTCDate(last.getUTCDate() - 1);
+  const isDayOff = (day: Date) => isWeekend(day) || offDays.has(day.toISOString().slice(0, 10));
+  while (first <= last && isDayOff(first)) first.setUTCDate(first.getUTCDate() + 1);
+  while (last >= first && isDayOff(last)) last.setUTCDate(last.getUTCDate() - 1);
   if (first > last) return 0;
   return Math.round((last.getTime() - first.getTime()) / DAY_MS) + 1;
 }
@@ -80,15 +83,21 @@ export function LeaveCreateView({ current }: Props) {
   const balance = balances.find((b) => b.leaveTypeId === leaveTypeId);
   // When editing, this request's own days are already counted as pending — give them back.
   const ownDays =
-    current &&
-    current.leaveTypeId === leaveTypeId &&
-    current.startDate.slice(0, 4) === String(year)
+    current && current.leaveTypeId === leaveTypeId && current.startDate.slice(0, 4) === String(year)
       ? current.days
       : 0;
   const remaining = balance && balance.remaining !== null ? balance.remaining + ownDays : null;
 
   const singleDay = !!startDate && startDate === endDate;
-  const leaveDays = useMemo(() => countLeaveDays(startDate, endDate), [startDate, endDate]);
+  const { offDays } = useGetOffDays(
+    { from: startDate, to: endDate },
+    !!startDate && !!endDate && endDate >= startDate
+  );
+  const offDayDates = useMemo(() => new Set(offDays.map((day) => day.date)), [offDays]);
+  const leaveDays = useMemo(
+    () => countLeaveDays(startDate, endDate, offDayDates),
+    [startDate, endDate, offDayDates]
+  );
   const days = singleDay && halfDay ? 0.5 : leaveDays;
   const overBalance = remaining !== null && days > remaining;
 
@@ -245,7 +254,7 @@ export function LeaveCreateView({ current }: Props) {
           {startDate && endDate && (
             <Alert severity={leaveDays === 0 || overBalance ? 'warning' : 'success'}>
               {leaveDays === 0
-                ? 'Those dates are all weekend days — no leave is needed.'
+                ? 'Those dates are all weekend days or office off days — no leave is needed.'
                 : `${days} day(s) of leave.` +
                   (overBalance ? ` That's more than your ${remaining} remaining day(s).` : '')}
             </Alert>

@@ -41,6 +41,7 @@ import { BookingParticipant } from './entities/booking-participant.entity';
 import { BookingResource } from './entities/booking-resource.entity';
 import { FormAssignment } from './entities/form-assignment.entity';
 import { PolicyAcknowledgement } from './entities/policy-acknowledgement.entity';
+import { OffDay } from './entities/off-day.entity';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
@@ -124,6 +125,7 @@ import { RolesGuard } from './common/guards/roles.guard';
           BookingResource,
           FormAssignment,
           PolicyAcknowledgement,
+          OffDay,
         ],
         synchronize: false, // migrations only — never sync() against a real schema
         autoLoadEntities: true,

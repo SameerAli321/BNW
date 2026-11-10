@@ -5,6 +5,7 @@ import {
   BookingResourceType,
   BookingStatus,
   BookingType,
+  ParticipantResponse,
   PERSONAL_BOOKING_TYPES,
 } from '../enums/booking.enum';
 import { RoleName } from '../enums/role.enum';
@@ -14,6 +15,13 @@ export interface BookingPersonDto {
   id: number;
   name: string;
   designation: string | null;
+}
+
+/** An invitee, with their answer to the invite. */
+export interface BookingParticipantDto extends BookingPersonDto {
+  response: ParticipantResponse;
+  respondedAt: string | null;
+  declineReason: string | null;
 }
 
 export interface BookingResourceDto {
@@ -46,7 +54,9 @@ export interface BookingDto {
   location: string | null;
   organizer: BookingPersonDto | null;
   createdBy: BookingPersonDto | null;
-  participants: BookingPersonDto[];
+  participants: BookingParticipantDto[];
+  /** The viewer's own answer when they're an invitee; null for the organiser and everyone else. */
+  myResponse: ParticipantResponse | null;
   /** The viewer is the organiser or one of the participants. */
   isInvolved: boolean;
   /** The viewer may edit / reschedule / cancel it. */
@@ -157,9 +167,15 @@ export function toBookingDto(booking: Booking, viewer: BookingViewer): BookingDt
     participants: isPrivate
       ? []
       : (booking.participants ?? [])
-          .map((p) => person(p.user))
-          .filter((p): p is BookingPersonDto => !!p)
+          .filter((p) => p.user)
+          .map((p) => ({
+            ...person(p.user)!,
+            response: p.response,
+            respondedAt: p.respondedAt ? p.respondedAt.toISOString() : null,
+            declineReason: p.declineReason,
+          }))
           .sort((a, b) => a.name.localeCompare(b.name)),
+    myResponse: (booking.participants ?? []).find((p) => p.userId === viewer.sub)?.response ?? null,
     isInvolved: involved,
     canManage,
     isPast,

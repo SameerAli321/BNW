@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
+import { ParticipantResponse } from '../common/enums/booking.enum';
 import { Booking } from './booking.entity';
 import { User } from './user.entity';
 
@@ -32,6 +33,21 @@ export class BookingParticipant {
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
+
+  /** The invitee's answer. New invites (and invites after a time change) start as PENDING. */
+  @Column({
+    type: 'enum',
+    enum: ParticipantResponse,
+    enumName: 'booking_participants_response_enum',
+    default: ParticipantResponse.PENDING,
+  })
+  response: ParticipantResponse;
+
+  @Column({ name: 'responded_at', type: 'timestamptz', nullable: true })
+  respondedAt: Date | null;
+
+  @Column({ name: 'decline_reason', type: 'varchar', length: 300, nullable: true })
+  declineReason: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

@@ -11,6 +11,7 @@ import { Booking } from '../entities/booking.entity';
 import { BookingParticipant } from '../entities/booking-participant.entity';
 import { BookingResource } from '../entities/booking-resource.entity';
 import { LeaveRequest } from '../entities/leave-request.entity';
+import { OffDay } from '../entities/off-day.entity';
 import { User } from '../entities/user.entity';
 import { randomUUID } from 'crypto';
 import {
@@ -20,6 +21,8 @@ import {
   BookingResourceType,
   BookingStatus,
   BookingType,
+  BUSY_BOOKING_TYPES,
+  ParticipantResponse,
   PERSONAL_BOOKING_TYPES,
 } from '../common/enums/booking.enum';
 import { LeaveRequestStatus } from '../common/enums/leave-request-status.enum';
@@ -44,18 +47,41 @@ import {
   CreateBookingDto,
   BookingRepeatDto,
   CreateBookingResourceDto,
+  CreateOffDayDto,
   QueryBookingResourcesDto,
   QueryBookingsDto,
+  QueryOffDaysDto,
+  RespondToMeetingDto,
   UpdateBookingDto,
   UpdateBookingResourceDto,
 } from './dto/booking.dto';
 import {
   addMinutes,
+  dateToPkt,
   formatBookingWhen,
   formatDuration,
   pktDayRange,
   pktToDate,
 } from './booking-time';
+
+/** SQL: booking types that make their person busy (see BUSY_BOOKING_TYPES). */
+const BUSY_TYPES_SQL = BUSY_BOOKING_TYPES.map((type) => `'${type}'`).join(', ');
+
+export interface OffDayDto {
+  id: number;
+  date: string;
+  reason: string;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+const toOffDayDto = (row: OffDay): OffDayDto => ({
+  id: row.id,
+  date: row.date,
+  reason: row.reason,
+  createdBy: row.createdBy ? `${row.createdBy.firstName} ${row.createdBy.lastName}` : null,
+  createdAt: row.createdAt.toISOString(),
+});
 
 /** Who may organise meetings (Team Members only attend). */
 export const MEETING_ORGANIZER_ROLES: string[] = [
@@ -196,6 +222,7 @@ export class BookingsService {
     private readonly resourcesRepo: Repository<BookingResource>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
     @InjectRepository(LeaveRequest) private readonly leavesRepo: Repository<LeaveRequest>,
+    @InjectRepository(OffDay) private readonly offDaysRepo: Repository<OffDay>,
     private readonly dataSource: DataSource,
     private readonly notifier: NotifyService,
     private readonly mail: MailService,
@@ -429,8 +456,10 @@ export class BookingsService {
     limit: number,
     caller: JwtUserPayload,
   ): Promise<{ data: BookingDto[]; total: number }> {
+    // Meetings the caller organises or is invited to (and hasn't declined).
     const mine = `b.type = 'MEETING' AND b.end_at >= now() AND (b.organizer_id = $1 OR EXISTS (
-      SELECT 1 FROM booking_participants bp WHERE bp.booking_id = b.id AND bp.user_id = $1))`;
+      SELECT 1 FROM booking_participants bp
+      WHERE bp.booking_id = b.id AND bp.user_id = $1 AND bp.response <> 'DECLINED'))`;
     const rows = (await this.dataSource.query(
       `SELECT b.id FROM bookings b
        WHERE ${mine} AND (b.status = 'CONFIRMED' OR b.start_at >= now())
@@ -481,9 +510,10 @@ export class BookingsService {
         `SELECT x.user_id, b.start_at, b.end_at FROM bookings b
          JOIN LATERAL (
            SELECT b.organizer_id AS user_id
-           UNION SELECT bp.user_id FROM booking_participants bp WHERE bp.booking_id = b.id
+           UNION SELECT bp.user_id FROM booking_participants bp
+             WHERE bp.booking_id = b.id AND bp.response <> 'DECLINED'
          ) x ON true
-         WHERE b.type IN ('MEETING', 'OTHER') AND b.status = 'CONFIRMED'
+         WHERE b.type IN (${BUSY_TYPES_SQL}) AND b.status = 'CONFIRMED'
            AND b.start_at < $2 AND b.end_at > $1
            AND ($3::int IS NULL OR b.id <> $3) AND x.user_id = ANY($4::int[])
          ORDER BY b.start_at`,
@@ -520,6 +550,15 @@ export class BookingsService {
     const startMoved = !existing || existing.startAt.getTime() !== startAt.getTime();
     if (startMoved && startAt.getTime() < Date.now() - 60_000) {
       throw new BadRequestException('Pick a start time in the future');
+    }
+    // Nothing can be booked on an office off day (a booking can end just after midnight, so the
+    // last minute's date is checked too).
+    const days = [...new Set([dto.date, dateToPkt(addMinutes(endAt, -1)).date])];
+    const offDay = await this.offDaysRepo.findOne({ where: { date: In(days) } });
+    if (offDay) {
+      throw new BadRequestException(
+        `${offDay.date} is an office off day (${offDay.reason}) — nothing can be booked on it`,
+      );
     }
 
     let resource: BookingResource | null = null;
@@ -608,32 +647,49 @@ export class BookingsService {
       }
     }
 
-    if (PERSONAL_BOOKING_TYPES.includes(plan.type)) {
-      const people = [plan.organizerId, ...plan.participantIds].sort((a, b) => a - b);
-      for (const id of people) {
-        await manager.query('SELECT pg_advisory_xact_lock($1, $2)', [LOCK_USER, id]);
-      }
-      const busy = (await manager.query(
-        `SELECT DISTINCT u.id, u.first_name, u.last_name FROM bookings b
-         JOIN LATERAL (
-           SELECT b.organizer_id AS user_id
-           UNION SELECT bp.user_id FROM booking_participants bp WHERE bp.booking_id = b.id
-         ) x ON true
-         JOIN users u ON u.id = x.user_id
-         WHERE b.type IN ('MEETING', 'OTHER') AND b.status = 'CONFIRMED'
-           AND b.start_at < $2 AND b.end_at > $1
-           AND ($3::int IS NULL OR b.id <> $3) AND x.user_id = ANY($4::int[])`,
-        [plan.startAt, plan.endAt, excludeId, people],
-      )) as Array<{ id: number; first_name: string; last_name: string }>;
+    if (BUSY_BOOKING_TYPES.includes(plan.type)) {
+      const people = [plan.organizerId, ...plan.participantIds];
+      const busy = await this.lockAndFindBusy(manager, people, plan.startAt, plan.endAt, excludeId);
       if (busy.length) {
         const names = busy.map((u) => `${u.first_name} ${u.last_name}`).join(', ');
         throw new ConflictException(
-          plan.type === BookingType.OTHER
-            ? 'You already have something booked at this time. Pick another time.'
-            : `Already busy at this time: ${names}. Pick another time or remove them.`,
+          plan.type === BookingType.MEETING
+            ? `Already busy at this time: ${names}. Pick another time or remove them.`
+            : 'You already have a meeting or booking at this time. Pick another time.',
         );
       }
     }
+  }
+
+  /**
+   * Locks each person (always in id order, so concurrent saves queue instead of deadlocking) and
+   * returns those already busy between `startAt` and `endAt`: the organiser of a meeting, "Others"
+   * block or pool-table slot, or an invitee who hasn't declined.
+   */
+  private async lockAndFindBusy(
+    manager: EntityManager,
+    userIds: number[],
+    startAt: Date,
+    endAt: Date,
+    excludeId: number | null,
+  ): Promise<Array<{ id: number; first_name: string; last_name: string }>> {
+    const people = [...new Set(userIds)].sort((a, b) => a - b);
+    for (const id of people) {
+      await manager.query('SELECT pg_advisory_xact_lock($1, $2)', [LOCK_USER, id]);
+    }
+    return (await manager.query(
+      `SELECT DISTINCT u.id, u.first_name, u.last_name FROM bookings b
+       JOIN LATERAL (
+         SELECT b.organizer_id AS user_id
+         UNION SELECT bp.user_id FROM booking_participants bp
+           WHERE bp.booking_id = b.id AND bp.response <> 'DECLINED'
+       ) x ON true
+       JOIN users u ON u.id = x.user_id
+       WHERE b.type IN (${BUSY_TYPES_SQL}) AND b.status = 'CONFIRMED'
+         AND b.start_at < $2 AND b.end_at > $1
+         AND ($3::int IS NULL OR b.id <> $3) AND x.user_id = ANY($4::int[])`,
+      [startAt, endAt, excludeId, people],
+    )) as Array<{ id: number; first_name: string; last_name: string }>;
   }
 
   async create(dto: CreateBookingDto, caller: JwtUserPayload): Promise<BookingDto> {
@@ -641,7 +697,17 @@ export class BookingsService {
       throw new ForbiddenException('Only the CEO, HR / Admin and Team Leads can organise meetings');
     }
     // A repeating booking is one booking per day, sharing a series id; all or none are saved.
-    const dates = dto.repeat ? repeatDates(dto.date, dto.repeat) : [dto.date];
+    // Office off days are skipped (a one-off booking on an off day is rejected in `plan`).
+    let dates = dto.repeat ? repeatDates(dto.date, dto.repeat) : [dto.date];
+    if (dto.repeat) {
+      const offDays = new Set(
+        (await this.offDaysRepo.find({ where: { date: In(dates) } })).map((row) => row.date),
+      );
+      dates = dates.filter((date) => !offDays.has(date));
+      if (!dates.length) {
+        throw new BadRequestException('Every one of those dates is an office off day');
+      }
+    }
     const plans: BookingPlan[] = [];
     for (const date of dates)
       plans.push(await this.plan(dto.type, { ...dto, date }, caller.sub, null));
@@ -737,9 +803,11 @@ export class BookingsService {
     const added = plan.participantIds.filter((uid) => !oldIds.includes(uid));
     const removed = oldIds.filter((uid) => !plan.participantIds.includes(uid));
     const kept = oldIds.filter((uid) => plan.participantIds.includes(uid));
-    const timeOrPlaceChanged =
+    const timeChanged =
       before.startAt.getTime() !== plan.startAt.getTime() ||
-      before.endAt.getTime() !== plan.endAt.getTime() ||
+      before.endAt.getTime() !== plan.endAt.getTime();
+    const timeOrPlaceChanged =
+      timeChanged ||
       before.resourceId !== (plan.resource?.id ?? null) ||
       (before.location ?? null) !== plan.location;
 
@@ -762,6 +830,13 @@ export class BookingsService {
         throw new ConflictException('This booking was cancelled in the meantime');
       }
       const participants = manager.getRepository(BookingParticipant);
+      // A new time needs everyone's answer again (like a calendar invite).
+      if (timeChanged && kept.length) {
+        await participants.update(
+          { bookingId: id, userId: In(kept) },
+          { response: ParticipantResponse.PENDING, respondedAt: null, declineReason: null },
+        );
+      }
       if (removed.length) await participants.delete({ bookingId: id, userId: In(removed) });
       if (added.length) {
         await participants.save(
@@ -776,7 +851,13 @@ export class BookingsService {
       if (removed.length) await this.notifyMeeting(after, removed, 'removed');
       if (timeOrPlaceChanged) {
         const told = after.organizerId === caller.sub ? kept : [...kept, after.organizerId];
-        await this.notifyMeeting(after, told, 'rescheduled', before);
+        await this.notifyMeeting(
+          after,
+          told,
+          'rescheduled',
+          before,
+          timeChanged ? ' Please accept or decline the new time.' : '',
+        );
       }
     } else if (after.organizerId !== caller.sub) {
       await this.notifyBookingOwner(after, 'changed', caller);
@@ -842,6 +923,139 @@ export class BookingsService {
     return toBookingDto(after, caller);
   }
 
+  /**
+   * POST /bookings/:id/respond — an invitee accepts or declines. The organiser is told either way.
+   * Declining frees the invitee's time; accepting again re-checks that they're still free.
+   */
+  async respond(id: number, dto: RespondToMeetingDto, caller: JwtUserPayload): Promise<BookingDto> {
+    const booking = await this.load(id);
+    const mine = booking.participants.find((p) => p.userId === caller.sub);
+    if (booking.type !== BookingType.MEETING || !mine) {
+      throw new ForbiddenException('Only invited employees can reply to this meeting');
+    }
+    this.assertChangeable(booking);
+    const response =
+      dto.response === 'ACCEPTED' ? ParticipantResponse.ACCEPTED : ParticipantResponse.DECLINED;
+    const declineReason = response === ParticipantResponse.DECLINED ? dto.reason || null : null;
+    if (mine.response === response && mine.declineReason === declineReason) {
+      return toBookingDto(booking, caller);
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      if (
+        response === ParticipantResponse.ACCEPTED &&
+        mine.response === ParticipantResponse.DECLINED
+      ) {
+        const busy = await this.lockAndFindBusy(
+          manager,
+          [caller.sub],
+          booking.startAt,
+          booking.endAt,
+          booking.id,
+        );
+        if (busy.length) {
+          throw new ConflictException(
+            'You have another meeting or booking at this time — free it up before accepting',
+          );
+        }
+      }
+      await manager
+        .getRepository(BookingParticipant)
+        .update({ id: mine.id }, { response, respondedAt: new Date(), declineReason });
+    });
+
+    const after = await this.load(id);
+    const who = fullName(mine.user);
+    const when = formatBookingWhen(after.startAt, after.endAt);
+    const accepted = response === ParticipantResponse.ACCEPTED;
+    await this.notifier.send([after.organizerId], {
+      type: 'MEETING',
+      title: `${who} ${accepted ? 'accepted' : 'declined'}: ${after.title}`,
+      body: accepted
+        ? `${who} will attend the meeting on ${when}.`
+        : `${who} can't attend the meeting on ${when}.${declineReason ? ` Reason: ${declineReason}` : ''}`,
+      link: `/dashboard/bookings/${after.id}`,
+      rows: [
+        { label: 'When', value: when },
+        { label: 'Room / location', value: this.placeOf(after) },
+        ...(declineReason ? [{ label: 'Reason', value: declineReason }] : []),
+      ],
+    });
+    return toBookingDto(after, caller);
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Office off days
+  // ---------------------------------------------------------------------------------------------
+
+  /** GET /off-days — everyone (the calendar and the leave form show them). */
+  async listOffDays(query: QueryOffDaysDto): Promise<OffDayDto[]> {
+    const qb = this.offDaysRepo
+      .createQueryBuilder('day')
+      .leftJoinAndSelect('day.createdBy', 'createdBy')
+      .orderBy('day.date', 'ASC');
+    if (query.from) qb.andWhere('day.date >= :from', { from: query.from });
+    if (query.to) qb.andWhere('day.date <= :to', { to: query.to });
+    return (await qb.getMany()).map(toOffDayDto);
+  }
+
+  /**
+   * POST /off-days — HR / Admin. Declares the day off and cancels every confirmed booking on it,
+   * telling the people involved. Returns how many bookings were cancelled.
+   */
+  async createOffDay(
+    dto: CreateOffDayDto,
+    caller: JwtUserPayload,
+  ): Promise<{ offDay: OffDayDto; cancelledBookings: number }> {
+    if (dto.date < dateToPkt(new Date()).date) {
+      throw new BadRequestException('Pick today or a future date');
+    }
+    if (await this.offDaysRepo.findOne({ where: { date: dto.date } })) {
+      throw new ConflictException(`${dto.date} is already an off day`);
+    }
+    const reason = dto.reason.trim();
+    const { start, end } = pktDayRange(dto.date);
+
+    const { offDayId, cancelledIds } = await this.dataSource.transaction(async (manager) => {
+      const saved = await manager
+        .getRepository(OffDay)
+        .save(
+          manager.getRepository(OffDay).create({ date: dto.date, reason, createdById: caller.sub }),
+        );
+      const rows = (await manager.query(
+        `UPDATE bookings SET status = 'CANCELLED', cancelled_at = now(), cancelled_by_id = $3,
+           cancel_reason = $4, sequence = sequence + 1
+         WHERE status = 'CONFIRMED' AND start_at < $2 AND end_at > $1 AND end_at > now()
+         RETURNING id`,
+        [start, end, caller.sub, `Office off day: ${reason}`],
+      )) as [Array<{ id: number }>, number];
+      return { offDayId: saved.id, cancelledIds: rows[0].map((row) => row.id) };
+    });
+
+    // Tell everyone involved, the same way as a normal cancellation.
+    for (const booking of await this.loadMany(cancelledIds)) {
+      if (booking.type === BookingType.MEETING) {
+        const told = booking.participants.map((p) => p.userId);
+        if (booking.organizerId !== caller.sub) told.push(booking.organizerId);
+        await this.notifyMeeting(booking, told, 'cancelled');
+      } else if (booking.organizerId !== caller.sub) {
+        await this.notifyBookingOwner(booking, 'cancelled', caller);
+      }
+    }
+
+    const offDay = await this.offDaysRepo.findOneOrFail({
+      where: { id: offDayId },
+      relations: ['createdBy'],
+    });
+    return { offDay: toOffDayDto(offDay), cancelledBookings: cancelledIds.length };
+  }
+
+  /** DELETE /off-days/:id — HR / Admin. Bookings it cancelled stay cancelled. */
+  async removeOffDay(id: number): Promise<void> {
+    const result = await this.offDaysRepo.delete({ id });
+    if (!result.affected) throw new NotFoundException('Off day not found');
+  }
+
   // ---------------------------------------------------------------------------------------------
   // Notifications (bell + email; meetings carry a calendar invite)
   // ---------------------------------------------------------------------------------------------
@@ -865,13 +1079,14 @@ export class BookingsService {
     const copy: Record<MeetingNotice, { title: string; body: string }> = {
       invited: {
         title: `Meeting invite: ${booking.title}`,
-        body: `${organizer} invited you to a meeting on ${when}.${extra}`,
+        body: `${organizer} invited you to a meeting on ${when}.${extra} Please accept or decline.`,
       },
       rescheduled: {
         title: `Meeting updated: ${booking.title}`,
-        body: before
-          ? `Now ${when} (was ${formatBookingWhen(before.startAt, before.endAt)}).`
-          : `Now ${when}.`,
+        body:
+          (before
+            ? `Now ${when} (was ${formatBookingWhen(before.startAt, before.endAt)}).`
+            : `Now ${when}.`) + extra,
       },
       cancelled: {
         title: `Meeting cancelled: ${booking.title}`,

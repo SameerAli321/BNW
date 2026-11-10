@@ -1,6 +1,12 @@
 import type { DateClickArg } from '@fullcalendar/interaction';
 import type { EventInput, DatesSetArg, EventClickArg } from '@fullcalendar/core';
-import type { BookingDto, BookingType, BookingStatus, CalendarLeave } from 'src/actions/bookings';
+import type {
+  OffDay,
+  BookingDto,
+  BookingType,
+  BookingStatus,
+  CalendarLeave,
+} from 'src/actions/bookings';
 
 import Calendar from '@fullcalendar/react';
 import listPlugin from '@fullcalendar/list';
@@ -33,6 +39,7 @@ import { fDate } from 'src/utils/format-time';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import {
+  useGetOffDays,
   useGetBookings,
   BOOKING_ADMIN_ROLES,
   useGetCalendarLeaves,
@@ -164,6 +171,11 @@ export function BookingCalendarView() {
     () => (filters.showLeaves ? fetchedLeaves : []),
     [filters.showLeaves, fetchedLeaves]
   );
+  const { offDays } = useGetOffDays({ from: range?.from, to: range?.to }, !!range);
+  const offDayOn = useCallback(
+    (date: string) => offDays.find((day) => day.date === date),
+    [offDays]
+  );
 
   const colorFor = useCallback(
     (booking: BookingDto) => {
@@ -228,7 +240,38 @@ export function BookingCalendarView() {
     [leaves, theme, user?.id]
   );
 
-  const allEvents = useMemo(() => [...leaveEvents, ...events], [leaveEvents, events]);
+  // Office off days: the whole day shaded, plus an all-day label saying why.
+  const offDayEvents: EventInput[] = useMemo(
+    () =>
+      offDays.flatMap((day) => [
+        {
+          id: `off-${day.id}-bg`,
+          start: day.date,
+          end: addDays(day.date, 1),
+          allDay: true,
+          display: 'background',
+          backgroundColor: hexAlpha(theme.palette.grey[500], 0.24),
+        },
+        {
+          id: `off-${day.id}`,
+          title: `Office closed: ${day.reason}`,
+          start: day.date,
+          end: addDays(day.date, 1),
+          allDay: true,
+          backgroundColor: hexAlpha(theme.palette.grey[500], 0.32),
+          borderColor: theme.palette.grey[600],
+          textColor:
+            theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.text.primary,
+          extendedProps: { offDay: day },
+        },
+      ]),
+    [offDays, theme]
+  );
+
+  const allEvents = useMemo(
+    () => [...offDayEvents, ...leaveEvents, ...events],
+    [offDayEvents, leaveEvents, events]
+  );
 
   const api = () => calendarRef.current?.getApi();
 
@@ -249,6 +292,11 @@ export function BookingCalendarView() {
   const nowWallClock = toPktWallClock(new Date());
 
   const handleEventClick = (arg: EventClickArg) => {
+    const offDay = arg.event.extendedProps.offDay as OffDay | undefined;
+    if (offDay) {
+      toast.info(`${fDate(offDay.date)} is an office off day (${offDay.reason}) — no bookings`);
+      return;
+    }
     const leave = arg.event.extendedProps.leave as CalendarLeave | undefined;
     if (leave) {
       // `canOpen` (own, HR / Admin / CEO, or the employee's Team Lead) mirrors the leave module.
@@ -280,6 +328,11 @@ export function BookingCalendarView() {
 
   const handleDateClick = (arg: DateClickArg) => {
     const { date, time } = calendarDateParts(arg.date);
+    const offDay = offDayOn(date);
+    if (offDay) {
+      toast.info(`${fDate(date)} is an office off day (${offDay.reason}) — nothing can be booked`);
+      return;
+    }
     if (arg.allDay) {
       if (date < nowWallClock.slice(0, 10)) return;
       router.push(newBookingHref({ type: slotType, date }));
@@ -509,7 +562,7 @@ export function BookingCalendarView() {
                 variant="outlined"
                 startIcon={<Iconify icon="solar:settings-bold" />}
               >
-                Rooms & tables
+                Rooms & off days
               </Button>
             )}
             <Button

@@ -29,6 +29,25 @@ export interface BookingPerson {
   designation: string | null;
 }
 
+/** An invitee's answer. Declined invitees aren't busy for that meeting. */
+export type ParticipantResponse = 'PENDING' | 'ACCEPTED' | 'DECLINED';
+
+export interface BookingParticipant extends BookingPerson {
+  response: ParticipantResponse;
+  respondedAt: string | null;
+  declineReason: string | null;
+}
+
+/** A company-wide day off. Nothing can be booked on it; leave doesn't use a day for it. */
+export interface OffDay {
+  id: number;
+  /** 'YYYY-MM-DD' (PKT). */
+  date: string;
+  reason: string;
+  createdBy: string | null;
+  createdAt: string;
+}
+
 export interface BookingResource {
   id: number;
   type: BookingResourceType;
@@ -59,7 +78,9 @@ export interface BookingDto {
   location: string | null;
   organizer: BookingPerson | null;
   createdBy: BookingPerson | null;
-  participants: BookingPerson[];
+  participants: BookingParticipant[];
+  /** The viewer's own answer when they're an invitee; null otherwise. */
+  myResponse: ParticipantResponse | null;
   isInvolved: boolean;
   canManage: boolean;
   isPast: boolean;
@@ -278,6 +299,19 @@ export function useGetBookingResources(
   );
 }
 
+/** Office off days, optionally limited to a PKT date range (inclusive). */
+export function useGetOffDays(params: { from?: string; to?: string } = {}, enabled = true) {
+  const { data, isLoading } = useSWR<Envelope<OffDay[]>>(
+    enabled ? [endpoints.bookings.offDays, { params: clean(params) }] : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  return useMemo(
+    () => ({ offDays: data?.data ?? [], offDaysLoading: isLoading }),
+    [data, isLoading]
+  );
+}
+
 // ----------------------------------------------------------------------
 
 /** Every cached bookings list / calendar range, the dashboard card and availability. */
@@ -319,6 +353,39 @@ export async function cancelBooking(
   await mutate(endpoints.bookings.details(id), res.data, false);
   await revalidateBookings();
   return res.data.data;
+}
+
+/** An invitee accepts or declines a meeting; the organiser is notified. */
+export async function respondToMeeting(
+  id: number,
+  response: 'ACCEPTED' | 'DECLINED',
+  reason?: string
+): Promise<BookingDto> {
+  const res = await axiosInstance.post(endpoints.bookings.respond(id), { response, reason });
+  await mutate(endpoints.bookings.details(id), res.data, false);
+  await revalidateBookings();
+  return res.data.data;
+}
+
+function revalidateOffDays() {
+  return mutate((key) => Array.isArray(key) && key[0] === endpoints.bookings.offDays);
+}
+
+/** HR / Admin. Cancels every booking already on that day; returns how many. */
+export async function createOffDay(payload: {
+  date: string;
+  reason: string;
+}): Promise<{ offDay: OffDay; cancelledBookings: number }> {
+  const res = await axiosInstance.post(endpoints.bookings.offDays, payload);
+  await revalidateOffDays();
+  await revalidateBookings();
+  return res.data.data;
+}
+
+/** HR / Admin. Bookings it cancelled stay cancelled. */
+export async function deleteOffDay(id: number): Promise<void> {
+  await axiosInstance.delete(endpoints.bookings.offDay(id));
+  await revalidateOffDays();
 }
 
 export async function createBookingResource(payload: {

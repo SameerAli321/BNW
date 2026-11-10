@@ -9,7 +9,9 @@ Meetings, meeting rooms and the pool table. Backend: `Backend/src/bookings/`. Fr
 | Who organises meetings | CEO, HR, Admin, Team Leads (`MANAGER`). Team Members only attend. |
 | Who books meeting rooms / pool table | Everyone. |
 | Approval | None. A booking is **Confirmed** as soon as it's saved. Statuses: `CONFIRMED`, `CANCELLED`. "Completed" and "In progress" are shown from the time, not stored. |
-| Participant clash | **Blocked.** A meeting can't be saved if the organiser or any invitee is already in another confirmed meeting that overlaps. The error names who is busy. |
+| Participant clash | **Blocked.** A meeting can't be saved if the organiser or any invitee is already busy at that time. The error names who is busy. "Busy" means: organiser of a meeting, "Others" block or **pool-table slot**, or an invitee who hasn't declined. So you also can't book the pool table during a meeting you're in, and vice versa. Room-only bookings don't make anyone busy. |
+| Invite replies | Each invitee **accepts or declines** on the meeting page (starts as "Awaiting reply"). The organiser is notified either way, with the optional decline reason. A declined invitee's time is free; accepting again re-checks they're still free. The meeting goes ahead regardless. Changing a meeting's **date or time** resets everyone to "Awaiting reply"; a title, room or other change doesn't. |
+| Office off days | HR / Admin declare them under **Bookings → Rooms & off days**. Declaring one **cancels every booking on that day** (reason "Office off day: …", everyone involved notified). Nothing can be booked on an off day; repeating bookings skip it. Removing an off day doesn't restore cancelled bookings. Leave treats an off day like a weekend day. |
 | Room / table clash | Blocked. This includes a meeting that uses the room. Back-to-back bookings (one ends at 11:00, the next starts at 11:00) are allowed. |
 | Who can change / cancel | The organiser, or whoever created the booking. HR / Admin can also change or cancel anyone's **room / pool-table** booking (the owner is notified). Nobody else can change a meeting. |
 | Meeting privacy | Only the organiser and invitees can open a meeting. On the calendar, other people see a meeting that uses a room as a grey "Private meeting" block (time and room only). Meetings without a room don't appear for them at all. |
@@ -46,8 +48,12 @@ A title-only edit sends nothing. Cancelling twice is rejected, so there are no d
 | POST | `/bookings` | All (meetings: organiser roles) |
 | PATCH | `/bookings/:id` | Organiser / creator (+ HR / Admin for rooms & tables) |
 | POST | `/bookings/:id/cancel` `{ reason? }` | Same as PATCH |
+| POST | `/bookings/:id/respond` `{ response: ACCEPTED\|DECLINED, reason? }` | Invitees of that meeting |
 | GET | `/booking-resources?type&includeInactive` | All |
 | POST / PATCH | `/booking-resources[/:id]` | HR, Admin |
+| GET | `/off-days?from&to` | All |
+| POST | `/off-days` `{ date, reason }` → `{ offDay, cancelledBookings }` | HR, Admin |
+| DELETE | `/off-days/:id` | HR, Admin |
 
 ## Database
 
@@ -57,6 +63,8 @@ Migration `1761000000000-Bookings` creates:
 - `booking_participants`: unique `(booking_id, user_id)`.
 
 It also seeds **Meeting Room 1**, **Meeting Room 2** and **Pool Table**. HR / Admin can rename or add more under Bookings → Rooms & tables. The migration adds tables only and changes no existing data. `down` drops the three tables.
+
+Migration `1762200000000-OffDaysMeetingReplies` (Nov 2026) adds `off_days` (one row per date) and `booking_participants.response` / `responded_at` / `decline_reason`. Invitees of meetings that already existed are marked **accepted**; new invites start as `PENDING`. It also raises Annual Leave to 20 days a year, only if it's still 14.
 
 ## Deploying
 

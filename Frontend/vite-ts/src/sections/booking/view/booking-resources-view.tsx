@@ -39,6 +39,8 @@ import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 import { RoleBasedGuard } from 'src/auth/guard';
 import { useAuthContext } from 'src/auth/hooks';
 
+import { BookingOffDays } from '../booking-off-days';
+
 // ----------------------------------------------------------------------
 
 const TYPE_LABEL: Record<BookingResourceType, string> = {
@@ -204,6 +206,8 @@ export function BookingResourcesView() {
             </Scrollbar>
           </TableContainer>
         </Card>
+
+        <BookingOffDays />
 
         <Dialog open={!!draft} onClose={() => setDraft(null)} fullWidth maxWidth="xs">
           <DialogTitle>{draft?.id ? 'Edit' : 'Add room / table'}</DialogTitle>

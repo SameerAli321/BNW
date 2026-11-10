@@ -6,10 +6,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Between, In, Repository } from 'typeorm';
 import { LeaveRequest } from '../entities/leave-request.entity';
 import { LeaveType } from '../entities/leave-type.entity';
 import { Notification } from '../entities/notification.entity';
+import { OffDay } from '../entities/off-day.entity';
 import { User } from '../entities/user.entity';
 import { LeaveRequestStatus } from '../common/enums/leave-request-status.enum';
 import { RoleName } from '../common/enums/role.enum';
@@ -86,12 +87,18 @@ export const weekdayOf = (date: string) => parseDay(date).getUTCDay();
  * rule: a weekend between two leave days of the same request counts as leave, so Fri → Mon is 4
  * days and Thu → Tue is 6. Weekend days at either edge are free (Sat → Mon is 1), and a range of
  * only weekend days is 0. In other words: every day from the first working day to the last.
+ * Office off days (YYYY-MM-DD in `offDays`) are treated exactly like weekend days.
  */
-export function countLeaveDays(startDate: string, endDate: string): number {
+export function countLeaveDays(
+  startDate: string,
+  endDate: string,
+  offDays: ReadonlySet<string> = new Set(),
+): number {
   const first = parseDay(startDate);
   const last = parseDay(endDate);
-  while (first <= last && isWeekend(first)) first.setUTCDate(first.getUTCDate() + 1);
-  while (last >= first && isWeekend(last)) last.setUTCDate(last.getUTCDate() - 1);
+  const isDayOff = (day: Date) => isWeekend(day) || offDays.has(day.toISOString().slice(0, 10));
+  while (first <= last && isDayOff(first)) first.setUTCDate(first.getUTCDate() + 1);
+  while (last >= first && isDayOff(last)) last.setUTCDate(last.getUTCDate() - 1);
   if (first > last) return 0;
   return Math.round((last.getTime() - first.getTime()) / DAY_MS) + 1;
 }
@@ -110,6 +117,7 @@ export class LeaveService {
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
     @InjectRepository(Notification)
     private readonly notificationsRepo: Repository<Notification>,
+    @InjectRepository(OffDay) private readonly offDaysRepo: Repository<OffDay>,
     private readonly requestWatchers: RequestWatchersService,
     private readonly notifier: NotifyService,
   ) {}
@@ -312,9 +320,18 @@ export class LeaveService {
     if (input.halfDay && input.startDate !== input.endDate) {
       throw new BadRequestException('A half day must start and end on the same date');
     }
-    const leaveDays = countLeaveDays(input.startDate, input.endDate);
+    const offDays = await this.offDaysRepo.find({
+      where: { date: Between(input.startDate, input.endDate) },
+    });
+    const leaveDays = countLeaveDays(
+      input.startDate,
+      input.endDate,
+      new Set(offDays.map((day) => day.date)),
+    );
     if (leaveDays === 0) {
-      throw new BadRequestException('Those dates are all weekend days — no leave is needed');
+      throw new BadRequestException(
+        'Those dates are all weekend days or office off days — no leave is needed',
+      );
     }
     const days = input.halfDay
       ? 0.5

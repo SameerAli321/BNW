@@ -1,4 +1,16 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { CurrentUser, JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RoleName } from '../common/enums/role.enum';
@@ -9,8 +21,11 @@ import {
   CancelBookingDto,
   CreateBookingDto,
   CreateBookingResourceDto,
+  CreateOffDayDto,
   QueryBookingResourcesDto,
   QueryBookingsDto,
+  QueryOffDaysDto,
+  RespondToMeetingDto,
   UpcomingMeetingsQueryDto,
   UpdateBookingDto,
   UpdateBookingResourceDto,
@@ -95,6 +110,16 @@ export class BookingsController {
   ) {
     return this.service.cancel(id, dto.reason, caller, dto.scope);
   }
+
+  // An invited employee accepts or declines; the organiser is notified.
+  @Post(':id/respond')
+  async respond(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RespondToMeetingDto,
+    @CurrentUser() caller: JwtUserPayload,
+  ) {
+    return this.service.respond(id, dto, caller);
+  }
 }
 
 /** Meeting rooms and pool tables — everyone can list them; HR / Admin manage them. */
@@ -117,5 +142,31 @@ export class BookingResourcesController {
   @Patch(':id')
   async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateBookingResourceDto) {
     return this.service.updateResource(id, dto);
+  }
+}
+
+/** Office off days — everyone can list them; HR / Admin declare and remove them. */
+@Controller('off-days')
+export class OffDaysController {
+  constructor(private readonly service: BookingsService) {}
+
+  @Get()
+  async list(@Query() query: QueryOffDaysDto) {
+    return this.service.listOffDays(query);
+  }
+
+  // Cancels every booking already on that day and tells the people involved.
+  @Roles(RoleName.HR, RoleName.ADMIN)
+  @Post()
+  async create(@Body() dto: CreateOffDayDto, @CurrentUser() caller: JwtUserPayload) {
+    return this.service.createOffDay(dto, caller);
+  }
+
+  @Roles(RoleName.HR, RoleName.ADMIN)
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    await this.service.removeOffDay(id);
+    return { ok: true };
   }
 }

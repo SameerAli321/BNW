@@ -299,3 +299,39 @@ export class QueryBookingResourcesDto {
   @IsBoolean()
   includeInactive?: boolean;
 }
+
+/** POST /bookings/:id/respond — an invitee accepts or declines a meeting invite. */
+export class RespondToMeetingDto {
+  @IsIn(['ACCEPTED', 'DECLINED'])
+  response: 'ACCEPTED' | 'DECLINED';
+
+  /** Optional note to the organiser when declining. */
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(300)
+  reason?: string;
+}
+
+/** GET /off-days — office off days, optionally limited to a date range. */
+export class QueryOffDaysDto {
+  @IsOptional()
+  @Matches(DATE, { message: 'from must be YYYY-MM-DD' })
+  from?: string;
+
+  @IsOptional()
+  @Matches(DATE, { message: 'to must be YYYY-MM-DD' })
+  to?: string;
+}
+
+/** POST /off-days — HR / Admin declare an office off day. */
+export class CreateOffDayDto {
+  @Matches(DATE, { message: 'date must be YYYY-MM-DD' })
+  date: string;
+
+  @Transform(trim)
+  @IsString()
+  @MinLength(2, { message: 'Say why the office is off, e.g. "Eid holiday"' })
+  @MaxLength(200)
+  reason: string;
+}

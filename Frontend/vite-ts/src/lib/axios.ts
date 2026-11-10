@@ -216,8 +216,12 @@ export const endpoints = {
     calendarLeaves: '/bookings/calendar-leaves',
     details: (id: number | string) => `/bookings/${id}`,
     cancel: (id: number | string) => `/bookings/${id}/cancel`,
+    respond: (id: number | string) => `/bookings/${id}/respond`,
     resources: '/booking-resources',
     resource: (id: number | string) => `/booking-resources/${id}`,
+    // Office off days — everyone reads; HR / ADMIN declare (cancels bookings that day) and remove.
+    offDays: '/off-days',
+    offDay: (id: number | string) => `/off-days/${id}`,
   },
   // In-app notifications (the bell in the header) — always the caller's own.
   notifications: {

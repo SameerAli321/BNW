@@ -16,6 +16,23 @@ export enum BookingType {
 /** Personal types: details are private, like meetings, and the organiser shows as busy. */
 export const PERSONAL_BOOKING_TYPES: BookingType[] = [BookingType.MEETING, BookingType.OTHER];
 
+/**
+ * Bookings that make their person busy for clash checks: a pool-table slot can't overlap a meeting
+ * you're in, and vice versa (client feedback, Nov 2026). Room-only bookings don't count.
+ */
+export const BUSY_BOOKING_TYPES: BookingType[] = [
+  BookingType.MEETING,
+  BookingType.OTHER,
+  BookingType.POOL_TABLE,
+];
+
+/** An invitee's answer to a meeting invite. Declined invitees aren't busy for that meeting. */
+export enum ParticipantResponse {
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+  DECLINED = 'DECLINED',
+}
+
 /** How a new booking repeats. Each occurrence is its own booking, linked by `seriesId`. */
 export enum BookingRepeat {
   DAILY = 'DAILY',
