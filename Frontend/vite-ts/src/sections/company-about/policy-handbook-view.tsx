@@ -99,6 +99,34 @@ function Blocks({ blocks, term }: { blocks: PolicyBlock[]; term: string }) {
             </Stack>
           );
         }
+        if (block.kind === 'heading') {
+          return (
+            <Typography key={i} variant="subtitle1" sx={{ pt: 1.5, color: 'text.primary' }}>
+              <Highlight text={block.text} term={term} />
+            </Typography>
+          );
+        }
+        if (block.kind === 'terms') {
+          return (
+            <Stack key={i} component="ul" spacing={1.25} sx={{ m: 0, p: 0, listStyle: 'none' }}>
+              {block.items.map((item) => (
+                <Stack key={item.term} component="li" direction="row" spacing={1.25}>
+                  <Iconify
+                    icon="solar:danger-bold"
+                    width={18}
+                    sx={{ color: 'error.main', mt: '2px', flexShrink: 0 }}
+                  />
+                  <Typography variant="body2">
+                    <Box component="strong" sx={{ fontWeight: 700 }}>
+                      <Highlight text={item.term} term={term} />:
+                    </Box>{' '}
+                    <Highlight text={item.text} term={term} />
+                  </Typography>
+                </Stack>
+              ))}
+            </Stack>
+          );
+        }
         if (block.kind === 'highlight') {
           return (
             <Box
@@ -224,7 +252,9 @@ export function PolicyHandbookView() {
   const results = useMemo(
     () =>
       term
-        ? POLICY_READING_ORDER.filter((s) => sectionText(s).toLowerCase().includes(term.toLowerCase()))
+        ? POLICY_READING_ORDER.filter((s) =>
+            sectionText(s).toLowerCase().includes(term.toLowerCase())
+          )
         : [],
     [term]
   );
@@ -360,7 +390,8 @@ export function PolicyHandbookView() {
   const renderReader = () => {
     const index = POLICY_READING_ORDER.findIndex((s) => s.id === current);
     const section = index >= 0 ? POLICY_READING_ORDER[index] : null;
-    const prev = current === SIGN ? POLICY_READING_ORDER[TOTAL - 1] : POLICY_READING_ORDER[index - 1];
+    const prev =
+      current === SIGN ? POLICY_READING_ORDER[TOTAL - 1] : POLICY_READING_ORDER[index - 1];
     const next = section ? POLICY_READING_ORDER[index + 1] : undefined;
     const group = section ? groupOf(section.id) : undefined;
 
@@ -417,7 +448,8 @@ export function PolicyHandbookView() {
                 </Box>
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="overline" sx={{ color: 'text.disabled' }}>
-                    {group?.title} · Topic {index + 1} of {TOTAL} · {readingMinutes(section)} min read
+                    {group?.title} · Topic {index + 1} of {TOTAL} · {readingMinutes(section)} min
+                    read
                   </Typography>
                   <Typography variant="h4">
                     <Highlight text={section.title} term={term} />
@@ -431,7 +463,11 @@ export function PolicyHandbookView() {
                 direction={{ xs: 'column-reverse', sm: 'row' }}
                 spacing={1.5}
                 justifyContent="space-between"
-                sx={{ mt: 4, pt: 3, borderTop: (theme) => `1px dashed ${theme.vars.palette.divider}` }}
+                sx={{
+                  mt: 4,
+                  pt: 3,
+                  borderTop: (theme) => `1px dashed ${theme.vars.palette.divider}`,
+                }}
               >
                 {prev ? (
                   <Button
@@ -448,7 +484,9 @@ export function PolicyHandbookView() {
                 <Button
                   variant="contained"
                   onClick={() => openTopic(next ? next.id : SIGN)}
-                  endIcon={<Iconify icon={next ? 'eva:arrow-ios-forward-fill' : 'solar:pen-bold'} />}
+                  endIcon={
+                    <Iconify icon={next ? 'eva:arrow-ios-forward-fill' : 'solar:pen-bold'} />
+                  }
                 >
                   {next ? `Next: ${next.title}` : 'Finish & sign'}
                 </Button>
@@ -500,8 +538,18 @@ export function PolicyHandbookView() {
           onChange={(_, next) => setTab(next)}
           sx={{ mb: 3, boxShadow: (theme) => `inset 0 -2px 0 0 ${theme.vars.palette.divider}` }}
         >
-          <Tab value="handbook" label="Handbook" icon={<Iconify icon="solar:notebook-bold-duotone" />} iconPosition="start" />
-          <Tab value="acks" label="Acknowledgements" icon={<Iconify icon="solar:verified-check-bold" />} iconPosition="start" />
+          <Tab
+            value="handbook"
+            label="Handbook"
+            icon={<Iconify icon="solar:notebook-bold-duotone" />}
+            iconPosition="start"
+          />
+          <Tab
+            value="acks"
+            label="Acknowledgements"
+            icon={<Iconify icon="solar:verified-check-bold" />}
+            iconPosition="start"
+          />
         </Tabs>
       )}
 

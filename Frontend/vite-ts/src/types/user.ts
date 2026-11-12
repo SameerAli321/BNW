@@ -30,12 +30,10 @@ export const USER_FORM_ROLE_OPTIONS: { value: UserRole; label: string }[] = [
 ];
 
 /**
- * The Role dropdown on Create User (Admin only). No Team Member — regular employees and interns
- * come in through Hiring → Convert.
+ * The Role dropdown on Create User (HR / Admin). Every role, including Team Member — employees and
+ * interns can come in through Hiring → Convert or be created directly (client decision, Nov 2026).
  */
-export const USER_CREATE_ROLE_OPTIONS = USER_FORM_ROLE_OPTIONS.filter(
-  (option) => option.value !== 'EMPLOYEE'
-);
+export const USER_CREATE_ROLE_OPTIONS = USER_FORM_ROLE_OPTIONS;
 
 const OLDER_ROLE_LABELS: Partial<Record<UserRole, string>> = {};
 

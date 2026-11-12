@@ -18,7 +18,7 @@ import { AuditLogService } from '../audit-log/audit-log.service';
  * The Employee Policy Handbook's version (its text lives in the frontend, sections/company-about).
  * Bump it whenever the handbook changes — everyone is then asked to acknowledge the new version.
  */
-export const POLICY_VERSION = '2026-10';
+export const POLICY_VERSION = '2026-11';
 
 /** See everyone's acknowledgements; Team Leads see their direct reports'. */
 const VIEW_ALL_ROLES: string[] = [RoleName.CEO, RoleName.HR, RoleName.ADMIN];

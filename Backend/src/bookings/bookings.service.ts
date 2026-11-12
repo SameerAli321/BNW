@@ -64,6 +64,9 @@ import {
   pktToDate,
 } from './booking-time';
 
+/** 'YYYY-MM-DD' falls on a Saturday or Sunday — the office is closed, nothing can be booked. */
+const isWeekendDate = (date: string) => [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
+
 /** SQL: booking types that make their person busy (see BUSY_BOOKING_TYPES). */
 const BUSY_TYPES_SQL = BUSY_BOOKING_TYPES.map((type) => `'${type}'`).join(', ');
 
@@ -551,9 +554,14 @@ export class BookingsService {
     if (startMoved && startAt.getTime() < Date.now() - 60_000) {
       throw new BadRequestException('Pick a start time in the future');
     }
-    // Nothing can be booked on an office off day (a booking can end just after midnight, so the
-    // last minute's date is checked too).
+    // Nothing can be booked on a weekend or an office off day (a booking can end just after
+    // midnight, so the last minute's date is checked too).
     const days = [...new Set([dto.date, dateToPkt(addMinutes(endAt, -1)).date])];
+    if (days.some(isWeekendDate)) {
+      throw new BadRequestException(
+        'Saturday and Sunday are off — bookings are only for Monday to Friday',
+      );
+    }
     const offDay = await this.offDaysRepo.findOne({ where: { date: In(days) } });
     if (offDay) {
       throw new BadRequestException(
@@ -697,13 +705,13 @@ export class BookingsService {
       throw new ForbiddenException('Only the CEO, HR / Admin and Team Leads can organise meetings');
     }
     // A repeating booking is one booking per day, sharing a series id; all or none are saved.
-    // Office off days are skipped (a one-off booking on an off day is rejected in `plan`).
+    // Weekends and office off days are skipped (a one-off booking on one is rejected in `plan`).
     let dates = dto.repeat ? repeatDates(dto.date, dto.repeat) : [dto.date];
-    if (dto.repeat) {
+    if (dto.repeat && !isWeekendDate(dto.date)) {
       const offDays = new Set(
         (await this.offDaysRepo.find({ where: { date: In(dates) } })).map((row) => row.date),
       );
-      dates = dates.filter((date) => !offDays.has(date));
+      dates = dates.filter((date) => !offDays.has(date) && !isWeekendDate(date));
       if (!dates.length) {
         throw new BadRequestException('Every one of those dates is an office off day');
       }

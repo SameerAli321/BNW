@@ -8,6 +8,10 @@ import type { IconifyName } from 'src/components/iconify';
 export type PolicyBlock =
   | { kind: 'p'; text: string }
   | { kind: 'list'; items: string[] }
+  /** A heading inside a subsection, e.g. "1. Scope of the Policy". */
+  | { kind: 'heading'; text: string }
+  /** A list whose items start with a bold term: "Verbal Harassment: Insults, …". */
+  | { kind: 'terms'; items: { term: string; text: string }[] }
   /** A key fact pulled out so it stands out (working hours, leave year…). */
   | { kind: 'highlight'; title: string; text: string };
 
@@ -69,15 +73,134 @@ export const POLICY_SECTIONS: PolicySection[] = [
       {
         id: 'responsibilities-harassment',
         number: '2.2',
-        title: 'Harassment and Bullying',
+        // Client's full policy (Nov 2026), word for word — replaced the short "Harassment and
+        // Bullying" text (POLICY_VERSION 2026-11).
+        title: 'Workplace Harassment & Anti-Discrimination Policy',
         blocks: [
           {
             kind: 'p',
-            text: 'Complaints may be raised with HR, a line manager or another designated senior manager. Where the complaint concerns the usual reporting manager, the employee may approach an alternative manager or director.',
+            text: "BNW is committed to maintaining a safe, respectful and inclusive workplace where every employee is treated with dignity, fairness and professionalism. Harassment, bullying, intimidation, discrimination or any form of inappropriate conduct will not be tolerated, regardless of an individual's position, seniority, gender or background.",
+          },
+          { kind: 'heading', text: '1. Scope of the Policy' },
+          {
+            kind: 'p',
+            text: 'This policy applies to all employees, management, directors, interns, contractors and other individuals working with BNW. It covers conduct within the workplace, during work-related events, business travel and professional interactions, including online communication.',
+          },
+          { kind: 'heading', text: '2. Prohibited Conduct' },
+          { kind: 'p', text: 'The following behaviours are strictly prohibited:' },
+          {
+            kind: 'terms',
+            items: [
+              {
+                term: 'Physical Harassment',
+                text: 'Unwanted physical contact, pushing, hitting, threatening gestures, physical intimidation or any form of assault.',
+              },
+              {
+                term: 'Verbal Harassment',
+                text: 'Insults, offensive remarks, abusive language, derogatory comments, threats or humiliating jokes.',
+              },
+              {
+                term: 'Psychological Harassment & Bullying',
+                text: "Intimidation, deliberate humiliation, repeated unreasonable criticism, isolation, manipulation or conduct intended to undermine another person's confidence or dignity.",
+              },
+              {
+                term: 'Sexual Harassment',
+                text: 'Unwelcome sexual advances, inappropriate comments, gestures, messages, requests for favours or any other unwanted conduct of a sexual nature.',
+              },
+              {
+                term: 'Gender-Based Harassment',
+                text: 'Disrespectful or discriminatory treatment based on gender, gender identity or gender expression, including sexist remarks and inappropriate stereotyping.',
+              },
+              {
+                term: 'Racial & Cultural Discrimination',
+                text: 'Offensive comments, slurs, exclusion or unequal treatment based on race, ethnicity, nationality, colour or cultural background.',
+              },
+              {
+                term: 'Religious Discrimination',
+                text: 'Harassment, hostility or unfair treatment based on religious beliefs, practices or lack of religious affiliation.',
+              },
+              {
+                term: 'Other Forms of Discrimination',
+                text: 'Unfair or degrading treatment based on age, disability or any other characteristic protected under applicable employment and equality laws.',
+              },
+            ],
           },
           {
             kind: 'p',
-            text: 'Complaints will be handled promptly, impartially and confidentially as far as reasonably practicable. Retaliation against anyone raising a concern in good faith or participating in an investigation is prohibited.',
+            text: 'This policy also prohibits harassment through emails, messaging platforms, social media and other forms of digital communication.',
+          },
+          { kind: 'heading', text: '3. Professional Conduct & Responsibilities' },
+          { kind: 'p', text: 'Every individual at BNW is expected to:' },
+          {
+            kind: 'list',
+            items: [
+              'Treat colleagues with dignity and respect, irrespective of their background or position.',
+              'Maintain professional boundaries in both verbal and physical interactions.',
+              'Respect personal space, privacy and individual differences.',
+              'Refrain from offensive jokes, inappropriate remarks, discriminatory language or intimidating behaviour.',
+              'Challenge or report inappropriate conduct rather than encourage or ignore it.',
+            ],
+          },
+          {
+            kind: 'p',
+            text: 'Managers and supervisors are expected to set an appropriate example and address concerns brought to their attention.',
+          },
+          { kind: 'heading', text: '4. Reporting Harassment' },
+          {
+            kind: 'p',
+            text: 'Any employee who experiences or witnesses harassment is encouraged to report the matter to the HR Department or an appropriate senior member of management.',
+          },
+          {
+            kind: 'list',
+            items: [
+              'Complaints may be submitted verbally or in writing.',
+              'Employees are encouraged to provide relevant details, including the nature of the incident, dates and individuals involved.',
+              'All complaints will be treated seriously and handled promptly, impartially and confidentially.',
+              'Where necessary, an investigation will be conducted, allowing all parties an opportunity to present their accounts.',
+              'Appropriate action will be taken based on the findings.',
+            ],
+          },
+          {
+            kind: 'p',
+            text: 'Employees are not required to confront the individual responsible before reporting an incident.',
+          },
+          { kind: 'heading', text: '5. Protection Against Retaliation' },
+          {
+            kind: 'p',
+            text: 'BNW strictly prohibits retaliation against anyone who raises a concern, reports harassment, participates in an investigation or supports a colleague making a complaint.',
+          },
+          {
+            kind: 'p',
+            text: 'Any form of intimidation, victimisation, threats or adverse treatment arising from a genuine complaint will be treated as a separate disciplinary matter.',
+          },
+          { kind: 'heading', text: '6. Disciplinary Action' },
+          {
+            kind: 'p',
+            text: 'Any individual found to have engaged in harassment, discrimination or bullying may face disciplinary action depending on the seriousness and circumstances of the misconduct.',
+          },
+          { kind: 'p', text: 'Possible consequences include:' },
+          {
+            kind: 'list',
+            items: [
+              'Formal warnings.',
+              'Disciplinary proceedings.',
+              'Suspension where appropriate.',
+              'Termination of employment in serious cases.',
+            ],
+          },
+          {
+            kind: 'p',
+            text: 'Serious incidents involving physical assault, threats or other potentially criminal conduct may also be referred to the relevant authorities.',
+          },
+          { kind: 'heading', text: '7. Commitment to a Respectful Workplace' },
+          {
+            kind: 'p',
+            text: 'Every employee has a responsibility to contribute to a workplace free from harassment, discrimination and intimidation. BNW expects its people to uphold these standards in their daily conduct and professional relationships.',
+          },
+          {
+            kind: 'highlight',
+            title: 'Harassment of any kind is unacceptable.',
+            text: 'Every employee has the right to work in an environment where their dignity, safety and individuality are respected.',
           },
         ],
       },
@@ -690,7 +813,13 @@ export function sectionText(section: PolicySection): string {
   const blockText = (blocks: PolicyBlock[]) =>
     blocks
       .map((b) =>
-        b.kind === 'list' ? b.items.join(' ') : b.kind === 'highlight' ? `${b.title} ${b.text}` : b.text
+        b.kind === 'list'
+          ? b.items.join(' ')
+          : b.kind === 'terms'
+            ? b.items.map((item) => `${item.term} ${item.text}`).join(' ')
+            : b.kind === 'highlight'
+              ? `${b.title} ${b.text}`
+              : b.text
       )
       .join(' ');
   return [

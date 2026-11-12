@@ -27,6 +27,7 @@ import {
 import { toast } from 'src/components/snackbar';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
+import { isWeekendDay } from 'src/sections/booking/booking-utils';
 import { HrFormSection } from 'src/sections/hr-forms/hr-form-section';
 
 import { useAuthContext } from 'src/auth/hooks';
@@ -100,6 +101,9 @@ export function LeaveCreateView({ current }: Props) {
   );
   const days = singleDay && halfDay ? 0.5 : leaveDays;
   const overBalance = remaining !== null && days > remaining;
+  // Saturday and Sunday are off: leave starts and ends on a working day.
+  const startOnWeekend = isWeekendDay(startDate);
+  const endOnWeekend = isWeekendDay(endDate);
 
   const onSubmit = async () => {
     if (leaveTypeId === '') {
@@ -108,6 +112,10 @@ export function LeaveCreateView({ current }: Props) {
     }
     if (!startDate || !endDate) {
       toast.error('Pick the first and last day of your leave');
+      return;
+    }
+    if (startOnWeekend || endOnWeekend) {
+      toast.error("Leave can't start or end on a Saturday or Sunday — pick working days");
       return;
     }
     if (!reason.trim()) {
@@ -220,6 +228,10 @@ export function LeaveCreateView({ current }: Props) {
                   setStartDate(event.target.value);
                   if (!endDate || endDate < event.target.value) setEndDate(event.target.value);
                 }}
+                error={startOnWeekend}
+                helperText={
+                  startOnWeekend ? 'Weekends are off — start on a working day' : undefined
+                }
                 slotProps={{ inputLabel: { shrink: true } }}
                 fullWidth
               />
@@ -230,6 +242,8 @@ export function LeaveCreateView({ current }: Props) {
                 label="To"
                 value={endDate}
                 onChange={(event) => setEndDate(event.target.value)}
+                error={endOnWeekend}
+                helperText={endOnWeekend ? 'Weekends are off — end on a working day' : undefined}
                 slotProps={{
                   inputLabel: { shrink: true },
                   htmlInput: { min: startDate || undefined },

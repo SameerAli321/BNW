@@ -62,10 +62,12 @@ import {
   addDays,
   PKT_LABEL,
   fPktRange,
+  isWeekendDay,
   BOOKING_TYPES,
   toPktWallClock,
   BOOKING_TYPE_META,
   calendarDateParts,
+  WEEKEND_BOOKING_MESSAGE,
 } from '../booking-utils';
 
 // ----------------------------------------------------------------------
@@ -328,6 +330,10 @@ export function BookingCalendarView() {
 
   const handleDateClick = (arg: DateClickArg) => {
     const { date, time } = calendarDateParts(arg.date);
+    if (isWeekendDay(date)) {
+      toast.info(WEEKEND_BOOKING_MESSAGE);
+      return;
+    }
     const offDay = offDayOn(date);
     if (offDay) {
       toast.info(`${fDate(date)} is an office off day (${offDay.reason}) — nothing can be booked`);
@@ -596,6 +602,10 @@ export function BookingCalendarView() {
             '& .bnw-booking--private': { cursor: 'default', fontStyle: 'italic' },
             '& .bnw-leave': { borderLeftWidth: 3, cursor: 'pointer' },
             '& .bnw-leave--pending': { borderStyle: 'dashed', fontStyle: 'italic' },
+            // Saturday and Sunday are off — shaded, and clicking them doesn't open the form.
+            '& .fc-day-sat, & .fc-day-sun': {
+              bgcolor: hexAlpha(theme.palette.grey[500], 0.08),
+            },
           }}
         >
           <Calendar

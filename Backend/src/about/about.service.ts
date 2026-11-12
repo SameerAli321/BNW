@@ -9,6 +9,7 @@ import { RoleName } from '../common/enums/role.enum';
 import { UserStatus } from '../common/enums/user-status.enum';
 import { AVATARS_DIR } from '../users/avatar.storage';
 import { UpdateAboutDto } from './about.dto';
+import { AboutStory, DEFAULT_STORY } from './about-story';
 
 const SETTING_KEY = 'about_us';
 
@@ -25,7 +26,16 @@ type StoredAbout = {
     email: string;
     website: string;
   };
-  ceo: { name: string; title: string; message: string; photoFile: string | null };
+  ceo: {
+    name: string;
+    title: string;
+    /** Short headline shown large above the message; empty = the message's first sentence. */
+    quote: string;
+    message: string;
+    photoFile: string | null;
+  };
+  /** The "What is BNW" story; missing parts fall back to DEFAULT_STORY. */
+  story: AboutStory;
   updatedById: number | null;
   updatedAt: string | null;
 };
@@ -57,7 +67,8 @@ const DEFAULTS: StoredAbout = {
     email: 'info@bnwconsultants.com',
     website: 'www.bnwconsultants.com',
   },
-  ceo: { name: '', title: 'Chief Executive Officer', message: '', photoFile: null },
+  ceo: { name: '', title: 'Chief Executive Officer', quote: '', message: '', photoFile: null },
+  story: DEFAULT_STORY,
   updatedById: null,
   updatedAt: null,
 };
@@ -67,14 +78,56 @@ export type AboutDto = {
   ceo: {
     name: string;
     title: string;
+    quote: string;
     message: string;
     /** Uploaded on the About page, else the CEO's profile picture; null if neither. */
     photoUrl: string | null;
     hasCustomPhoto: boolean;
   };
+  story: AboutStory;
   updatedAt: string | null;
   updatedByName: string | null;
 };
+
+/**
+ * The saved story from an edit: each sent field replaces the saved one; cards with neither a
+ * title nor text are dropped. Fields left out keep their saved value.
+ */
+function toStory(dto: UpdateAboutDto['story'] & object, current: AboutStory): AboutStory {
+  const cards = <T extends { title: string; text: string }>(
+    list: T[] | undefined,
+    fallback: T[],
+  ) => (list ? list.filter((item) => item.title || item.text) : fallback);
+  const pick = (key: keyof AboutStory) => {
+    const value = dto[key as keyof typeof dto];
+    return typeof value === 'string' ? value : (current[key] as string);
+  };
+  return {
+    welcomeTitle: pick('welcomeTitle'),
+    welcomeSubtitle: pick('welcomeSubtitle'),
+    whoWeAre: pick('whoWeAre'),
+    vision: pick('vision'),
+    mission: pick('mission'),
+    servicesIntro: pick('servicesIntro'),
+    services: cards(dto.services, current.services),
+    servicesOutro: pick('servicesOutro'),
+    groupIntro: pick('groupIntro'),
+    firms: cards(dto.firms, current.firms),
+    groupMotto: pick('groupMotto'),
+    groupText: pick('groupText'),
+    philosophyIntro: pick('philosophyIntro'),
+    principles: cards(dto.principles, current.principles),
+    culture: pick('culture'),
+    expectationsIntro: pick('expectationsIntro'),
+    expectations: cards(dto.expectations, current.expectations),
+    expectationsOutro: pick('expectationsOutro'),
+    commitment: pick('commitment'),
+    journeyIntro: pick('journeyIntro'),
+    milestones: cards(dto.milestones, current.milestones),
+    journeyOutro: pick('journeyOutro'),
+    yourRole: pick('yourRole'),
+  };
+}
 
 /** The "About us" page: company details first, then the CEO's message with their photo. */
 @Injectable()
@@ -90,6 +143,7 @@ export class AboutService {
     return {
       company: { ...DEFAULTS.company, ...(value.company ?? {}) },
       ceo: { ...DEFAULTS.ceo, ...(value.ceo ?? {}) },
+      story: { ...DEFAULT_STORY, ...(value.story ?? {}) },
       updatedById: value.updatedById ?? null,
       updatedAt: value.updatedAt ?? null,
     };
@@ -114,10 +168,12 @@ export class AboutService {
       ceo: {
         name: about.ceo.name || (ceoUser ? `${ceoUser.firstName} ${ceoUser.lastName}` : ''),
         title: about.ceo.title || 'Chief Executive Officer',
+        quote: about.ceo.quote ?? '',
         message: about.ceo.message,
         photoUrl: photoFile ? `/users/avatars/${photoFile}` : null,
         hasCustomPhoto: !!about.ceo.photoFile,
       },
+      story: about.story,
       updatedAt: about.updatedAt,
       updatedByName: editor ? `${editor.firstName} ${editor.lastName}` : null,
     };
@@ -129,10 +185,11 @@ export class AboutService {
       company: {
         name: dto.company.name,
         tagline: dto.company.tagline ?? '',
-        about: dto.company.about ?? '',
-        mission: dto.company.mission ?? '',
-        vision: dto.company.vision ?? '',
-        services: dto.company.services ?? [],
+        // Superseded by the story (who we are, vision, mission, what we do) — kept if not sent.
+        about: dto.company.about ?? about.company.about,
+        mission: dto.company.mission ?? about.company.mission,
+        vision: dto.company.vision ?? about.company.vision,
+        services: dto.company.services ?? about.company.services,
         address: dto.company.address ?? '',
         phones: dto.company.phones ?? [],
         email: dto.company.email ?? '',
@@ -141,9 +198,11 @@ export class AboutService {
       ceo: {
         name: dto.ceo.name ?? '',
         title: dto.ceo.title ?? '',
+        quote: dto.ceo.quote ?? '',
         message: dto.ceo.message ?? '',
         photoFile: about.ceo.photoFile,
       },
+      story: dto.story ? toStory(dto.story, about.story) : about.story,
       updatedById: editorId,
       updatedAt: new Date().toISOString(),
     });

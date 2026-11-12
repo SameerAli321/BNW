@@ -320,6 +320,13 @@ export class LeaveService {
     if (input.halfDay && input.startDate !== input.endDate) {
       throw new BadRequestException('A half day must start and end on the same date');
     }
+    // Saturday and Sunday are off: leave starts and ends on a working day (a weekend in between
+    // still counts — see countLeaveDays).
+    if ([input.startDate, input.endDate].some((date) => [0, 6].includes(weekdayOf(date)))) {
+      throw new BadRequestException(
+        "Leave can't start or end on a Saturday or Sunday — pick working days",
+      );
+    }
     const offDays = await this.offDaysRepo.find({
       where: { date: Between(input.startDate, input.endDate) },
     });

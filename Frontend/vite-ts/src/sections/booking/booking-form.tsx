@@ -47,9 +47,11 @@ import {
   fDuration,
   pktToDate,
   START_TIMES,
+  isWeekendDay,
   BOOKING_TYPES,
   BOOKING_TYPE_META,
   BOOKING_REPEAT_OPTIONS,
+  WEEKEND_BOOKING_MESSAGE,
   OTHER_ACTIVITY_SUGGESTIONS,
 } from './booking-utils';
 
@@ -174,7 +176,9 @@ export function BookingForm({ currentBooking, initialType, initialDate, initialT
   const startMoved =
     !currentBooking || currentBooking.date !== form.date || currentBooking.time !== form.time;
   const problems: string[] = [];
+  const weekendDate = isWeekendDay(form.date);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) problems.push('Pick a date');
+  else if (weekendDate) problems.push(WEEKEND_BOOKING_MESSAGE);
   else if (startMoved && start.getTime() < Date.now())
     problems.push('Pick a start time in the future');
   if (isMeeting && !form.title.trim()) problems.push('Give the meeting a title');
@@ -336,6 +340,8 @@ export function BookingForm({ currentBooking, initialType, initialDate, initialT
                 required
                 value={form.date}
                 onChange={(e) => set('date', e.target.value)}
+                error={weekendDate}
+                helperText={weekendDate ? 'Weekends are off — pick Monday to Friday' : undefined}
                 slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: pktToday() } }}
               />
               <TextField

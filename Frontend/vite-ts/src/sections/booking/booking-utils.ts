@@ -32,6 +32,15 @@ export function calendarDateParts(date: Date): { date: string; time: string } {
   return { date: iso.slice(0, 10), time: iso.slice(11, 16) };
 }
 
+/** 'YYYY-MM-DD' is a Saturday or Sunday — the office is off: no bookings, no leave start / end. */
+export function isWeekendDay(date: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  return [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
+}
+
+export const WEEKEND_BOOKING_MESSAGE =
+  'Saturday and Sunday are off — bookings are only for Monday to Friday';
+
 export function addDays(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);

@@ -24,22 +24,61 @@ export interface AboutCompany {
 export interface AboutCeo {
   name: string;
   title: string;
+  /** Short headline shown large; empty = the message's first sentence. */
+  quote: string;
   message: string;
   /** Relative to the API base — use avatarSrc() for an <img>. */
   photoUrl: string | null;
   hasCustomPhoto: boolean;
 }
 
+/** A titled card in the story: a service, a firm, a principle, an expectation. */
+export type StoryItem = { title: string; text: string };
+/** A dated step on the "Our Journey" timeline. */
+export type StoryMilestone = { date: string; title: string; text: string };
+
+/**
+ * The "What is BNW" story (Backend/src/about/about-story.ts) — every section editable by CEO / HR
+ * / Admin. Long texts are plain strings; a blank line starts a new paragraph.
+ */
+export interface AboutStory {
+  welcomeTitle: string;
+  welcomeSubtitle: string;
+  whoWeAre: string;
+  vision: string;
+  mission: string;
+  servicesIntro: string;
+  services: StoryItem[];
+  servicesOutro: string;
+  groupIntro: string;
+  firms: StoryItem[];
+  groupMotto: string;
+  groupText: string;
+  philosophyIntro: string;
+  principles: StoryItem[];
+  culture: string;
+  expectationsIntro: string;
+  expectations: StoryItem[];
+  expectationsOutro: string;
+  commitment: string;
+  journeyIntro: string;
+  milestones: StoryMilestone[];
+  journeyOutro: string;
+  yourRole: string;
+}
+
 export interface AboutDto {
   company: AboutCompany;
   ceo: AboutCeo;
+  story: AboutStory;
   updatedAt: string | null;
   updatedByName: string | null;
 }
 
 export type AboutPayload = {
   company: AboutCompany;
-  ceo: { name: string; title: string; message: string };
+  ceo: { name: string; title: string; quote: string; message: string };
+  story: AboutStory;
 };
 
 export function useGetAbout() {
