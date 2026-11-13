@@ -62,7 +62,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     href: paths.dashboard.leaveRequests.new,
     icon: 'solar:calendar-date-bold',
     color: 'primary',
-    roles: ['EMPLOYEE', 'MANAGER', 'PAYROLL'],
+    roles: ['EMPLOYEE', 'MANAGER', 'LINE_MANAGER', 'PARTNER', 'PAYROLL'],
   },
   {
     label: 'View reports',

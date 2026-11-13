@@ -18,6 +18,8 @@ import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 import { useAuthContext } from 'src/auth/hooks';
 import { RoleBasedGuard } from 'src/auth/guard';
 
+import { isTeamLeadRole } from 'src/types/user';
+
 import { EmployeeLettersCard } from '../employee-letters-card';
 import { EmployeeDocumentTable } from '../employee-document-table';
 import { EmployeeRecordBasicInfo } from '../employee-record-basic-info';
@@ -45,7 +47,7 @@ export function EmployeeRecordView() {
 
   const isSelf = !!currentAuthUser && String(currentAuthUser.id) === String(id);
   const isPrivileged = ['HR', 'ADMIN', 'CEO'].includes(currentRole);
-  const mayAttempt = isSelf || isPrivileged || currentRole === 'MANAGER';
+  const mayAttempt = isSelf || isPrivileged || isTeamLeadRole(currentRole);
 
   // "Request document" only makes sense HR/ADMIN -> someone else. "Upload document" also makes
   // sense for the record's own owner uploading their own file — matches the backend now allowing

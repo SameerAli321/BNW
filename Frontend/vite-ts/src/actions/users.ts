@@ -31,6 +31,9 @@ export type UsersListFilters = {
   status?: string;
   employmentType?: string;
   departmentId?: number;
+  /** Users-table head-cell id (name, designation, department…); empty = newest first. */
+  sortBy?: string;
+  order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 };

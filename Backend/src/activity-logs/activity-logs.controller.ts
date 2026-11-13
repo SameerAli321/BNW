@@ -14,7 +14,7 @@ import {
 import { ActivityLogsService } from './activity-logs.service';
 import { CurrentUser, JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
-import { RoleName } from '../common/enums/role.enum';
+import { RoleName, TEAM_LEAD_ROLES } from '../common/enums/role.enum';
 import { CreateActivityLogDto } from './dto/create-activity-log.dto';
 import { UpdateActivityLogDto } from './dto/update-activity-log.dto';
 import { QueryActivityLogsDto } from './dto/query-activity-logs.dto';
@@ -34,7 +34,7 @@ export class ActivityLogsController {
     return this.activityLogsService.mine(query, caller);
   }
 
-  @Roles(RoleName.MANAGER)
+  @Roles(...TEAM_LEAD_ROLES)
   @Get('team')
   async team(@Query() query: QueryActivityLogsDto, @CurrentUser() caller: JwtUserPayload) {
     return this.activityLogsService.team(query, caller);

@@ -33,8 +33,8 @@ import { pktToday } from './booking-utils';
 // ----------------------------------------------------------------------
 
 /**
- * Office off days (HR / Admin), on the Rooms & tables page. Declaring one cancels every booking
- * already on that day (people are notified) and blocks new ones; leave doesn't use a day for it.
+ * Office off days (HR / Admin), on the Rooms & tables page. Each one shows as a holiday on everyone's
+ * calendar (bookings on it are still allowed) and leave doesn't use a day for it.
  * Only today and later are listed.
  */
 export function BookingOffDays() {
@@ -52,15 +52,8 @@ export function BookingOffDays() {
     }
     setSaving(true);
     try {
-      const { cancelledBookings } = await createOffDay({
-        date: draft.date,
-        reason: draft.reason.trim(),
-      });
-      toast.success(
-        cancelledBookings
-          ? `Off day added — ${cancelledBookings} booking(s) on that day were cancelled and people notified`
-          : 'Off day added'
-      );
+      await createOffDay({ date: draft.date, reason: draft.reason.trim() });
+      toast.success('Off day added — it now shows as a holiday on the calendar');
       setDraft(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not add the off day');
@@ -86,7 +79,7 @@ export function BookingOffDays() {
       <Card sx={{ mt: 3 }}>
         <CardHeader
           title="Office off days"
-          subheader="Public holidays and closures. Nothing can be booked on these days, and leave doesn't use a day for them."
+          subheader="Public holidays and closures. They show as holidays on everyone's calendar, and leave doesn't use a day for them. Bookings are still allowed."
           action={
             <Button
               variant="outlined"
@@ -163,9 +156,9 @@ export function BookingOffDays() {
                 placeholder="e.g. Eid holiday"
                 slotProps={{ htmlInput: { maxLength: 200 } }}
               />
-              <Alert severity="warning">
-                Every meeting, room, pool-table and other booking on this day will be cancelled, and
-                the people involved will be notified.
+              <Alert severity="info">
+                It shows as a holiday on everyone&apos;s calendar. Bookings already on this day are
+                kept.
               </Alert>
             </Stack>
           </DialogContent>
@@ -186,7 +179,7 @@ export function BookingOffDays() {
         title="Remove this off day?"
         content={
           removing
-            ? `${fDate(removing.date, 'ddd DD MMM YYYY')} (${removing.reason}) becomes a normal working day. Bookings it cancelled stay cancelled.`
+            ? `${fDate(removing.date, 'ddd DD MMM YYYY')} (${removing.reason}) becomes a normal working day.`
             : ''
         }
         action={

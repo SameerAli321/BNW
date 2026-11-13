@@ -5,6 +5,8 @@ import useSWR, { mutate } from 'swr';
 
 import axiosInstance, { fetcher, endpoints } from 'src/lib/axios';
 
+import { TEAM_LEAD_ROLES } from 'src/types/user';
+
 // ----------------------------------------------------------------------
 // BNW OMS — bookings. Mirrors Backend/src/bookings. Three kinds: meetings (organised by the CEO,
 // HR / Admin and Team Leads, with invited employees), meeting rooms and the pool table (anyone).
@@ -19,7 +21,7 @@ export type BookingStatus = 'CONFIRMED' | 'CANCELLED';
 export type BookingResourceType = 'MEETING_ROOM' | 'POOL_TABLE';
 
 /** Who may organise meetings (Team Members only attend). Mirrors MEETING_ORGANIZER_ROLES. */
-export const MEETING_ORGANIZER_ROLES = ['CEO', 'HR', 'ADMIN', 'MANAGER'];
+export const MEETING_ORGANIZER_ROLES = ['CEO', 'HR', 'ADMIN', ...TEAM_LEAD_ROLES];
 /** Who manage rooms & tables (and may change anyone's room / pool-table booking). */
 export const BOOKING_ADMIN_ROLES = ['HR', 'ADMIN'];
 
@@ -37,7 +39,7 @@ export interface BookingParticipant extends BookingPerson {
   respondedAt: string | null;
   declineReason: string | null;
 }
-
+/** A company-wide day off (a holiday). Shown on the calendar; leave doesn't use a day for it. */
 /** A company-wide day off. Nothing can be booked on it; leave doesn't use a day for it. */
 export interface OffDay {
   id: number;
@@ -371,18 +373,18 @@ function revalidateOffDays() {
   return mutate((key) => Array.isArray(key) && key[0] === endpoints.bookings.offDays);
 }
 
-/** HR / Admin. Cancels every booking already on that day; returns how many. */
+/** HR / Admin. Announces a holiday; bookings on that day are kept. */
 export async function createOffDay(payload: {
   date: string;
   reason: string;
-}): Promise<{ offDay: OffDay; cancelledBookings: number }> {
+}): Promise<{ offDay: OffDay }> {
   const res = await axiosInstance.post(endpoints.bookings.offDays, payload);
   await revalidateOffDays();
   await revalidateBookings();
   return res.data.data;
 }
 
-/** HR / Admin. Bookings it cancelled stay cancelled. */
+/** HR / Admin. */
 export async function deleteOffDay(id: number): Promise<void> {
   await axiosInstance.delete(endpoints.bookings.offDay(id));
   await revalidateOffDays();

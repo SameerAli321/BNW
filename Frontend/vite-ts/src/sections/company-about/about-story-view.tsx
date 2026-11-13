@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import type { AboutDto } from 'src/actions/about';
 import type { IconifyName } from 'src/components/iconify';
 
 import Box from '@mui/material/Box';
@@ -10,6 +9,7 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
 import { CONFIG } from 'src/global-config';
+import { aboutNames, type AboutDto } from 'src/actions/about';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -203,6 +203,8 @@ type Props = {
  */
 export function AboutStoryView({ about, canEdit, onEdit }: Props) {
   const { company, story } = about;
+  const hasContact =
+    !!company.address || !!company.phones.length || !!company.email || !!company.website;
   const websiteHref = company.website
     ? /^https?:\/\//i.test(company.website)
       ? company.website
@@ -233,7 +235,7 @@ export function AboutStoryView({ about, canEdit, onEdit }: Props) {
           }}
         >
           <Box sx={{ minWidth: 0 }}>
-            <Eyebrow sx={{ mb: 2.5 }}>What is BNW</Eyebrow>
+            <Eyebrow sx={{ mb: 2.5 }}>What is {aboutNames(about.edition).company}</Eyebrow>
             <Typography
               component="h1"
               sx={(theme) => ({
@@ -321,12 +323,26 @@ export function AboutStoryView({ about, canEdit, onEdit }: Props) {
                 boxShadow: '0 28px 56px -24px rgba(11,31,51,0.55)',
               })}
             >
-              <Box
-                component="img"
-                alt="BNW Chartered Accountants"
-                src={`${CONFIG.assetsDir}/logo/logo-full.png`}
-                sx={{ width: 1, maxWidth: 280, objectFit: 'contain' }}
-              />
+              {about.edition === 'HAYES' ? (
+                // No Hayes logo in the app yet — the company name in the brand type instead.
+                <Typography
+                  sx={(theme) => ({
+                    ...displayHeading,
+                    ...brandBlueText(theme),
+                    fontSize: { xs: 36, md: 48 },
+                    textAlign: 'center',
+                  })}
+                >
+                  {company.name}
+                </Typography>
+              ) : (
+                <Box
+                  component="img"
+                  alt="BNW Chartered Accountants"
+                  src={`${CONFIG.assetsDir}/logo/logo-full.png`}
+                  sx={{ width: 1, maxWidth: 280, objectFit: 'contain' }}
+                />
+              )}
             </Stack>
           </Box>
         </Box>
@@ -445,7 +461,7 @@ export function AboutStoryView({ about, canEdit, onEdit }: Props) {
 
       {/* ============================================================ Philosophy */}
       {(story.philosophyIntro || !!story.principles.length) && (
-        <StorySection eyebrow="Our philosophy" title="The BNW Way" intro={story.philosophyIntro}>
+        <StorySection eyebrow="Our philosophy" title={`The ${aboutNames(about.edition).company} Way`} intro={story.philosophyIntro}>
           {!!story.principles.length && (
             <Box sx={cardGrid({ xs: 1, sm: 2, md: 3 })}>
               {story.principles.map((principle, i) => (
@@ -680,6 +696,8 @@ export function AboutStoryView({ about, canEdit, onEdit }: Props) {
           <Box />
         )}
 
+        {/* Hidden until there's something to show (the Hayes edition starts empty). */}
+        {hasContact && (
         <Card sx={{ p: { xs: 3, md: 4 }, borderTop: `5px solid ${BRAND_GREEN}` }}>
           <Typography variant="h6" sx={(theme) => ({ ...brandNavyText(theme), mb: 0.5 })}>
             Contact us
@@ -712,6 +730,7 @@ export function AboutStoryView({ about, canEdit, onEdit }: Props) {
             )}
           </Stack>
         </Card>
+        )}
       </Box>
     </Stack>
   );

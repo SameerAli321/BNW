@@ -16,7 +16,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 
 import { avatarSrc } from 'src/actions/users';
-import { updateAbout, uploadCeoPhoto, removeCeoPhoto } from 'src/actions/about';
+import { aboutNames, updateAbout, uploadCeoPhoto, removeCeoPhoto } from 'src/actions/about';
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
@@ -33,7 +33,7 @@ const TABS = [
   { value: 'philosophy', label: 'Philosophy' },
   { value: 'people', label: 'People & culture' },
   { value: 'journey', label: 'Journey & your role' },
-  { value: 'ceo', label: "CEO's message" },
+  { value: 'ceo', label: "Leader's message" },
 ] as const;
 
 export type AboutEditTab = (typeof TABS)[number]['value'];
@@ -59,6 +59,8 @@ const lines = (value: string) =>
  * together with "Save"; the CEO's photo uploads straight away (JPG, PNG or WEBP up to 2 MB).
  */
 export function AboutEditDialog({ about, open, onClose, initialTab = 'company' }: Props) {
+  const { edition } = about;
+  const { company: companyShort, leader } = aboutNames(edition);
   const fileRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<AboutEditTab>(initialTab);
   const [saving, setSaving] = useState(false);
@@ -92,7 +94,8 @@ export function AboutEditDialog({ about, open, onClose, initialTab = 'company' }
     }
     setSaving(true);
     try {
-      await updateAbout({
+      await updateAbout(
+        {
         company: {
           name: form.name,
           tagline: form.tagline,
@@ -112,8 +115,10 @@ export function AboutEditDialog({ about, open, onClose, initialTab = 'company' }
           message: form.ceoMessage,
         },
         story,
-      });
-      toast.success('About us updated');
+        },
+        edition
+      );
+      toast.success(`${companyShort} About us updated`);
       onClose();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not save');
@@ -130,7 +135,7 @@ export function AboutEditDialog({ about, open, onClose, initialTab = 'company' }
     }
     setPhotoBusy(true);
     try {
-      await uploadCeoPhoto(file);
+      await uploadCeoPhoto(file, edition);
       toast.success('Photo updated');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not upload the photo');
@@ -143,8 +148,10 @@ export function AboutEditDialog({ about, open, onClose, initialTab = 'company' }
   const onRemovePhoto = async () => {
     setPhotoBusy(true);
     try {
-      await removeCeoPhoto();
-      toast.success("Photo removed — the CEO's profile picture is shown instead");
+      await removeCeoPhoto(edition);
+      toast.success(
+        edition === 'HAYES' ? 'Photo removed' : "Photo removed — the CEO's profile picture is shown instead"
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not remove the photo');
     } finally {
@@ -156,7 +163,7 @@ export function AboutEditDialog({ about, open, onClose, initialTab = 'company' }
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" scroll="paper">
-      <DialogTitle sx={{ pb: 0 }}>Edit About us</DialogTitle>
+      <DialogTitle sx={{ pb: 0 }}>Edit About us — {companyShort}</DialogTitle>
       <Tabs
         value={tab}
         onChange={(_, value: AboutEditTab) => setTab(value)}
@@ -165,7 +172,11 @@ export function AboutEditDialog({ about, open, onClose, initialTab = 'company' }
         sx={{ px: 3, borderBottom: (theme) => `1px solid ${theme.vars.palette.divider}` }}
       >
         {TABS.map((item) => (
-          <Tab key={item.value} value={item.value} label={item.label} />
+          <Tab
+            key={item.value}
+            value={item.value}
+            label={item.value === 'ceo' ? `${leader}'s message` : item.label}
+          />
         ))}
       </Tabs>
 
@@ -351,6 +362,7 @@ export function AboutEditDialog({ about, open, onClose, initialTab = 'company' }
                     JPG, PNG or WEBP, up to 2 MB. Saved immediately. A portrait (head and shoulders,
                     plain background) looks best.
                     {!about.ceo.hasCustomPhoto &&
+                      edition === 'BNW' &&
                       " Until one is uploaded, the CEO's profile picture is used."}
                   </Typography>
                   <input
@@ -365,11 +377,13 @@ export function AboutEditDialog({ about, open, onClose, initialTab = 'company' }
 
               <Box sx={twoColumns}>
                 <TextField
-                  label="CEO name"
+                  label={`${leader} name`}
                   value={form.ceoName}
                   onChange={(e) => set('ceoName', e.target.value)}
                   placeholder={about.ceo.name}
-                  helperText="Leave empty to use the name on the CEO's account"
+                  helperText={
+                    edition === 'BNW' ? "Leave empty to use the name on the CEO's account" : undefined
+                  }
                 />
                 <TextField
                   label="Title"
@@ -382,7 +396,7 @@ export function AboutEditDialog({ about, open, onClose, initialTab = 'company' }
                 value={form.ceoQuote}
                 onChange={(e) => set('ceoQuote', e.target.value)}
                 placeholder="e.g. Success is shaped by the people behind it."
-                helperText="A short line in the CEO's own words (not the job title), shown large beside the photo. Leave empty to show the CEO's name there instead."
+                helperText={`A short line in the ${leader}'s own words (not the job title), shown large beside the photo. Leave empty to show their name there instead.`}
                 slotProps={{ htmlInput: { maxLength: 160 } }}
               />
               <TextField
@@ -391,7 +405,7 @@ export function AboutEditDialog({ about, open, onClose, initialTab = 'company' }
                 minRows={8}
                 value={form.ceoMessage}
                 onChange={(e) => set('ceoMessage', e.target.value)}
-                placeholder="A welcome message from the CEO to everyone at BNW…"
+                placeholder={`A welcome message from the ${leader} to everyone at ${companyShort}…`}
               />
             </>
           )}

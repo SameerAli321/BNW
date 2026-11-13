@@ -37,6 +37,14 @@ export type AboutStory = {
   yourRole: string;
 };
 
+/** An empty story — every section hides until it's filled in (the Hayes edition starts like this). */
+export const emptyStory = (welcomeTitle: string): AboutStory => ({
+  ...(Object.fromEntries(
+    Object.entries(DEFAULT_STORY).map(([key, value]) => [key, Array.isArray(value) ? [] : '']),
+  ) as unknown as AboutStory),
+  welcomeTitle,
+});
+
 export const DEFAULT_STORY: AboutStory = {
   welcomeTitle: 'Welcome to BNW',
   welcomeSubtitle: 'Our Story, Our Values, Our People',

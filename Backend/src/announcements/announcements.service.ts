@@ -11,6 +11,7 @@ import { Department } from '../entities/department.entity';
 import { Notification } from '../entities/notification.entity';
 import { User } from '../entities/user.entity';
 import { AnnouncementAudience } from '../common/enums/announcement-audience.enum';
+import { Company } from '../common/enums/company.enum';
 import { RoleName } from '../common/enums/role.enum';
 import { UserStatus } from '../common/enums/user-status.enum';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
@@ -31,6 +32,8 @@ export interface AnnouncementDto {
   /** The departments it's for when audience = DEPARTMENT (empty for everyone). */
   departmentIds: number[];
   departmentNames: string[];
+  /** BNW / HAYES = only that company (plus the shared team); null = both. */
+  company: string | null;
   pinned: boolean;
   expiresOn: string | null;
   isExpired: boolean;
@@ -60,6 +63,7 @@ function toDto(row: Announcement): AnnouncementDto {
     audience: row.audience,
     departmentIds: departmentsOf(row).map((d) => d.id),
     departmentNames: departmentsOf(row).map((d) => d.name),
+    company: row.company ?? null,
     pinned: row.pinned,
     expiresOn: row.expiresOn,
     isExpired: !!row.expiresOn && row.expiresOn < todayLocal(),
@@ -110,6 +114,10 @@ export class AnnouncementsService {
           departmentId: me?.departmentId ?? -1,
         },
       );
+      // A company's posts only reach that company; the shared HR / Administration team sees both.
+      if (me && me.company !== Company.SHARED) {
+        qb.andWhere('(a.company IS NULL OR a.company = :myCompany)', { myCompany: me.company });
+      }
     }
     if (!(opts.includeExpired && this.canPost(caller))) {
       qb.andWhere('(a.expiresOn IS NULL OR a.expiresOn >= :today)', { today: todayLocal() });
@@ -150,6 +158,7 @@ export class AnnouncementsService {
         postedBy: caller.sub,
         audience,
         departments,
+        company: dto.company ?? null,
         pinned: !!dto.pinned,
         expiresOn: dto.expiresOn ?? null,
       }),
@@ -161,10 +170,13 @@ export class AnnouncementsService {
   /** In-app notification + (stubbed) email to every active user the announcement is addressed to. */
   private async notifyAudience(row: Announcement): Promise<void> {
     const recipients = await this.usersRepo.find({
-      where:
-        row.audience === AnnouncementAudience.DEPARTMENT
-          ? { status: UserStatus.ACTIVE, departmentId: In(departmentsOf(row).map((d) => d.id)) }
-          : { status: UserStatus.ACTIVE },
+      where: {
+        status: UserStatus.ACTIVE,
+        ...(row.audience === AnnouncementAudience.DEPARTMENT
+          ? { departmentId: In(departmentsOf(row).map((d) => d.id)) }
+          : {}),
+        ...(row.company ? { company: In([row.company, Company.SHARED]) } : {}),
+      },
     });
     const others = recipients.filter((user) => user.id !== row.postedBy);
     if (others.length) {
@@ -212,6 +224,7 @@ export class AnnouncementsService {
     if (dto.title !== undefined) row.title = dto.title.trim();
     if (dto.body !== undefined) row.body = dto.body.trim();
     if (dto.pinned !== undefined) row.pinned = dto.pinned;
+    if (dto.company !== undefined) row.company = dto.company;
     if (dto.expiresOn !== undefined) row.expiresOn = dto.expiresOn;
     row.audience = audience;
     row.departments = departments;

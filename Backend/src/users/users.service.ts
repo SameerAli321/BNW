@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
@@ -31,6 +31,7 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { AVATARS_DIR } from './avatar.storage';
 import { MailService } from '../mail/mail.service';
 import { renderWelcomeEmail } from './welcome-email';
+import { visibleCompanies } from '../common/company-scope';
 
 /** Result of the welcome email sent when an account is created. */
 export type WelcomeEmailResult = {
@@ -101,7 +102,9 @@ export class UsersService {
       qb.andWhere('user.departmentId = :departmentId', { departmentId: query.departmentId });
     }
 
-    qb.orderBy('user.createdAt', 'DESC')
+    this.applySort(qb, query)
+      // Ties (same department, same role…) keep a stable order across pages.
+      .addOrderBy('user.id', 'ASC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -117,10 +120,58 @@ export class UsersService {
     };
   }
 
-  /** GET /users/hierarchy — every active user, for the org chart (any signed-in user). */
-  async findHierarchy(): Promise<HierarchyNodeDto[]> {
+  /** The Users table's column sort — same head-cell ids as the frontend (cf. staff-summary). */
+  private applySort(qb: SelectQueryBuilder<User>, query: QueryUsersDto): SelectQueryBuilder<User> {
+    const direction = query.order === 'desc' ? 'DESC' : 'ASC';
+    const nulls = 'NULLS LAST';
+
+    switch (query.sortBy) {
+      case 'name':
+        return qb.orderBy('user.firstName', direction).addOrderBy('user.lastName', direction);
+      case 'designation':
+        return qb.orderBy('user.designation', direction, nulls);
+      case 'department':
+        return qb.orderBy('department.name', direction, nulls);
+      case 'manager':
+        return qb
+          .orderBy('manager.firstName', direction, nulls)
+          .addOrderBy('manager.lastName', direction, nulls);
+      case 'contact':
+        // One profile row per user (unique user_id), so this never duplicates rows. Selected under
+        // an alias: with paging, TypeORM can only order by selected columns.
+        return qb
+          .leftJoin(EmployeeProfile, 'profile', 'profile.user_id = user.id')
+          .addSelect('profile.phone', 'contact_sort')
+          .orderBy('contact_sort', direction, nulls);
+      case 'salary':
+        return qb.orderBy('user.currentSalary', direction, nulls);
+      // role/status/employment type are Postgres enums, which sort in declaration order — cast
+      // to sort A–Z.
+      case 'role':
+        return qb.addSelect('CAST(user.role AS text)', 'role_sort').orderBy('role_sort', direction);
+      case 'employmentType':
+        return qb
+          .addSelect('CAST(user.employmentType AS text)', 'employment_type_sort')
+          .orderBy('employment_type_sort', direction);
+      case 'joinDate':
+        return qb.orderBy('user.joinDate', direction, nulls);
+      case 'status':
+        return qb
+          .addSelect('CAST(user.status AS text)', 'status_sort')
+          .orderBy('status_sort', direction);
+      default:
+        return qb.orderBy('user.createdAt', 'DESC');
+    }
+  }
+
+  /**
+   * GET /users/hierarchy — every active user, for the org chart (any signed-in user). Hayes staff
+   * only see Hayes and the shared HR / Administration team (see company-scope).
+   */
+  async findHierarchy(caller: JwtUserPayload): Promise<HierarchyNodeDto[]> {
+    const companies = visibleCompanies(await this.findOneEntity(caller.sub));
     const users = await this.usersRepo.find({
-      where: { status: UserStatus.ACTIVE },
+      where: { status: UserStatus.ACTIVE, ...(companies ? { company: In(companies) } : {}) },
       relations: ['department'],
       order: { firstName: 'ASC', lastName: 'ASC' },
     });

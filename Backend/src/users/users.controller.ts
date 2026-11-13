@@ -124,10 +124,11 @@ export class UsersController {
   }
 
   // Everyone — the Team Hierarchy page: active users' basic, non-sensitive info only (no email,
-  // salary or CNIC). Declared before ':id' so 'hierarchy' isn't parsed as an id.
+  // salary or CNIC); Hayes staff only get Hayes + the shared team. Declared before ':id' so
+  // 'hierarchy' isn't parsed as an id.
   @Get('hierarchy')
-  async hierarchy() {
-    return this.usersService.findHierarchy();
+  async hierarchy(@CurrentUser() caller: JwtUserPayload) {
+    return this.usersService.findHierarchy(caller);
   }
 
   // Public so <img src> works without the Bearer token — file names are random UUIDs (unguessable)

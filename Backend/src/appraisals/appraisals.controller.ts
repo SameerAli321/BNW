@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs
 import { AppraisalsService } from './appraisals.service';
 import { CurrentUser, JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
-import { RoleName } from '../common/enums/role.enum';
+import { RoleName, TEAM_LEAD_ROLES } from '../common/enums/role.enum';
 import { CreateAppraisalRequestDto } from './dto/create-appraisal-request.dto';
 import { ManagerDecisionDto } from './dto/manager-decision.dto';
 import { CeoDecisionDto } from './dto/ceo-decision.dto';
@@ -31,7 +31,7 @@ export class AppraisalsController {
     return this.appraisalsService.formDefaults(caller);
   }
 
-  @Roles(RoleName.MANAGER, RoleName.HR, RoleName.ADMIN)
+  @Roles(...TEAM_LEAD_ROLES, RoleName.HR, RoleName.ADMIN)
   @Get('team')
   async team(@Query() query: QueryTeamAppraisalsDto, @CurrentUser() caller: JwtUserPayload) {
     const data = await this.appraisalsService.team(query, caller);

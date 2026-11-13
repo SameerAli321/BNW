@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsOptional, IsString, Matches, Min } from 'class-validator';
 import { ActivityCategory } from '../../common/enums/activity-category.enum';
 import { RoleName } from '../../common/enums/role.enum';
 import { DATE_ONLY_PATTERN } from './create-activity-log.dto';
@@ -33,6 +33,11 @@ export class QueryActivityLogsDto {
   @IsOptional()
   @IsEnum(RoleName)
   role?: RoleName;
+
+  /** `true` = only people who lead a team (Team Lead, Manager, Partner) — the CEO's "Managers" tab. */
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  teamLeads?: 'true' | 'false';
 
   @IsOptional()
   @Type(() => Number)

@@ -9,8 +9,8 @@ import {
 import { User } from './user.entity';
 
 /**
- * A company-wide day off declared by HR / Admin (public holiday, office closure). Nothing can be
- * booked on it — bookings already on it are cancelled when it's declared — and leave doesn't use a
+ * A company-wide day off declared by HR / Admin (public holiday, office closure). It shows on every
+ * calendar (bookings on it are still allowed — client decision, Nov 2026) and leave doesn't use a
  * day for it, the same as a weekend (client feedback, Nov 2026).
  */
 @Entity('off_days')

@@ -6,12 +6,12 @@ Meetings, meeting rooms and the pool table. Backend: `Backend/src/bookings/`. Fr
 
 | Rule | Setting |
 |---|---|
-| Who organises meetings | CEO, HR, Admin, Team Leads (`MANAGER`). Team Members only attend. |
+| Who organises meetings | CEO, HR, Admin, Partners (`PARTNER`), Managers (`LINE_MANAGER`), Team Leads (`MANAGER`). Team Members only attend. |
 | Who books meeting rooms / pool table | Everyone. |
 | Approval | None. A booking is **Confirmed** as soon as it's saved. Statuses: `CONFIRMED`, `CANCELLED`. "Completed" and "In progress" are shown from the time, not stored. |
 | Participant clash | **Blocked.** A meeting can't be saved if the organiser or any invitee is already busy at that time. The error names who is busy. "Busy" means: organiser of a meeting, "Others" block or **pool-table slot**, or an invitee who hasn't declined. So you also can't book the pool table during a meeting you're in, and vice versa. Room-only bookings don't make anyone busy. |
 | Invite replies | Each invitee **accepts or declines** on the meeting page (starts as "Awaiting reply"). The organiser is notified either way, with the optional decline reason. A declined invitee's time is free; accepting again re-checks they're still free. The meeting goes ahead regardless. Changing a meeting's **date or time** resets everyone to "Awaiting reply"; a title, room or other change doesn't. |
-| Office off days | HR / Admin declare them under **Bookings → Rooms & off days**. Declaring one **cancels every booking on that day** (reason "Office off day: …", everyone involved notified). Nothing can be booked on an off day; repeating bookings skip it. Removing an off day doesn't restore cancelled bookings. Leave treats an off day like a weekend day. |
+| Holidays / off days | HR / Admin announce them under **Bookings → Rooms & off days**; they show on everyone's calendar as a red "Holiday" all-day item. Pakistan's fixed-date public holidays (5 Feb, 23 Mar, 1 May, 28 May, 14 Aug, 9 Nov, 25 Dec) show automatically; Eid etc. must be announced. **Bookings are allowed on weekends and holidays** (client decision, Nov 2026) and announcing one doesn't cancel anything. Leave treats an announced off day like a weekend day (fixed public holidays only count if announced). |
 | Room / table clash | Blocked. This includes a meeting that uses the room. Back-to-back bookings (one ends at 11:00, the next starts at 11:00) are allowed. |
 | Who can change / cancel | The organiser, or whoever created the booking. HR / Admin can also change or cancel anyone's **room / pool-table** booking (the owner is notified). Nobody else can change a meeting. |
 | Meeting privacy | Only the organiser and invitees can open a meeting. On the calendar, other people see a meeting that uses a room as a grey "Private meeting" block (time and room only). Meetings without a room don't appear for them at all. |
@@ -43,7 +43,7 @@ A title-only edit sends nothing. Cancelling twice is rejected, so there are no d
 | GET | `/bookings?from&to&type&status&resourceId&userId&scope=mine\|all&when=upcoming\|past&search&page&limit` | All (results filtered by visibility) |
 | GET | `/bookings/upcoming-meetings?limit` | All (own meetings) |
 | GET | `/bookings/availability?date&resourceId&userIds=1,2&excludeBookingId` | All (busy times only) |
-| GET | `/bookings/people` | CEO, HR, Admin, Team Leads (participant picker: name, title, department) |
+| GET | `/bookings/people` | CEO, HR, Admin, Partners, Managers, Team Leads (participant picker: name, title, department) |
 | GET | `/bookings/:id` | Visible bookings (meetings: organiser / invitees) |
 | POST | `/bookings` | All (meetings: organiser roles) |
 | PATCH | `/bookings/:id` | Organiser / creator (+ HR / Admin for rooms & tables) |
@@ -52,7 +52,7 @@ A title-only edit sends nothing. Cancelling twice is rejected, so there are no d
 | GET | `/booking-resources?type&includeInactive` | All |
 | POST / PATCH | `/booking-resources[/:id]` | HR, Admin |
 | GET | `/off-days?from&to` | All |
-| POST | `/off-days` `{ date, reason }` → `{ offDay, cancelledBookings }` | HR, Admin |
+| POST | `/off-days` `{ date, reason }` → `{ offDay }` | HR, Admin |
 | DELETE | `/off-days/:id` | HR, Admin |
 
 ## Database

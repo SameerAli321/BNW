@@ -75,7 +75,8 @@ const TABLE_HEAD: TableHeadCellProps[] = [
 // ----------------------------------------------------------------------
 
 export function UserListView() {
-  const table = useTable();
+  // No column sorted at first: the server's default is newest first.
+  const table = useTable({ defaultOrderBy: '' });
 
   const { user: currentAuthUser } = useAuthContext();
   const currentRole = currentAuthUser?.role ?? '';
@@ -100,6 +101,10 @@ export function UserListView() {
     role: currentFilters.role[0] || undefined,
     status: currentFilters.status !== 'all' ? currentFilters.status : undefined,
     employmentType: currentFilters.employmentType || undefined,
+    // Sorted on the server, so the order holds across the whole list, not just this page.
+    // Only sent once a column is clicked, so the default list also loads from an older API.
+    sortBy: table.orderBy || undefined,
+    order: table.orderBy ? table.order : undefined,
     limit: 200,
   });
 
@@ -283,7 +288,11 @@ export function UserListView() {
                   headCells={TABLE_HEAD}
                   rowCount={dataFiltered.length}
                   numSelected={table.selected.length}
-                  onSort={table.onSort}
+                  onSort={(id) => {
+                    table.onResetPage();
+                    table.onSort(id);
+                  }}
+                  showSortIcons
                   onSelectAllRows={(checked) =>
                     table.onSelectAllRows(
                       checked,

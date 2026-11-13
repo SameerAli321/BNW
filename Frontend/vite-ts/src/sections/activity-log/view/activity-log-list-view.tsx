@@ -41,6 +41,8 @@ import {
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { isTeamLeadRole } from 'src/types/user';
+
 import { ActivityLogDialog } from '../activity-log-dialog';
 import { ActivityLogToolbar } from '../activity-log-toolbar';
 import { ActivityLogTableRow } from '../activity-log-table-row';
@@ -55,8 +57,9 @@ const EMPTY_FILTERS: ActivityLogFilters = { from: '', to: '', category: '', q: '
  * Daily activity log (guide §3.1 U3, docs/API_CONTRACT_ACTIVITY_LOG.md) — one page with
  * role-aware tabs, same approach as the Appraisals page:
  * - "My Activity": everyone logs and manages their own entries.
- * - "My Team": MANAGER — entries of their direct reports.
- * - "Managers": CEO — entries of every MANAGER (GET /activity-logs?role=MANAGER).
+ * - "My Team": Team Leads, Managers, Partners — entries of their direct reports.
+ * - "Managers": CEO — entries of every Team Lead, Manager and Partner
+ *   (GET /activity-logs?teamLeads=true).
  * - "All Staff": CEO/ADMIN — everyone, with a role filter.
  * Each tab's SWR hook only fetches while that tab is selected and allowed for the role.
  */
@@ -66,7 +69,7 @@ export function ActivityLogListView() {
 
   const tabsList = useMemo(() => {
     const list: { value: ViewTab; label: string }[] = [{ value: 'mine', label: 'My Activity' }];
-    if (role === 'MANAGER') list.push({ value: 'team', label: 'My Team' });
+    if (isTeamLeadRole(role)) list.push({ value: 'team', label: 'My Team' });
     if (role === 'CEO') list.push({ value: 'managers', label: 'Managers' });
     if (role === 'CEO' || role === 'ADMIN') list.push({ value: 'all', label: 'All Staff' });
     return list;
@@ -98,12 +101,8 @@ export function ActivityLogListView() {
       to: currentFilters.to || undefined,
       category: currentFilters.category || undefined,
       q: isOwnView ? undefined : currentFilters.q || undefined,
-      role:
-        tabs.value === 'managers'
-          ? 'MANAGER'
-          : tabs.value === 'all'
-            ? currentFilters.role || undefined
-            : undefined,
+      role: tabs.value === 'all' ? currentFilters.role || undefined : undefined,
+      teamLeads: tabs.value === 'managers' ? 'true' : undefined,
       page: table.page + 1,
       limit: table.rowsPerPage,
     },

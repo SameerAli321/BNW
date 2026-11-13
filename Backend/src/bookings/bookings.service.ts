@@ -26,7 +26,8 @@ import {
   PERSONAL_BOOKING_TYPES,
 } from '../common/enums/booking.enum';
 import { LeaveRequestStatus } from '../common/enums/leave-request-status.enum';
-import { RoleName } from '../common/enums/role.enum';
+import { isTeamLeadRole, RoleName, TEAM_LEAD_ROLES } from '../common/enums/role.enum';
+import { visibleCompanies } from '../common/company-scope';
 import { UserStatus } from '../common/enums/user-status.enum';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
 import {
@@ -64,9 +65,6 @@ import {
   pktToDate,
 } from './booking-time';
 
-/** 'YYYY-MM-DD' falls on a Saturday or Sunday — the office is closed, nothing can be booked. */
-const isWeekendDate = (date: string) => [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
-
 /** SQL: booking types that make their person busy (see BUSY_BOOKING_TYPES). */
 const BUSY_TYPES_SQL = BUSY_BOOKING_TYPES.map((type) => `'${type}'`).join(', ');
 
@@ -91,7 +89,7 @@ export const MEETING_ORGANIZER_ROLES: string[] = [
   RoleName.CEO,
   RoleName.HR,
   RoleName.ADMIN,
-  RoleName.MANAGER,
+  ...TEAM_LEAD_ROLES,
 ];
 
 /** Who may view every employee's calendar (and see all meetings in full). */
@@ -259,7 +257,7 @@ export class BookingsService {
    */
   async calendarScope(caller: JwtUserPayload): Promise<CalendarScope> {
     if (CALENDAR_VIEW_ALL_ROLES.includes(caller.role)) return 'all';
-    if (caller.role !== RoleName.MANAGER) return [caller.sub];
+    if (!isTeamLeadRole(caller.role)) return [caller.sub];
     // UNION (not UNION ALL) also stops a manager_id cycle from looping forever.
     const rows = (await this.dataSource.query(
       `WITH RECURSIVE team AS (
@@ -277,7 +275,7 @@ export class BookingsService {
   private assertCalendarAccess(scope: CalendarScope, userId: number, caller: JwtUserPayload): void {
     if (scope === 'all' || scope.includes(userId)) return;
     throw new ForbiddenException(
-      caller.role === RoleName.MANAGER
+      isTeamLeadRole(caller.role)
         ? "You can only view your own calendar and your team members' calendars"
         : 'You can only view your own calendar',
     );
@@ -554,20 +552,8 @@ export class BookingsService {
     if (startMoved && startAt.getTime() < Date.now() - 60_000) {
       throw new BadRequestException('Pick a start time in the future');
     }
-    // Nothing can be booked on a weekend or an office off day (a booking can end just after
-    // midnight, so the last minute's date is checked too).
-    const days = [...new Set([dto.date, dateToPkt(addMinutes(endAt, -1)).date])];
-    if (days.some(isWeekendDate)) {
-      throw new BadRequestException(
-        'Saturday and Sunday are off — bookings are only for Monday to Friday',
-      );
-    }
-    const offDay = await this.offDaysRepo.findOne({ where: { date: In(days) } });
-    if (offDay) {
-      throw new BadRequestException(
-        `${offDay.date} is an office off day (${offDay.reason}) — nothing can be booked on it`,
-      );
-    }
+    // Weekends and office off days are only shown on the calendar — bookings on them are allowed
+    // (client decision, Nov 2026).
 
     let resource: BookingResource | null = null;
     if (type === BookingType.OTHER) {
@@ -604,6 +590,17 @@ export class BookingsService {
       });
       if (people.length !== participantIds.length) {
         throw new BadRequestException('Some of the selected employees are no longer active');
+      }
+      // Hayes organisers can only invite Hayes staff and the shared HR / Administration team.
+      const organizer = await this.usersRepo.findOne({ where: { id: organizerId } });
+      const companies = organizer ? visibleCompanies(organizer) : null;
+      const outside = companies ? people.filter((p) => !companies.includes(p.company)) : [];
+      if (outside.length) {
+        throw new BadRequestException(
+          `Hayes meetings can only include Hayes staff and HR / Administration — remove ${outside
+            .map(fullName)
+            .join(', ')}`,
+        );
       }
     } else if (dto.participantIds?.length) {
       throw new BadRequestException('Only meetings have invited participants');
@@ -702,20 +699,12 @@ export class BookingsService {
 
   async create(dto: CreateBookingDto, caller: JwtUserPayload): Promise<BookingDto> {
     if (dto.type === BookingType.MEETING && !MEETING_ORGANIZER_ROLES.includes(caller.role)) {
-      throw new ForbiddenException('Only the CEO, HR / Admin and Team Leads can organise meetings');
+      throw new ForbiddenException(
+        'Only the CEO, HR / Admin, Partners, Managers and Team Leads can organise meetings',
+      );
     }
     // A repeating booking is one booking per day, sharing a series id; all or none are saved.
-    // Weekends and office off days are skipped (a one-off booking on one is rejected in `plan`).
-    let dates = dto.repeat ? repeatDates(dto.date, dto.repeat) : [dto.date];
-    if (dto.repeat && !isWeekendDate(dto.date)) {
-      const offDays = new Set(
-        (await this.offDaysRepo.find({ where: { date: In(dates) } })).map((row) => row.date),
-      );
-      dates = dates.filter((date) => !offDays.has(date) && !isWeekendDate(date));
-      if (!dates.length) {
-        throw new BadRequestException('Every one of those dates is an office off day');
-      }
-    }
+    const dates = dto.repeat ? repeatDates(dto.date, dto.repeat) : [dto.date];
     const plans: BookingPlan[] = [];
     for (const date of dates)
       plans.push(await this.plan(dto.type, { ...dto, date }, caller.sub, null));
@@ -1008,57 +997,31 @@ export class BookingsService {
   }
 
   /**
-   * POST /off-days — HR / Admin. Declares the day off and cancels every confirmed booking on it,
-   * telling the people involved. Returns how many bookings were cancelled.
+   * POST /off-days — HR / Admin. Announces a holiday: it shows on everyone's calendar and leave
+   * doesn't use a day for it. Bookings on that day are left as they are.
    */
-  async createOffDay(
-    dto: CreateOffDayDto,
-    caller: JwtUserPayload,
-  ): Promise<{ offDay: OffDayDto; cancelledBookings: number }> {
+  async createOffDay(dto: CreateOffDayDto, caller: JwtUserPayload): Promise<{ offDay: OffDayDto }> {
     if (dto.date < dateToPkt(new Date()).date) {
       throw new BadRequestException('Pick today or a future date');
     }
     if (await this.offDaysRepo.findOne({ where: { date: dto.date } })) {
       throw new ConflictException(`${dto.date} is already an off day`);
     }
-    const reason = dto.reason.trim();
-    const { start, end } = pktDayRange(dto.date);
-
-    const { offDayId, cancelledIds } = await this.dataSource.transaction(async (manager) => {
-      const saved = await manager
-        .getRepository(OffDay)
-        .save(
-          manager.getRepository(OffDay).create({ date: dto.date, reason, createdById: caller.sub }),
-        );
-      const rows = (await manager.query(
-        `UPDATE bookings SET status = 'CANCELLED', cancelled_at = now(), cancelled_by_id = $3,
-           cancel_reason = $4, sequence = sequence + 1
-         WHERE status = 'CONFIRMED' AND start_at < $2 AND end_at > $1 AND end_at > now()
-         RETURNING id`,
-        [start, end, caller.sub, `Office off day: ${reason}`],
-      )) as [Array<{ id: number }>, number];
-      return { offDayId: saved.id, cancelledIds: rows[0].map((row) => row.id) };
-    });
-
-    // Tell everyone involved, the same way as a normal cancellation.
-    for (const booking of await this.loadMany(cancelledIds)) {
-      if (booking.type === BookingType.MEETING) {
-        const told = booking.participants.map((p) => p.userId);
-        if (booking.organizerId !== caller.sub) told.push(booking.organizerId);
-        await this.notifyMeeting(booking, told, 'cancelled');
-      } else if (booking.organizerId !== caller.sub) {
-        await this.notifyBookingOwner(booking, 'cancelled', caller);
-      }
-    }
-
+    const saved = await this.offDaysRepo.save(
+      this.offDaysRepo.create({
+        date: dto.date,
+        reason: dto.reason.trim(),
+        createdById: caller.sub,
+      }),
+    );
     const offDay = await this.offDaysRepo.findOneOrFail({
-      where: { id: offDayId },
+      where: { id: saved.id },
       relations: ['createdBy'],
     });
-    return { offDay: toOffDayDto(offDay), cancelledBookings: cancelledIds.length };
+    return { offDay: toOffDayDto(offDay) };
   }
 
-  /** DELETE /off-days/:id — HR / Admin. Bookings it cancelled stay cancelled. */
+  /** DELETE /off-days/:id — HR / Admin. */
   async removeOffDay(id: number): Promise<void> {
     const result = await this.offDaysRepo.delete({ id });
     if (!result.affected) throw new NotFoundException('Off day not found');
@@ -1165,13 +1128,18 @@ export class BookingsService {
 
   /**
    * GET /bookings/people — active employees for the meeting organiser's participant picker (the
-   * CEO and Team Leads can't use GET /users). Names, job title and department only.
+   * CEO and Team Leads can't use GET /users). Names, job title and department only. Hayes
+   * organisers only get Hayes staff and the shared team (see company-scope).
    */
-  async people(): Promise<
+  async people(
+    caller: JwtUserPayload,
+  ): Promise<
     Array<{ id: number; name: string; designation: string | null; department: string | null }>
   > {
+    const me = await this.usersRepo.findOne({ where: { id: caller.sub } });
+    const companies = me ? visibleCompanies(me) : null;
     const users = await this.usersRepo.find({
-      where: { status: UserStatus.ACTIVE },
+      where: { status: UserStatus.ACTIVE, ...(companies ? { company: In(companies) } : {}) },
       relations: ['department'],
       order: { firstName: 'ASC', lastName: 'ASC' },
     });

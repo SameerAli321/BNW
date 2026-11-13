@@ -40,6 +40,7 @@ import {
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { isTeamLeadRole } from 'src/types/user';
 import { APPRAISAL_STATUS_OPTIONS } from 'src/types/appraisal';
 
 import { AppraisalTableRow } from '../appraisal-table-row';
@@ -74,7 +75,7 @@ export function AppraisalListView() {
   // their own to submit/track. Every other role (including HR/Admin, who still have a manager
   // above them for this purpose) keeps "My Appraisals".
   const canSeeMine = currentRole !== 'CEO';
-  const canSeeTeam = currentRole === 'MANAGER' || currentRole === 'HR' || currentRole === 'ADMIN';
+  const canSeeTeam = isTeamLeadRole(currentRole) || currentRole === 'HR' || currentRole === 'ADMIN';
   const canSeePendingCeo = currentRole === 'CEO';
   // CEO also gets "All Appraisals" so past-decided requests (accepted/rejected/sent back) remain
   // visible after they leave "Pending My Review" — same history view HR/ADMIN already have.

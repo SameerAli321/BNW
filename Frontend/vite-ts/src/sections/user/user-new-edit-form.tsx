@@ -28,7 +28,7 @@ import { ConfirmDialog } from 'src/components/custom-dialog';
 import {
   userRoleLabel,
   COMPANY_OPTIONS,
-  USER_FORM_DEPARTMENTS,
+  departmentsForCompany,
   USER_FORM_ROLE_OPTIONS,
   EMPLOYMENT_TYPE_OPTIONS,
   USER_CREATE_ROLE_OPTIONS,
@@ -153,20 +153,6 @@ export function UserNewEditForm({ currentUser }: Props) {
     [users, currentUser?.id]
   );
 
-  // The client's four departments, in their order — plus the user's current one when editing
-  // someone already in an older department, so it isn't silently lost.
-  const departmentOptions = useMemo(
-    () =>
-      departments
-        .filter((d) => USER_FORM_DEPARTMENTS.includes(d.name) || d.id === currentUser?.departmentId)
-        .sort((a, b) => {
-          const rank = (name: string) =>
-            USER_FORM_DEPARTMENTS.includes(name) ? USER_FORM_DEPARTMENTS.indexOf(name) : 99;
-          return rank(a.name) - rank(b.name);
-        }),
-    [departments, currentUser?.departmentId]
-  );
-
   // Creating: CEO / HR / Admin / Team Lead only (team members and interns come in through
   // Hiring → Convert). Editing: those plus Team Member, plus an older role (Payroll) a user may
   // already have.
@@ -258,6 +244,32 @@ export function UserNewEditForm({ currentUser }: Props) {
   const currentSalary = watch('currentSalary');
   const status = watch('status');
   const leavingDate = watch('leavingDate');
+  const company = watch('company');
+  const departmentId = watch('departmentId');
+
+  // The client's departments for the chosen company, in their order (Hayes has no Personalised /
+  // Generalised) — plus the user's current one when editing someone already in an older
+  // department, so it isn't silently lost.
+  const departmentOptions = useMemo(() => {
+    const allowed = departmentsForCompany(company);
+    return departments
+      .filter((d) => allowed.includes(d.name) || d.id === currentUser?.departmentId)
+      .sort((a, b) => {
+        const rank = (name: string) => (allowed.includes(name) ? allowed.indexOf(name) : 99);
+        return rank(a.name) - rank(b.name);
+      });
+  }, [departments, company, currentUser?.departmentId]);
+
+  // Switching to Hayes clears a BNW-only department that was already picked (a saved user's
+  // department is left alone until the company is changed).
+  useEffect(() => {
+    if (departmentId === '' || departmentId === undefined) return;
+    if (currentUser && company === currentUser.company) return;
+    const picked = departments.find((d) => d.id === departmentId);
+    if (picked && !departmentsForCompany(company).includes(picked.name)) {
+      setValue('departmentId', '', { shouldDirty: true });
+    }
+  }, [company, currentUser, departmentId, departments, setValue]);
   useEffect(() => {
     if (!currentValues || dirtyFields.previousSalary || dirtyFields.lastSalaryChangeDate) return;
     const original = currentValues.currentSalary ?? '';

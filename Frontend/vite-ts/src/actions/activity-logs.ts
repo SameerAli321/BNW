@@ -35,6 +35,8 @@ export type ActivityLogQuery = {
   category?: string;
   q?: string;
   role?: string;
+  /** 'true' = Team Leads, Managers and Partners only (the CEO's "Managers" tab). */
+  teamLeads?: 'true';
   page?: number;
   limit?: number;
 };

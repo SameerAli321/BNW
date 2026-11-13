@@ -1,7 +1,6 @@
 import type { DateClickArg } from '@fullcalendar/interaction';
 import type { EventInput, DatesSetArg, EventClickArg } from '@fullcalendar/core';
 import type {
-  OffDay,
   BookingDto,
   BookingType,
   BookingStatus,
@@ -57,17 +56,18 @@ import { CalendarRoot } from 'src/sections/calendar/styles';
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { isTeamLeadRole } from 'src/types/user';
+
 import { BookingNewMenu, newBookingHref } from '../booking-new-menu';
 import {
   addDays,
   PKT_LABEL,
   fPktRange,
-  isWeekendDay,
   BOOKING_TYPES,
   toPktWallClock,
   BOOKING_TYPE_META,
   calendarDateParts,
-  WEEKEND_BOOKING_MESSAGE,
+  publicHolidaysBetween,
 } from '../booking-utils';
 
 // ----------------------------------------------------------------------
@@ -102,10 +102,14 @@ const DEFAULT_FILTERS: Filters = {
 
 const DATE_PARAM = /^\d{4}-\d{2}-\d{2}$/;
 
+/** A day shown as a holiday — announced by HR / Admin (an off day) or a fixed public holiday. */
+type Holiday = { key: string; date: string; name: string };
+
 /**
  * Bookings calendar — every booking the viewer may see, from the database, in Pakistan time, plus
- * leave (approved, and pending in a lighter dashed style) as all-day events. HR / Admin / CEO can
- * open anyone's calendar and Team Leads their team's (the backend enforces the same rules);
+ * leave (approved, and pending in a lighter dashed style) and holidays as all-day events. HR /
+ * Admin / CEO can open anyone's calendar and Team Leads, Managers and Partners their team's (the
+ * backend enforces the same rules);
  * meetings outside that only appear when they occupy a room (as a grey "Private meeting" block).
  * Click a free slot (week / day) or a day (month) to book it — organisers get a meeting form;
  * click a booking or a leave to open it. `?date=YYYY-MM-DD&view=timeGridDay` focus a day. The list
@@ -123,7 +127,7 @@ export function BookingCalendarView() {
   const isAdmin = BOOKING_ADMIN_ROLES.includes(role);
   const viewsAll = CALENDAR_VIEW_ALL_ROLES.includes(role);
   // Team Members only ever see their own calendar, so they get no "Calendar of" picker.
-  const canPickCalendar = viewsAll || role === 'MANAGER';
+  const canPickCalendar = viewsAll || isTeamLeadRole(role);
 
   const dateParam = searchParams.get('date');
   const focusDate = dateParam && DATE_PARAM.test(dateParam) ? dateParam : undefined;
@@ -174,10 +178,18 @@ export function BookingCalendarView() {
     [filters.showLeaves, fetchedLeaves]
   );
   const { offDays } = useGetOffDays({ from: range?.from, to: range?.to }, !!range);
-  const offDayOn = useCallback(
-    (date: string) => offDays.find((day) => day.date === date),
-    [offDays]
-  );
+  // Holidays HR / Admin announced, plus Pakistan's fixed-date public holidays (unless one was
+  // announced for the same day). Shown only — bookings on them are allowed.
+  const holidays: Holiday[] = useMemo(() => {
+    const announced = offDays.map((day) => ({ key: `off-${day.id}`, date: day.date, name: day.reason }));
+    const taken = new Set(announced.map((day) => day.date));
+    const fixed = range
+      ? publicHolidaysBetween(range.from, range.to)
+          .filter((day) => !taken.has(day.date))
+          .map((day) => ({ key: `public-${day.date}`, ...day }))
+      : [];
+    return [...announced, ...fixed];
+  }, [offDays, range]);
 
   const colorFor = useCallback(
     (booking: BookingDto) => {
@@ -204,8 +216,9 @@ export function BookingCalendarView() {
           end: toPktWallClock(booking.endAt),
           backgroundColor: hexAlpha(color, booking.status === 'CANCELLED' ? 0.12 : 0.18),
           borderColor: color,
-          textColor:
-            theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.text.primary,
+          // CalendarRoot tints each event with its text colour (and darkens the text itself), so
+          // this is what gives a booking its type's colour from the legend.
+          textColor: color,
           classNames: [
             'bnw-booking',
             booking.status === 'CANCELLED' ? 'bnw-booking--cancelled' : '',
@@ -214,7 +227,7 @@ export function BookingCalendarView() {
           extendedProps: { booking },
         };
       }),
-    [bookings, colorFor, theme]
+    [bookings, colorFor]
   );
 
   const leaveEvents: EventInput[] = useMemo(
@@ -233,8 +246,7 @@ export function BookingCalendarView() {
           allDay: true,
           backgroundColor: hexAlpha(color, leave.isPending ? 0.08 : 0.24),
           borderColor: color,
-          textColor:
-            theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.text.primary,
+          textColor: color,
           classNames: ['bnw-leave', leave.isPending ? 'bnw-leave--pending' : ''],
           extendedProps: { leave },
         };
@@ -242,37 +254,35 @@ export function BookingCalendarView() {
     [leaves, theme, user?.id]
   );
 
-  // Office off days: the whole day shaded, plus an all-day label saying why.
-  const offDayEvents: EventInput[] = useMemo(
-    () =>
-      offDays.flatMap((day) => [
-        {
-          id: `off-${day.id}-bg`,
-          start: day.date,
-          end: addDays(day.date, 1),
-          allDay: true,
-          display: 'background',
-          backgroundColor: hexAlpha(theme.palette.grey[500], 0.24),
-        },
-        {
-          id: `off-${day.id}`,
-          title: `Office closed: ${day.reason}`,
-          start: day.date,
-          end: addDays(day.date, 1),
-          allDay: true,
-          backgroundColor: hexAlpha(theme.palette.grey[500], 0.32),
-          borderColor: theme.palette.grey[600],
-          textColor:
-            theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.text.primary,
-          extendedProps: { offDay: day },
-        },
-      ]),
-    [offDays, theme]
-  );
+  // Holidays: the whole day lightly shaded, plus an all-day label saying which holiday.
+  const holidayEvents: EventInput[] = useMemo(() => {
+    const color = theme.palette.error.main;
+    return holidays.flatMap((day) => [
+      {
+        id: `${day.key}-bg`,
+        start: day.date,
+        end: addDays(day.date, 1),
+        allDay: true,
+        display: 'background',
+        backgroundColor: hexAlpha(color, 0.06),
+      },
+      {
+        id: day.key,
+        title: `Holiday: ${day.name}`,
+        start: day.date,
+        end: addDays(day.date, 1),
+        allDay: true,
+        backgroundColor: hexAlpha(color, 0.18),
+        borderColor: color,
+        textColor: color,
+        extendedProps: { holiday: day },
+      },
+    ]);
+  }, [holidays, theme]);
 
   const allEvents = useMemo(
-    () => [...offDayEvents, ...leaveEvents, ...events],
-    [offDayEvents, leaveEvents, events]
+    () => [...holidayEvents, ...leaveEvents, ...events],
+    [holidayEvents, leaveEvents, events]
   );
 
   const api = () => calendarRef.current?.getApi();
@@ -294,9 +304,9 @@ export function BookingCalendarView() {
   const nowWallClock = toPktWallClock(new Date());
 
   const handleEventClick = (arg: EventClickArg) => {
-    const offDay = arg.event.extendedProps.offDay as OffDay | undefined;
-    if (offDay) {
-      toast.info(`${fDate(offDay.date)} is an office off day (${offDay.reason}) — no bookings`);
+    const holiday = arg.event.extendedProps.holiday as Holiday | undefined;
+    if (holiday) {
+      toast.info(`${fDate(holiday.date)} is a holiday: ${holiday.name}`);
       return;
     }
     const leave = arg.event.extendedProps.leave as CalendarLeave | undefined;
@@ -330,15 +340,6 @@ export function BookingCalendarView() {
 
   const handleDateClick = (arg: DateClickArg) => {
     const { date, time } = calendarDateParts(arg.date);
-    if (isWeekendDay(date)) {
-      toast.info(WEEKEND_BOOKING_MESSAGE);
-      return;
-    }
-    const offDay = offDayOn(date);
-    if (offDay) {
-      toast.info(`${fDate(date)} is an office off day (${offDay.reason}) — nothing can be booked`);
-      return;
-    }
     if (arg.allDay) {
       if (date < nowWallClock.slice(0, 10)) return;
       router.push(newBookingHref({ type: slotType, date }));
@@ -547,6 +548,10 @@ export function BookingCalendarView() {
         />
         <span>Leave pending approval</span>
       </Stack>
+      <Stack direction="row" alignItems="center" spacing={0.75}>
+        <Box sx={{ width: 12, height: 12, borderRadius: 0.5, bgcolor: 'error.main' }} />
+        <span>Holiday</span>
+      </Stack>
       <Box component="span" sx={{ ml: 'auto !important' }}>
         All times {PKT_LABEL} · Click a free slot to book it
       </Box>
@@ -602,7 +607,7 @@ export function BookingCalendarView() {
             '& .bnw-booking--private': { cursor: 'default', fontStyle: 'italic' },
             '& .bnw-leave': { borderLeftWidth: 3, cursor: 'pointer' },
             '& .bnw-leave--pending': { borderStyle: 'dashed', fontStyle: 'italic' },
-            // Saturday and Sunday are off — shaded, and clicking them doesn't open the form.
+            // Saturday and Sunday lightly shaded (they can still be booked).
             '& .fc-day-sat, & .fc-day-sun': {
               bgcolor: hexAlpha(theme.palette.grey[500], 0.08),
             },
@@ -620,7 +625,7 @@ export function BookingCalendarView() {
             firstDay={1}
             weekends
             allDaySlot
-            allDayText="Leave"
+            allDayText="All day"
             slotMinTime="07:00:00"
             slotMaxTime="22:00:00"
             scrollTime="08:00:00"

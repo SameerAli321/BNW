@@ -4,7 +4,15 @@ import type { IDateValue, ISocialLink } from './common';
 // BNW OMS — real API types, mirroring docs/API_CONTRACT_SPRINT1.md exactly. Keep in sync with
 // that file; if either side needs to change this shape, update the contract doc first.
 
-export type UserRole = 'EMPLOYEE' | 'MANAGER' | 'HR' | 'CEO' | 'PAYROLL' | 'ADMIN';
+export type UserRole =
+  | 'EMPLOYEE'
+  | 'MANAGER'
+  | 'HR'
+  | 'CEO'
+  | 'PAYROLL'
+  | 'ADMIN'
+  | 'LINE_MANAGER'
+  | 'PARTNER';
 
 export const USER_ROLE_OPTIONS: UserRole[] = [
   'EMPLOYEE',
@@ -13,16 +21,28 @@ export const USER_ROLE_OPTIONS: UserRole[] = [
   'CEO',
   'PAYROLL',
   'ADMIN',
+  'LINE_MANAGER',
+  'PARTNER',
 ];
 
 /**
+ * Roles that lead people — Team Lead, Manager, Partner. Each sees only themselves and the people
+ * reporting to them (mirrors TEAM_LEAD_ROLES in the backend).
+ */
+export const TEAM_LEAD_ROLES: string[] = ['MANAGER', 'LINE_MANAGER', 'PARTNER'];
+
+export const isTeamLeadRole = (role?: string | null) => TEAM_LEAD_ROLES.includes(role ?? '');
+
+/**
  * Every role HR / Admin can pick for an existing user (Edit User, Hiring → Convert), each stored as
- * an existing system role. Team Member is EMPLOYEE, Team Lead is MANAGER.
+ * an existing system role. Team Member is EMPLOYEE, Team Lead is MANAGER, Manager is LINE_MANAGER.
  */
 export const USER_FORM_ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'CEO', label: 'CEO' },
   { value: 'HR', label: 'HR' },
   { value: 'ADMIN', label: 'Admin' },
+  { value: 'PARTNER', label: 'Partner' },
+  { value: 'LINE_MANAGER', label: 'Manager' },
   { value: 'MANAGER', label: 'Team Lead' },
   // Fills in Tax and Paid on the payroll sheet (stored as the PAYROLL role).
   { value: 'PAYROLL', label: 'Internal Payroll Team' },
@@ -74,6 +94,16 @@ export const COMPANY_OPTIONS: { value: Company; label: string }[] = [
   { value: 'SHARED', label: 'HR / Administration (shared BNW & Hayes)' },
 ];
 
+/**
+ * A Hayes employee who only sees Hayes (and the shared HR / Administration team) on the Team chart,
+ * meeting invites, announcements and About us — everyone at Hayes except CEO / HR / Admin. Mirrors
+ * Backend/src/common/company-scope.ts.
+ */
+export function isHayesOnly(user?: { role?: string; company?: string | null } | null): boolean {
+  if (!user || ['CEO', 'HR', 'ADMIN'].includes(user.role ?? '')) return false;
+  return user.company === 'HAYES';
+}
+
 /** 'SHARED' → 'HR / Administration (shared BNW & Hayes)' etc. */
 export function companyLabel(company?: string | null): string {
   if (!company) return '';
@@ -82,6 +112,16 @@ export function companyLabel(company?: string | null): string {
 
 /** The Department dropdown when creating / editing a user (client's list, in this order). */
 export const USER_FORM_DEPARTMENTS = ['Personalised', 'Generalised', 'HR', 'Operations'];
+
+/** BNW's own departments — not offered for Hayes staff (client checklist, Nov 2026). */
+export const BNW_ONLY_DEPARTMENTS = ['Personalised', 'Generalised'];
+
+/** The Department dropdown for a company: Hayes gets everything except BNW's own departments. */
+export function departmentsForCompany(company?: string | null): string[] {
+  return company === 'HAYES'
+    ? USER_FORM_DEPARTMENTS.filter((name) => !BNW_ONLY_DEPARTMENTS.includes(name))
+    : USER_FORM_DEPARTMENTS;
+}
 
 // New users start ACTIVE. INACTIVE = no longer with the company — they can no longer sign in.
 export type UserAccountStatus = 'ACTIVE' | 'INACTIVE';

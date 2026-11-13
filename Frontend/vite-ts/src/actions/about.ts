@@ -3,6 +3,8 @@ import useSWR, { mutate } from 'swr';
 
 import axiosInstance, { fetcher, endpoints } from 'src/lib/axios';
 
+import { TEAM_LEAD_ROLES } from 'src/types/user';
+
 // ----------------------------------------------------------------------
 // BNW OMS — About us. Mirrors Backend/src/about. Everyone reads it; CEO / HR / ADMIN edit it.
 
@@ -67,7 +69,21 @@ export interface AboutStory {
   yourRole: string;
 }
 
+/**
+ * Which company's About us. Hayes staff always get the Hayes edition; CEO / HR / ADMIN switch
+ * between the two (`?company=HAYES`).
+ */
+export type AboutEdition = 'BNW' | 'HAYES';
+
+/** How the pages name the company and its leader in each edition. */
+export function aboutNames(edition?: AboutEdition) {
+  return edition === 'HAYES'
+    ? { company: 'Hayes', leader: 'Director' }
+    : { company: 'BNW', leader: 'CEO' };
+}
+
 export interface AboutDto {
+  edition: AboutEdition;
   company: AboutCompany;
   ceo: AboutCeo;
   story: AboutStory;
@@ -81,11 +97,19 @@ export type AboutPayload = {
   story: AboutStory;
 };
 
-export function useGetAbout() {
+/** Request options for an edition — none for BNW (or a Hayes employee, who always gets Hayes). */
+const editionConfig = (edition?: AboutEdition) =>
+  edition === 'HAYES' ? { params: { company: 'HAYES' } } : undefined;
+
+/** `edition` is for CEO / HR / ADMIN viewing the Hayes edition; everyone else leaves it out. */
+export function useGetAbout(edition?: AboutEdition) {
+  const config = editionConfig(edition);
   // The API wraps it as { data }.
-  const { data, isLoading, error } = useSWR<{ data: AboutDto }>(endpoints.about.root, fetcher, {
-    revalidateOnFocus: false,
-  });
+  const { data, isLoading, error } = useSWR<{ data: AboutDto }>(
+    config ? [endpoints.about.root, config] : endpoints.about.root,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
   return useMemo(
     () => ({ about: data?.data, aboutLoading: isLoading, aboutError: error }),
     [data, isLoading, error]
@@ -94,26 +118,31 @@ export function useGetAbout() {
 
 async function store(promise: Promise<{ data: { data: AboutDto } }>): Promise<AboutDto> {
   const res = await promise;
-  await mutate(endpoints.about.root, res.data, false);
+  // Both editions' caches (plain key and the ?company=HAYES one).
+  await mutate(
+    (key) =>
+      key === endpoints.about.root || (Array.isArray(key) && key[0] === endpoints.about.root)
+  );
   return res.data.data;
 }
 
-export function updateAbout(payload: AboutPayload) {
-  return store(axiosInstance.put(endpoints.about.root, payload));
+export function updateAbout(payload: AboutPayload, edition?: AboutEdition) {
+  return store(axiosInstance.put(endpoints.about.root, payload, editionConfig(edition)));
 }
 
-export function uploadCeoPhoto(file: File) {
+export function uploadCeoPhoto(file: File, edition?: AboutEdition) {
   const formData = new FormData();
   formData.append('file', file);
   return store(
     axiosInstance.post(endpoints.about.ceoPhoto, formData, {
+      ...editionConfig(edition),
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   );
 }
 
-export function removeCeoPhoto() {
-  return store(axiosInstance.delete(endpoints.about.ceoPhoto));
+export function removeCeoPhoto(edition?: AboutEdition) {
+  return store(axiosInstance.delete(endpoints.about.ceoPhoto, editionConfig(edition)));
 }
 
 // ----------------------------------------------------------------------
@@ -121,7 +150,7 @@ export function removeCeoPhoto() {
 // their own; it goes to their manager and HR. CEO / HR / ADMIN see everyone's, Team Leads their
 // team's; HR / ADMIN can remind people who haven't signed.
 
-export const POLICY_ACKS_VIEWER_ROLES = ['CEO', 'HR', 'ADMIN', 'MANAGER'];
+export const POLICY_ACKS_VIEWER_ROLES = ['CEO', 'HR', 'ADMIN', ...TEAM_LEAD_ROLES];
 export const POLICY_REMINDER_ROLES = ['HR', 'ADMIN'];
 
 export interface MyPolicyAcknowledgement {

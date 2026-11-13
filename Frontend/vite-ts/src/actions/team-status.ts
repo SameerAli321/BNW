@@ -3,11 +3,13 @@ import { useMemo } from 'react';
 
 import { fetcher, endpoints } from 'src/lib/axios';
 
+import { TEAM_LEAD_ROLES } from 'src/types/user';
+
 // ----------------------------------------------------------------------
 // BNW OMS — the dashboard "Team status" table. Mirrors Backend/src/dashboard/team-status.service.ts.
 // CEO / HR / ADMIN see everyone; Team Leads (MANAGER) see their direct reports.
 
-export const TEAM_STATUS_ROLES = ['CEO', 'HR', 'ADMIN', 'MANAGER'];
+export const TEAM_STATUS_ROLES = ['CEO', 'HR', 'ADMIN', ...TEAM_LEAD_ROLES];
 
 export type TodayStatus = 'AVAILABLE' | 'ON_LEAVE' | 'IN_MEETING' | 'INACTIVE';
 

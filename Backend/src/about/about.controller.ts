@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Post,
   Put,
+  Query,
   Req,
   UploadedFile,
   UseInterceptors,
@@ -16,7 +17,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { CurrentUser, JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
-import { RoleName } from '../common/enums/role.enum';
+import { RoleName, TEAM_LEAD_ROLES } from '../common/enums/role.enum';
 import { avatarFileFilter, avatarStorage, MAX_AVATAR_SIZE_BYTES } from '../users/avatar.storage';
 import { AboutService } from './about.service';
 import { UpdateAboutDto } from './about.dto';
@@ -25,7 +26,8 @@ import { AcknowledgePolicyDto, RemindPolicyDto } from './policy.dto';
 
 /**
  * About us — everyone reads it; the CEO, HR and Admin edit it. The CEO photo is stored with the
- * profile pictures and served by the same public image route (GET /users/avatars/:file).
+ * profile pictures and served by the same public image route (GET /users/avatars/:file). There's
+ * a BNW and a Hayes edition: Hayes staff always get Hayes; the others pick with `?company=HAYES`.
  */
 @Controller('about')
 export class AboutController {
@@ -35,14 +37,18 @@ export class AboutController {
   ) {}
 
   @Get()
-  async get() {
-    return this.service.get();
+  async get(@CurrentUser() caller: JwtUserPayload, @Query('company') company?: string) {
+    return this.service.get(await this.service.editionFor(caller, company));
   }
 
   @Roles(RoleName.CEO, RoleName.HR, RoleName.ADMIN)
   @Put()
-  async update(@Body() dto: UpdateAboutDto, @CurrentUser() caller: JwtUserPayload) {
-    return this.service.update(dto, caller.sub);
+  async update(
+    @Body() dto: UpdateAboutDto,
+    @CurrentUser() caller: JwtUserPayload,
+    @Query('company') company?: string,
+  ) {
+    return this.service.update(await this.service.editionFor(caller, company), dto, caller.sub);
   }
 
   // JPG, PNG or WEBP, up to 2MB.
@@ -58,9 +64,11 @@ export class AboutController {
   async uploadPhoto(
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() caller: JwtUserPayload,
+    @Query('company') company?: string,
   ) {
     if (!file) throw new BadRequestException('Choose an image to upload');
-    return this.service.setPhoto(file.filename, caller.sub);
+    const edition = await this.service.editionFor(caller, company);
+    return this.service.setPhoto(edition, file.filename, caller.sub);
   }
 
   // --- Employee Policy Handbook acknowledgements ---------------------------------------------
@@ -85,7 +93,7 @@ export class AboutController {
   }
 
   // CEO / HR / Admin: everyone; Team Leads: their direct reports.
-  @Roles(RoleName.CEO, RoleName.HR, RoleName.ADMIN, RoleName.MANAGER)
+  @Roles(RoleName.CEO, RoleName.HR, RoleName.ADMIN, ...TEAM_LEAD_ROLES)
   @Get('policy/acknowledgements')
   async acknowledgements(@CurrentUser() caller: JwtUserPayload) {
     return this.policy.list(caller);
@@ -101,7 +109,8 @@ export class AboutController {
   @Roles(RoleName.CEO, RoleName.HR, RoleName.ADMIN)
   @Delete('ceo-photo')
   @HttpCode(HttpStatus.OK)
-  async removePhoto(@CurrentUser() caller: JwtUserPayload) {
-    return this.service.removePhoto(caller.sub);
+  async removePhoto(@CurrentUser() caller: JwtUserPayload, @Query('company') company?: string) {
+    const edition = await this.service.editionFor(caller, company);
+    return this.service.removePhoto(edition, caller.sub);
   }
 }

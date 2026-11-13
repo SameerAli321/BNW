@@ -18,7 +18,7 @@ import { AppraisalStatus } from '../common/enums/appraisal-status.enum';
 import { AppraisalManagerDecision } from '../common/enums/appraisal-manager-decision.enum';
 import { AppraisalCeoDecision } from '../common/enums/appraisal-ceo-decision.enum';
 import { AppraisalEventAction } from '../common/enums/appraisal-event-action.enum';
-import { RoleName } from '../common/enums/role.enum';
+import { isTeamLeadRole, RoleName } from '../common/enums/role.enum';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
 import {
   AppraisalRequestDto,
@@ -237,7 +237,7 @@ export class AppraisalsService {
     // The manager-review stage is skipped — straight to the CEO — when the submitter IS a manager
     // (no meaningful "have their manager review it" step) or has no manager on record at all.
     // Everyone else is reviewed by their manager first.
-    const skipManagerReview = employee.role === RoleName.MANAGER || !employee.managerId;
+    const skipManagerReview = isTeamLeadRole(employee.role) || !employee.managerId;
 
     const eligibility = await this.computeEligibility(caller.sub);
     if (!eligibility.canRequestNext) {

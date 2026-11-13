@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { CurrentUser, JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
-import { RoleName } from '../common/enums/role.enum';
+import { RoleName, TEAM_LEAD_ROLES } from '../common/enums/role.enum';
 import { BookingsService } from './bookings.service';
 import {
   AvailabilityQueryDto,
@@ -55,10 +55,10 @@ export class BookingsController {
   }
 
   // Participant picker for meeting organisers.
-  @Roles(RoleName.CEO, RoleName.HR, RoleName.ADMIN, RoleName.MANAGER)
+  @Roles(RoleName.CEO, RoleName.HR, RoleName.ADMIN, ...TEAM_LEAD_ROLES)
   @Get('people')
-  async people() {
-    return this.service.people();
+  async people(@CurrentUser() caller: JwtUserPayload) {
+    return this.service.people(caller);
   }
 
   // "Calendar of" picker — whose calendars the caller may view (everyone has at least their own).
@@ -155,7 +155,7 @@ export class OffDaysController {
     return this.service.listOffDays(query);
   }
 
-  // Cancels every booking already on that day and tells the people involved.
+  // Shows the holiday on every calendar; existing bookings on that day are left alone.
   @Roles(RoleName.HR, RoleName.ADMIN)
   @Post()
   async create(@Body() dto: CreateOffDayDto, @CurrentUser() caller: JwtUserPayload) {

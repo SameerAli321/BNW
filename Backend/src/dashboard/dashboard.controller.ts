@@ -1,7 +1,7 @@
 import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { CurrentUser, JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
-import { RoleName } from '../common/enums/role.enum';
+import { RoleName, TEAM_LEAD_ROLES } from '../common/enums/role.enum';
 import { DashboardService } from './dashboard.service';
 import { TeamStatusService } from './team-status.service';
 import { QueryTeamStatusDto } from './dto/team-status.dto';
@@ -20,14 +20,14 @@ export class DashboardController {
   }
 
   // "Team status" table: CEO / HR / ADMIN see everyone, Team Leads their direct reports.
-  @Roles(RoleName.CEO, RoleName.HR, RoleName.ADMIN, RoleName.MANAGER)
+  @Roles(RoleName.CEO, RoleName.HR, RoleName.ADMIN, ...TEAM_LEAD_ROLES)
   @Get('team-status')
   async teamStatusList(@Query() query: QueryTeamStatusDto, @CurrentUser() caller: JwtUserPayload) {
     return this.teamStatus.list(query, caller);
   }
 
   // One person's full activity feed (opened from a "Team status" row) — same people as above.
-  @Roles(RoleName.CEO, RoleName.HR, RoleName.ADMIN, RoleName.MANAGER)
+  @Roles(RoleName.CEO, RoleName.HR, RoleName.ADMIN, ...TEAM_LEAD_ROLES)
   @Get('team-status/:userId/activity')
   async teamStatusActivity(
     @Param('userId', ParseIntPipe) userId: number,

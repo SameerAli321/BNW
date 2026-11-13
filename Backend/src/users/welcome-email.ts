@@ -5,6 +5,8 @@ import type { RenderedEmailContent } from '../mail/mail.types';
 /** How each role is named in the user-creation form (client's wording). */
 export const ROLE_LABELS: Record<string, string> = {
   [RoleName.CEO]: 'CEO',
+  [RoleName.PARTNER]: 'Partner',
+  [RoleName.LINE_MANAGER]: 'Manager',
   [RoleName.MANAGER]: 'Team Lead',
   [RoleName.EMPLOYEE]: 'Team Member',
   [RoleName.ADMIN]: 'HR/Admin',

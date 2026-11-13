@@ -1,5 +1,9 @@
 import type { Theme, SxProps } from '@mui/material/styles';
-import type { AnnouncementDto, AnnouncementAudience } from 'src/actions/announcements';
+import type {
+  AnnouncementDto,
+  AnnouncementCompany,
+  AnnouncementAudience,
+} from 'src/actions/announcements';
 
 import { useState } from 'react';
 import { varAlpha } from 'minimal-shared/utils';
@@ -68,14 +72,43 @@ const initialsOf = (name: string | null) =>
 const ROLE_LABEL: Record<string, string> = {
   EMPLOYEE: 'Team Member',
   MANAGER: 'Team Lead',
+  LINE_MANAGER: 'Manager',
+  PARTNER: 'Partner',
   HR: 'HR',
   CEO: 'CEO',
   ADMIN: 'Admin',
   PAYROLL: 'Internal Payroll Team',
 };
 
-/** Who the post is for, as a small chip. */
-function AudienceChip({ a }: { a: Pick<AnnouncementDto, 'audience' | 'departmentNames'> }) {
+/** Which company a post is for (none = both). */
+const COMPANY_CHIP_LABEL: Record<AnnouncementCompany, string> = {
+  BNW: 'BNW only',
+  HAYES: 'Hayes only',
+};
+
+/** Who the post is for, as a small chip (plus a company chip when it's for one company). */
+function AudienceChip({
+  a,
+}: {
+  a: Pick<AnnouncementDto, 'audience' | 'departmentNames' | 'company'>;
+}) {
+  return (
+    <>
+      {a.company && (
+        <Label
+          variant="soft"
+          color="secondary"
+          startIcon={<Iconify icon="solar:home-angle-bold-duotone" width={14} />}
+        >
+          {COMPANY_CHIP_LABEL[a.company]}
+        </Label>
+      )}
+      <AudienceLabel a={a} />
+    </>
+  );
+}
+
+function AudienceLabel({ a }: { a: Pick<AnnouncementDto, 'audience' | 'departmentNames'> }) {
   return a.audience === 'DEPARTMENT' ? (
     <Label
       variant="soft"
@@ -501,6 +534,7 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
   const [body, setBody] = useState(current?.body ?? '');
   const [audience, setAudience] = useState<AnnouncementAudience>(current?.audience ?? 'ALL');
   const [departmentIds, setDepartmentIds] = useState<number[]>(current?.departmentIds ?? []);
+  const [company, setCompany] = useState<AnnouncementCompany | ''>(current?.company ?? '');
   const [pinned, setPinned] = useState(current?.pinned ?? false);
   const [expiresOn, setExpiresOn] = useState(current?.expiresOn ?? '');
   const [submitted, setSubmitted] = useState(false);
@@ -527,6 +561,7 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
       body,
       audience,
       departmentIds: audience === 'DEPARTMENT' ? departmentIds : [],
+      company: company || null,
       pinned,
       expiresOn: expiresOn || null,
     };
@@ -564,6 +599,7 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
     departmentNames: departments
       .filter((department) => departmentIds.includes(department.id))
       .map((department) => department.name),
+    company: company || null,
     pinned,
     expiresOn: expiresOn || null,
     isExpired: false,
@@ -598,6 +634,18 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
                 helperText={bodyError ? 'Write the message' : `${body.length}/${BODY_MAX}`}
                 fullWidth
               />
+              <TextField
+                select
+                label="Company"
+                value={company}
+                onChange={(event) => setCompany(event.target.value as AnnouncementCompany | '')}
+                helperText="HR / Administration sees every post"
+                fullWidth
+              >
+                <MenuItem value="">Both companies (BNW and Hayes)</MenuItem>
+                <MenuItem value="BNW">BNW only</MenuItem>
+                <MenuItem value="HAYES">Hayes only</MenuItem>
+              </TextField>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <TextField
                   select
@@ -606,7 +654,7 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
                   onChange={(event) => setAudience(event.target.value as AnnouncementAudience)}
                   fullWidth
                 >
-                  <MenuItem value="ALL">Everyone at BNW</MenuItem>
+                  <MenuItem value="ALL">Everyone</MenuItem>
                   <MenuItem value="DEPARTMENT">Selected departments</MenuItem>
                 </TextField>
                 {audience === 'DEPARTMENT' && (
@@ -698,8 +746,8 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
               <AnnouncementCard announcement={preview} preview sx={{ height: 'auto' }} />
               <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                 {audience === 'DEPARTMENT'
-                  ? 'Only people in the chosen departments will see it and be notified.'
-                  : 'Everyone at BNW will see it and be notified.'}
+                  ? `Only people in the chosen departments${company ? ` at ${company === 'HAYES' ? 'Hayes' : 'BNW'}` : ''} will see it and be notified.`
+                  : `Everyone at ${company === 'HAYES' ? 'Hayes' : company === 'BNW' ? 'BNW' : 'BNW and Hayes'} will see it and be notified.`}
                 {pinned ? ' Pinned posts stay at the top of the board.' : ''}
               </Typography>
             </Box>

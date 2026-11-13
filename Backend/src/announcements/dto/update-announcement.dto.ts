@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -14,6 +15,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { AnnouncementAudience } from '../../common/enums/announcement-audience.enum';
+import { Company } from '../../common/enums/company.enum';
 
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -42,6 +44,13 @@ export class UpdateAnnouncementDto {
   @Type(() => Number)
   @IsInt({ each: true })
   departmentIds?: number[];
+
+  // Which company it's for: BNW or HAYES (plus the shared HR / Administration team); null / left
+  // out = both companies.
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsIn([Company.BNW, Company.HAYES], { message: 'company must be BNW, HAYES or empty' })
+  company?: Company.BNW | Company.HAYES | null;
 
   @IsOptional()
   @IsBoolean()

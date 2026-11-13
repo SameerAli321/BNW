@@ -11,6 +11,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { AnnouncementAudience } from '../common/enums/announcement-audience.enum';
+import { Company } from '../common/enums/company.enum';
 import { Department } from './department.entity';
 import { User } from './user.entity';
 
@@ -48,6 +49,13 @@ export class Announcement {
     inverseJoinColumn: { name: 'department_id', referencedColumnName: 'id' },
   })
   departments: Department[];
+
+  /**
+   * BNW or HAYES = only that company's staff (and the shared HR / Administration team) see it;
+   * null = both companies (client checklist, Nov 2026).
+   */
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  company: Company | null;
 
   @Column({ type: 'boolean', default: false })
   pinned: boolean;

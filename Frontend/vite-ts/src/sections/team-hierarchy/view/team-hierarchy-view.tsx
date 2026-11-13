@@ -29,7 +29,7 @@ import { OrganizationalChart } from 'src/components/organizational-chart';
 
 import { useAuthContext } from 'src/auth/hooks';
 
-import { userRoleLabel } from 'src/types/user';
+import { isHayesOnly, userRoleLabel } from 'src/types/user';
 
 import { HierarchyProfileDrawer } from '../hierarchy-profile-drawer';
 import {
@@ -133,6 +133,12 @@ export function TeamHierarchyView() {
   const currentRole = currentAuthUser?.role ?? '';
   const currentUserId: number | undefined = currentAuthUser?.id;
   const isHrOrAdmin = currentRole === 'HR' || currentRole === 'ADMIN';
+  // Hayes staff only get Hayes and the shared team from the API, so only those bands are drawn.
+  const hayesOnly = isHayesOnly(currentAuthUser);
+  const companies = useMemo<Company[]>(
+    () => (hayesOnly ? ['HAYES', 'SHARED'] : COMPANIES),
+    [hayesOnly]
+  );
 
   const { people, peopleLoading, peopleError } = useGetHierarchy();
   const { about } = useGetAbout();
@@ -155,7 +161,7 @@ export function TeamHierarchyView() {
   }, [people]);
 
   const root = useMemo((): ChartItem => {
-    const bands = COMPANIES.filter((c) => !companyFilter || c === companyFilter).map(
+    const bands = companies.filter((c) => !companyFilter || c === companyFilter).map(
       (company): ChartItem => {
         const members = people.filter((p) => p.role !== 'CEO' && p.company === company);
         return {
@@ -168,7 +174,7 @@ export function TeamHierarchyView() {
       }
     );
     return { kind: 'root', name: 'root', ceos, children: bands };
-  }, [people, ceos, companyFilter]);
+  }, [people, ceos, companyFilter, companies]);
 
   /**
    * Shrinks the chart to fit the screen — width and height — never above 100%, so the whole
@@ -368,7 +374,7 @@ export function TeamHierarchyView() {
           variant={companyFilter === '' ? 'filled' : 'outlined'}
           onClick={() => setCompanyFilter('')}
         />
-        {COMPANIES.map((company) => {
+        {companies.map((company) => {
           const selected = companyFilter === company;
           const { color } = COMPANY_META[company];
           return (

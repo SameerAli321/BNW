@@ -10,6 +10,9 @@ import axiosInstance, { fetcher, endpoints } from 'src/lib/axios';
 
 export type AnnouncementAudience = 'ALL' | 'DEPARTMENT';
 
+/** One company only (plus the shared HR / Administration team); null = both companies. */
+export type AnnouncementCompany = 'BNW' | 'HAYES';
+
 export interface AnnouncementDto {
   id: number;
   title: string;
@@ -21,6 +24,7 @@ export interface AnnouncementDto {
   /** The departments it's for when audience = DEPARTMENT (empty for everyone). */
   departmentIds: number[];
   departmentNames: string[];
+  company: AnnouncementCompany | null;
   pinned: boolean;
   expiresOn: string | null; // YYYY-MM-DD, last day shown
   isExpired: boolean;
@@ -33,6 +37,7 @@ export type SaveAnnouncementDto = {
   body: string;
   audience: AnnouncementAudience;
   departmentIds?: number[];
+  company: AnnouncementCompany | null;
   pinned: boolean;
   expiresOn?: string | null;
 };

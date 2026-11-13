@@ -32,14 +32,36 @@ export function calendarDateParts(date: Date): { date: string; time: string } {
   return { date: iso.slice(0, 10), time: iso.slice(11, 16) };
 }
 
-/** 'YYYY-MM-DD' is a Saturday or Sunday — the office is off: no bookings, no leave start / end. */
+/** 'YYYY-MM-DD' is a Saturday or Sunday — leave can't start or end on one (bookings can). */
 export function isWeekendDay(date: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   return [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
 }
 
-export const WEEKEND_BOOKING_MESSAGE =
-  'Saturday and Sunday are off — bookings are only for Monday to Friday';
+/**
+ * Pakistan's fixed-date public holidays (MM-DD), shown on the calendar every year without anyone
+ * announcing them. Eid and other moon-sighted holidays move each year, so HR / Admin announce
+ * those under Rooms & off days.
+ */
+const FIXED_PUBLIC_HOLIDAYS: Record<string, string> = {
+  '02-05': 'Kashmir Solidarity Day',
+  '03-23': 'Pakistan Day',
+  '05-01': 'Labour Day',
+  '05-28': 'Youm-e-Takbeer',
+  '08-14': 'Independence Day',
+  '11-09': 'Iqbal Day',
+  '12-25': 'Quaid-e-Azam Day',
+};
+
+/** The fixed public holidays from `from` to `to` (inclusive, YYYY-MM-DD). */
+export function publicHolidaysBetween(from: string, to: string): { date: string; name: string }[] {
+  const holidays: { date: string; name: string }[] = [];
+  for (let date = from; date <= to; date = addDays(date, 1)) {
+    const name = FIXED_PUBLIC_HOLIDAYS[date.slice(5)];
+    if (name) holidays.push({ date, name });
+  }
+  return holidays;
+}
 
 export function addDays(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { RoleName } from '../../common/enums/role.enum';
 import { UserStatus } from '../../common/enums/user-status.enum';
 import { EmploymentType } from '../../common/enums/employment-type.enum';
@@ -25,6 +25,16 @@ export class QueryUsersDto {
   @Type(() => Number)
   @IsInt()
   departmentId?: number;
+
+  // Column the Users table is sorted by (the frontend's head-cell id). Unknown values fall back to
+  // newest-first, so the empty action column can't break the query.
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  order?: 'asc' | 'desc';
 
   @IsOptional()
   @Type(() => Number)

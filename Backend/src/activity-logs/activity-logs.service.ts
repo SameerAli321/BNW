@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { DailyActivityLog } from '../entities/daily-activity-log.entity';
+import { TEAM_LEAD_ROLES } from '../common/enums/role.enum';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { ActivityLogDto, toActivityLogDto } from '../common/mappers/activity-log.mapper';
 import { CreateActivityLogDto } from './dto/create-activity-log.dto';
@@ -155,13 +156,16 @@ export class ActivityLogsService {
     return this.paginate(qb, query);
   }
 
-  /** Everyone — CEO/ADMIN. The CEO's "Managers" view is this with `role=MANAGER`. */
+  /** Everyone — CEO/ADMIN. The CEO's "Managers" view is this with `teamLeads=true`. */
   async listAll(query: QueryActivityLogsDto): Promise<ActivityLogListResult> {
     const qb = this.baseQuery();
     this.applyDateAndCategory(qb, query);
     this.applyPeopleFilters(qb, query);
     if (query.role) {
       qb.andWhere('user.role = :role', { role: query.role });
+    }
+    if (query.teamLeads === 'true') {
+      qb.andWhere('user.role IN (:...teamLeadRoles)', { teamLeadRoles: TEAM_LEAD_ROLES });
     }
     if (query.departmentId) {
       qb.andWhere('user.departmentId = :departmentId', { departmentId: query.departmentId });

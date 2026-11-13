@@ -9,9 +9,17 @@ import { RoleName } from '../common/enums/role.enum';
 import { UserStatus } from '../common/enums/user-status.enum';
 import { AVATARS_DIR } from '../users/avatar.storage';
 import { UpdateAboutDto } from './about.dto';
-import { AboutStory, DEFAULT_STORY } from './about-story';
+import { AboutStory, DEFAULT_STORY, emptyStory } from './about-story';
+import { JwtUserPayload } from '../common/decorators/current-user.decorator';
+import { isHayesOnly } from '../common/company-scope';
 
-const SETTING_KEY = 'about_us';
+/**
+ * Which company's About us: BNW's, or the Hayes edition that Hayes staff see instead (client
+ * checklist, Nov 2026). Each is stored under its own app_settings key.
+ */
+export type AboutEdition = 'BNW' | 'HAYES';
+
+const SETTING_KEYS: Record<AboutEdition, string> = { BNW: 'about_us', HAYES: 'about_us_hayes' };
 
 type StoredAbout = {
   company: {
@@ -73,7 +81,34 @@ const DEFAULTS: StoredAbout = {
   updatedAt: null,
 };
 
+/** The Hayes edition starts empty apart from the name — HR / Admin fill it in from About us. */
+const HAYES_DEFAULTS: StoredAbout = {
+  company: {
+    name: 'Hayes',
+    tagline: '',
+    about: '',
+    mission: '',
+    vision: '',
+    services: [],
+    address: '',
+    phones: [],
+    email: '',
+    website: '',
+  },
+  ceo: { name: '', title: 'Director', quote: '', message: '', photoFile: null },
+  story: emptyStory('Welcome to Hayes'),
+  updatedById: null,
+  updatedAt: null,
+};
+
+const DEFAULTS_BY_EDITION: Record<AboutEdition, StoredAbout> = {
+  BNW: DEFAULTS,
+  HAYES: HAYES_DEFAULTS,
+};
+
 export type AboutDto = {
+  /** Which company's About us this is. */
+  edition: AboutEdition;
   company: StoredAbout['company'];
   ceo: {
     name: string;
@@ -137,37 +172,53 @@ export class AboutService {
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
   ) {}
 
-  private async stored(): Promise<StoredAbout> {
-    const row = await this.settingsRepo.findOne({ where: { key: SETTING_KEY } });
+  /**
+   * The edition the caller gets: Hayes staff always get Hayes; everyone else gets BNW unless they
+   * ask for Hayes (`?company=HAYES` — how HR / Admin view and edit it).
+   */
+  async editionFor(caller: JwtUserPayload, requested?: string): Promise<AboutEdition> {
+    const me = await this.usersRepo.findOne({ where: { id: caller.sub } });
+    if (me && isHayesOnly(me)) return 'HAYES';
+    return requested === 'HAYES' ? 'HAYES' : 'BNW';
+  }
+
+  private async stored(edition: AboutEdition): Promise<StoredAbout> {
+    const row = await this.settingsRepo.findOne({ where: { key: SETTING_KEYS[edition] } });
     const value = (row?.value ?? {}) as Partial<StoredAbout>;
+    const defaults = DEFAULTS_BY_EDITION[edition];
     return {
-      company: { ...DEFAULTS.company, ...(value.company ?? {}) },
-      ceo: { ...DEFAULTS.ceo, ...(value.ceo ?? {}) },
-      story: { ...DEFAULT_STORY, ...(value.story ?? {}) },
+      company: { ...defaults.company, ...(value.company ?? {}) },
+      ceo: { ...defaults.ceo, ...(value.ceo ?? {}) },
+      story: { ...defaults.story, ...(value.story ?? {}) },
       updatedById: value.updatedById ?? null,
       updatedAt: value.updatedAt ?? null,
     };
   }
 
-  private async save(value: StoredAbout): Promise<void> {
-    await this.settingsRepo.save(this.settingsRepo.create({ key: SETTING_KEY, value }));
+  private async save(edition: AboutEdition, value: StoredAbout): Promise<void> {
+    await this.settingsRepo.save(this.settingsRepo.create({ key: SETTING_KEYS[edition], value }));
   }
 
-  async get(): Promise<AboutDto> {
-    const about = await this.stored();
-    const ceoUser = await this.usersRepo.findOne({
-      where: { role: RoleName.CEO, status: UserStatus.ACTIVE },
-      order: { id: 'ASC' },
-    });
+  async get(edition: AboutEdition): Promise<AboutDto> {
+    const about = await this.stored(edition);
+    // The CEO's account fills in BNW's name and photo; the Hayes Director has no account here.
+    const ceoUser =
+      edition === 'BNW'
+        ? await this.usersRepo.findOne({
+            where: { role: RoleName.CEO, status: UserStatus.ACTIVE },
+            order: { id: 'ASC' },
+          })
+        : null;
     const editor = about.updatedById
       ? await this.usersRepo.findOne({ where: { id: about.updatedById } })
       : null;
     const photoFile = about.ceo.photoFile ?? ceoUser?.avatarPath ?? null;
     return {
+      edition,
       company: about.company,
       ceo: {
         name: about.ceo.name || (ceoUser ? `${ceoUser.firstName} ${ceoUser.lastName}` : ''),
-        title: about.ceo.title || 'Chief Executive Officer',
+        title: about.ceo.title || DEFAULTS_BY_EDITION[edition].ceo.title,
         quote: about.ceo.quote ?? '',
         message: about.ceo.message,
         photoUrl: photoFile ? `/users/avatars/${photoFile}` : null,
@@ -179,9 +230,9 @@ export class AboutService {
     };
   }
 
-  async update(dto: UpdateAboutDto, editorId: number): Promise<AboutDto> {
-    const about = await this.stored();
-    await this.save({
+  async update(edition: AboutEdition, dto: UpdateAboutDto, editorId: number): Promise<AboutDto> {
+    const about = await this.stored(edition);
+    await this.save(edition, {
       company: {
         name: dto.company.name,
         tagline: dto.company.tagline ?? '',
@@ -206,28 +257,28 @@ export class AboutService {
       updatedById: editorId,
       updatedAt: new Date().toISOString(),
     });
-    return this.get();
+    return this.get(edition);
   }
 
   /** Stores the uploaded photo's file name and removes the previous one. */
-  async setPhoto(fileName: string, editorId: number): Promise<AboutDto> {
-    const about = await this.stored();
+  async setPhoto(edition: AboutEdition, fileName: string, editorId: number): Promise<AboutDto> {
+    const about = await this.stored(edition);
     const previous = about.ceo.photoFile;
-    await this.save({
+    await this.save(edition, {
       ...about,
       ceo: { ...about.ceo, photoFile: fileName },
       updatedById: editorId,
       updatedAt: new Date().toISOString(),
     });
     if (previous) await this.removeFile(previous);
-    return this.get();
+    return this.get(edition);
   }
 
-  /** Back to the CEO's profile picture. */
-  async removePhoto(editorId: number): Promise<AboutDto> {
-    const about = await this.stored();
+  /** Back to the CEO's profile picture (BNW) or no photo (Hayes). */
+  async removePhoto(edition: AboutEdition, editorId: number): Promise<AboutDto> {
+    const about = await this.stored(edition);
     if (about.ceo.photoFile) {
-      await this.save({
+      await this.save(edition, {
         ...about,
         ceo: { ...about.ceo, photoFile: null },
         updatedById: editorId,
@@ -235,7 +286,7 @@ export class AboutService {
       });
       await this.removeFile(about.ceo.photoFile);
     }
-    return this.get();
+    return this.get(edition);
   }
 
   private async removeFile(fileName: string): Promise<void> {

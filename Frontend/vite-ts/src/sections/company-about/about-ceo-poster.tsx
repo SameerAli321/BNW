@@ -8,7 +8,7 @@ import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
-import { uploadCeoPhoto } from 'src/actions/about';
+import { aboutNames, uploadCeoPhoto } from 'src/actions/about';
 import { avatarSrc, AVATAR_ACCEPT, AVATAR_MAX_BYTES } from 'src/actions/users';
 
 import { toast } from 'src/components/snackbar';
@@ -59,10 +59,11 @@ type Props = {
  */
 export function AboutCeoPoster({ about, canEdit, onEdit }: Props) {
   const { ceo, company } = about;
+  const { leader } = aboutNames(about.edition);
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const { headline, body } = splitMessage(ceo.quote ?? '', ceo.message);
-  const name = ceo.name || 'Chief Executive Officer';
+  const name = ceo.name || ceo.title;
   const photo = avatarSrc(ceo.photoUrl);
   const hasMessage = !!ceo.message.trim();
 
@@ -74,8 +75,8 @@ export function AboutCeoPoster({ about, canEdit, onEdit }: Props) {
     }
     setUploading(true);
     try {
-      await uploadCeoPhoto(file);
-      toast.success("CEO's photo updated");
+      await uploadCeoPhoto(file, about.edition);
+      toast.success(`${leader}'s photo updated`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not upload the photo');
     } finally {
@@ -252,7 +253,7 @@ export function AboutCeoPoster({ about, canEdit, onEdit }: Props) {
 
           {/* -------------------------------------------- Headline, name, title */}
           <Box sx={{ minWidth: 0, position: 'relative' }}>
-            <Eyebrow sx={{ mb: 3 }}>Message from the CEO</Eyebrow>
+            <Eyebrow sx={{ mb: 3 }}>Message from the {leader}</Eyebrow>
 
             {headline ? (
               <>
@@ -356,8 +357,8 @@ export function AboutCeoPoster({ about, canEdit, onEdit }: Props) {
               <Stack spacing={2} alignItems="flex-start" sx={{ mt: 4 }}>
                 <Typography variant="body1" sx={{ color: 'text.secondary' }}>
                   {canEdit
-                    ? "The CEO's message hasn't been added yet."
-                    : 'A message from our CEO is coming soon.'}
+                    ? `The ${leader}'s message hasn't been added yet.`
+                    : `A message from our ${leader} is coming soon.`}
                 </Typography>
                 {canEdit && (
                   <Button
@@ -365,7 +366,7 @@ export function AboutCeoPoster({ about, canEdit, onEdit }: Props) {
                     startIcon={<Iconify icon="solar:pen-bold" />}
                     onClick={onEdit}
                   >
-                    Add the CEO&apos;s message
+                    Add the {leader}&apos;s message
                   </Button>
                 )}
               </Stack>

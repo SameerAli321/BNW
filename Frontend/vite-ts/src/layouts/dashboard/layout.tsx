@@ -2,6 +2,7 @@ import type { Breakpoint } from '@mui/material/styles';
 import type { NavItemProps, NavSectionProps } from 'src/components/nav-section';
 import type { MainSectionProps, HeaderSectionProps, LayoutSectionProps } from '../core';
 
+import { useMemo } from 'react';
 import { merge } from 'es-toolkit';
 import { useBoolean } from 'minimal-shared/hooks';
 
@@ -9,10 +10,14 @@ import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import { useTheme } from '@mui/material/styles';
 
+import { paths } from 'src/routes/paths';
+
 import { Logo } from 'src/components/logo';
 import { useSettingsContext } from 'src/components/settings';
 
 import { useAuthContext } from 'src/auth/hooks';
+
+import { isHayesOnly } from 'src/types/user';
 
 import { NavMobile } from './nav-mobile';
 import { VerticalDivider } from './content';
@@ -63,7 +68,25 @@ export function DashboardLayout({
 
   const { value: open, onFalse: onClose, onTrue: onOpen } = useBoolean();
 
-  const navData = slotProps?.nav?.data ?? dashboardNavData;
+  const baseNavData = slotProps?.nav?.data ?? dashboardNavData;
+  // Hayes staff get the Hayes edition of About us, so the sidebar names it for Hayes.
+  const hayesOnly = isHayesOnly(user as { role?: string; company?: string } | null);
+  const navData = useMemo(
+    () =>
+      hayesOnly
+        ? baseNavData.map((section) => ({
+            ...section,
+            items: section.items.map((item) =>
+              item.path === paths.dashboard.aboutUs
+                ? { ...item, title: 'What is Hayes' }
+                : item.path === paths.dashboard.aboutCeo
+                  ? { ...item, title: "Director's Message" }
+                  : item
+            ),
+          }))
+        : baseNavData,
+    [baseNavData, hayesOnly]
+  );
 
   const isNavMini = settings.state.navLayout === 'mini';
   const isNavHorizontal = settings.state.navLayout === 'horizontal';
