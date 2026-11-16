@@ -53,6 +53,7 @@ export const endpoints = {
   },
   documents: {
     download: (id: number | string) => `/documents/${id}/download`,
+    details: (id: number | string) => `/documents/${id}`,
   },
   documentTypes: '/document-types',
   // Sprint 3 — Letter engine, see docs/API_CONTRACT_SPRINT3.md.

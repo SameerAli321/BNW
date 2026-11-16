@@ -119,7 +119,7 @@ export function EmployeeRecordView() {
 
             <Grid size={{ xs: 12, md: 8 }}>
               <Stack spacing={3}>
-                <EmployeeDocumentTable documents={record.documents} />
+                <EmployeeDocumentTable documents={record.documents} userId={id} canDelete={canManage} />
                 {/* Not for a manager viewing a report: GET /letters would return the manager's own. */}
                 {(isPrivileged || isSelf) && (
                   <EmployeeLettersCard userId={id} isPrivileged={isPrivileged} />

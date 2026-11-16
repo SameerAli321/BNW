@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 
 import Card from '@mui/material/Card';
 import Table from '@mui/material/Table';
+import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
@@ -17,23 +18,48 @@ import { fDate } from 'src/utils/format-time';
 import { fData } from 'src/utils/format-number';
 
 import { endpoints } from 'src/lib/axios';
-import { downloadDocument } from 'src/actions/employee-records';
+import { downloadDocument, deleteEmployeeDocument } from 'src/actions/employee-records';
 
 import { Label } from 'src/components/label';
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 import { TableNoData } from 'src/components/table';
 import { Scrollbar } from 'src/components/scrollbar';
+import { ConfirmDialog } from 'src/components/custom-dialog';
 import { usePdfViewer, PdfViewerDialog } from 'src/components/pdf-viewer';
 
 // ----------------------------------------------------------------------
 
 type Props = {
   documents: EmployeeDocumentDto[];
+  /** Whose E-record this is (to refresh it after a delete). */
+  userId: number | string;
+  /** HR / ADMIN: show Delete on uploaded files and CVs. */
+  canDelete?: boolean;
 };
 
-export function EmployeeDocumentTable({ documents }: Props) {
+/** Only these can be deleted — the others share their file with Letters, Appraisals etc. */
+const DELETABLE_SOURCES = ['UPLOAD', 'CV'];
+
+export function EmployeeDocumentTable({ documents, userId, canDelete = false }: Props) {
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<EmployeeDocumentDto | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    try {
+      await deleteEmployeeDocument(userId, deleting.id);
+      toast.success('Document deleted');
+      setDeleting(null);
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : 'Could not delete the document');
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
   const { openViewer, viewerProps } = usePdfViewer();
 
   const handleDownload = useCallback(async (doc: EmployeeDocumentDto) => {
@@ -104,6 +130,13 @@ export function EmployeeDocumentTable({ documents }: Props) {
                       <Iconify icon="solar:download-bold" />
                     </IconButton>
                   </Tooltip>
+                  {canDelete && DELETABLE_SOURCES.includes(doc.source) && (
+                    <Tooltip title="Delete">
+                      <IconButton color="error" onClick={() => setDeleting(doc)}>
+                        <Iconify icon="solar:trash-bin-trash-bold" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -114,6 +147,25 @@ export function EmployeeDocumentTable({ documents }: Props) {
       </Scrollbar>
 
       <PdfViewerDialog {...viewerProps} />
+
+      <ConfirmDialog
+        open={!!deleting}
+        onClose={() => !deleteBusy && setDeleting(null)}
+        title="Delete document?"
+        content={
+          deleting && (
+            <>
+              <strong>{deleting.originalName}</strong> ({deleting.documentTypeName}) will be removed
+              from this E-record and deleted from the server. This can&apos;t be undone.
+            </>
+          )
+        }
+        action={
+          <Button variant="contained" color="error" loading={deleteBusy} onClick={handleDelete}>
+            Delete
+          </Button>
+        }
+      />
     </Card>
   );
 }

@@ -1,10 +1,23 @@
-import { Controller, Get, NotFoundException, Param, ParseIntPipe, Req, Res } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  ParseIntPipe,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { createReadStream, existsSync } from 'fs';
 import { Request, Response } from 'express';
 import { EmployeesService } from './employees.service';
 import { UsersService } from '../users/users.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { CurrentUser, JwtUserPayload } from '../common/decorators/current-user.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
+import { RoleName } from '../common/enums/role.enum';
 
 @Controller('documents')
 export class DocumentsController {
@@ -44,5 +57,31 @@ export class DocumentsController {
       'Content-Disposition': `attachment; filename="${encodeURIComponent(document.originalName)}"`,
     });
     createReadStream(absolutePath).pipe(res);
+  }
+
+  // HR / ADMIN — remove a document uploaded by mistake (record + file). Audited with its details.
+  @Roles(RoleName.HR, RoleName.ADMIN)
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() caller: JwtUserPayload,
+    @Req() req: Request,
+  ) {
+    const document = await this.employeesService.deleteDocument(id);
+    this.auditLogService.log({
+      actorId: caller.sub,
+      action: 'DOCUMENT_DELETE',
+      entity: 'EmployeeDocument',
+      entityId: document.id,
+      before: {
+        userId: document.userId,
+        documentTypeId: document.documentTypeId,
+        originalName: document.originalName,
+        source: document.source,
+        uploadedBy: document.uploadedBy,
+      },
+      ipAddress: req.ip ?? null,
+    });
   }
 }

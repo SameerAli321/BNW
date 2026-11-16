@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { copyFile } from 'fs/promises';
+import { copyFile, unlink } from 'fs/promises';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { extname, join } from 'path';
@@ -272,6 +272,31 @@ export class EmployeesService {
    * ownership against `userId` via UsersService.assertCanViewRecord) plus the absolute path on
    * disk. 404 if the document row doesn't exist.
    */
+  /**
+   * DELETE /documents/:id — HR / ADMIN remove a document filed by mistake. Only uploaded files and
+   * CVs: letters, contracts, appraisals and onboarding PDFs share their file with their own module
+   * and are managed there. The file is removed from disk unless another row still points at it.
+   * Returns the deleted row (for the audit log).
+   */
+  async deleteDocument(documentId: number): Promise<EmployeeDocument> {
+    const document = await this.employeeDocumentsRepo.findOne({ where: { id: documentId } });
+    if (!document) throw new NotFoundException('Document not found');
+    if (![DocumentSource.UPLOAD, DocumentSource.CV].includes(document.source)) {
+      throw new BadRequestException(
+        'This document was created by the system (letter, contract, appraisal or onboarding form) — ' +
+          'only uploaded files can be deleted here',
+      );
+    }
+    await this.employeeDocumentsRepo.delete(document.id);
+    const stillUsed = await this.employeeDocumentsRepo.exists({
+      where: { filePath: document.filePath },
+    });
+    if (!stillUsed) {
+      await unlink(join(UPLOADS_ROOT_DIR, document.filePath)).catch(() => undefined);
+    }
+    return document;
+  }
+
   async getDocumentForDownload(
     documentId: number,
   ): Promise<{ document: EmployeeDocument; absolutePath: string }> {

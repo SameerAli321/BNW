@@ -165,6 +165,18 @@ export async function createDocumentRequest(
 }
 
 /**
+ * DELETE /documents/:id — HR/ADMIN only. Removes an uploaded document (or CV) filed by mistake —
+ * the record and the file. Letters, contracts etc. can't be deleted here.
+ */
+export async function deleteEmployeeDocument(
+  userId: number | string,
+  documentId: number | string
+): Promise<void> {
+  await axiosInstance.delete(endpoints.documents.details(documentId));
+  await revalidateEmployeeRecord(userId);
+}
+
+/**
  * GET /documents/:id/download — HR, ADMIN, CEO, self (own document), manager-of. Streams the
  * file, so this fetches as a blob and triggers a browser download rather than a JSON fetch.
  */
