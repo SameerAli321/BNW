@@ -70,7 +70,7 @@ export function AboutCeoPoster({ about, canEdit, onEdit }: Props) {
   const onPhoto = async (file: File | undefined) => {
     if (!file) return;
     if (file.size > AVATAR_MAX_BYTES) {
-      toast.error('The photo must be 2 MB or smaller');
+      toast.error('The photo must be 5 MB or smaller');
       return;
     }
     setUploading(true);

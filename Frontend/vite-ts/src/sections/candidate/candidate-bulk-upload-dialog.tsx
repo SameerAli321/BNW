@@ -21,7 +21,7 @@ import { Form, Field, schemaHelper } from 'src/components/hook-form';
 // MAX_DOCUMENT_SIZE_BYTES / PDF-only filter pattern the backend reuses from
 // employee-documents.storage.ts) — see docs/API_CONTRACT_SPRINT5.md.
 
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB, matches the existing document-upload limit
+const MAX_SIZE = 50 * 1024 * 1024; // 50MB, matches the document-upload limit
 
 const ACCEPTED_MIME = { 'application/pdf': [] };
 

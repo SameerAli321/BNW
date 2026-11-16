@@ -14,7 +14,7 @@ import { UPLOADS_ROOT_DIR } from '../employees/employee-documents.storage';
  */
 export const AVATARS_DIR = join(UPLOADS_ROOT_DIR, 'avatars');
 
-export const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
+export const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024; // 5MB (was 2MB, raised Nov 2026)
 
 const AVATAR_EXTENSIONS: Record<string, string> = {
   'image/jpeg': '.jpg',

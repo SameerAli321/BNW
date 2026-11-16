@@ -9,7 +9,7 @@ import { UPLOADS_ROOT_DIR } from '../employees/employee-documents.storage';
 /** Receipts (reimbursement) and quotations (equipment) — same pattern as the other upload stores. */
 export const WORK_ORDER_RECEIPTS_DIR = join(UPLOADS_ROOT_DIR, 'work-order-receipts');
 
-export const MAX_RECEIPT_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+export const MAX_RECEIPT_SIZE_BYTES = 50 * 1024 * 1024; // 50MB (was 10MB, raised Nov 2026)
 
 const ALLOWED_RECEIPT_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
 

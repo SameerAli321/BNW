@@ -20,7 +20,7 @@ import { Form, Field, schemaHelper } from 'src/components/hook-form';
 
 // ----------------------------------------------------------------------
 
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB, per docs/API_CONTRACT_SPRINT2.md
+const MAX_SIZE = 50 * 1024 * 1024; // 50MB (was 10MB per docs/API_CONTRACT_SPRINT2.md; raised Nov 2026)
 
 const ACCEPTED_MIME = {
   'application/pdf': [],

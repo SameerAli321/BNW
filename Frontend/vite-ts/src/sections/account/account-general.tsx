@@ -86,7 +86,7 @@ export function AccountGeneral() {
       return;
     }
     if (file.size > AVATAR_MAX_BYTES) {
-      toast.error('The picture must be 2 MB or smaller');
+      toast.error('The picture must be 5 MB or smaller');
       return;
     }
     run(() => uploadMyAvatar(file), 'Profile picture updated!');
@@ -162,7 +162,7 @@ export function AccountGeneral() {
             </Box>
           </ButtonBase>
           <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled', mb: 2 }}>
-            JPG, PNG or WEBP, up to 2 MB
+            JPG, PNG or WEBP, up to 5 MB
           </Typography>
           <Typography variant="h6">{fullName || '—'}</Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>

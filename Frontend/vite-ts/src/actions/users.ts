@@ -184,7 +184,7 @@ export function avatarSrc(avatarUrl?: string | null): string | undefined {
   return avatarUrl ? `${CONFIG.serverUrl}${avatarUrl}` : undefined;
 }
 
-export const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // matches the backend's 2MB cap
+export const AVATAR_MAX_BYTES = 5 * 1024 * 1024; // matches the backend's 5MB cap
 export const AVATAR_ACCEPT = 'image/jpeg,image/png,image/webp';
 
 /** "About me" limit — same as the backend (users/dto/about-me.dto.ts). */

@@ -9,7 +9,7 @@ import { MAX_DOCUMENT_SIZE_BYTES, UPLOADS_ROOT_DIR } from '../employees/employee
 /**
  * Local disk storage for candidate CV uploads, per API_CONTRACT_SPRINT5.md's bulk-upload endpoint
  * — same pattern as employee-documents.storage.ts, but PDF-only, and shares the same
- * MAX_DOCUMENT_SIZE_BYTES cap (10MB) per the contract's explicit "reuse" instruction.
+ * MAX_DOCUMENT_SIZE_BYTES cap (50MB) per the contract's explicit "reuse" instruction.
  */
 export const CANDIDATE_CVS_DIR = join(UPLOADS_ROOT_DIR, 'candidate-cvs');
 

@@ -13,7 +13,7 @@ import { Request } from 'express';
 export const UPLOADS_ROOT_DIR = join(process.cwd(), 'uploads');
 export const EMPLOYEE_DOCUMENTS_DIR = join(UPLOADS_ROOT_DIR, 'employee-documents');
 
-export const MAX_DOCUMENT_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+export const MAX_DOCUMENT_SIZE_BYTES = 50 * 1024 * 1024; // 50MB (was 10MB, raised Nov 2026)
 
 export const ALLOWED_DOCUMENT_MIME_TYPES = [
   'application/pdf',

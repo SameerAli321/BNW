@@ -15,7 +15,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 
-import { avatarSrc } from 'src/actions/users';
+import { avatarSrc, AVATAR_MAX_BYTES } from 'src/actions/users';
 import { aboutNames, updateAbout, uploadCeoPhoto, removeCeoPhoto } from 'src/actions/about';
 
 import { toast } from 'src/components/snackbar';
@@ -56,7 +56,7 @@ const lines = (value: string) =>
  * Edit About us (CEO / HR / ADMIN), one tab per part of the pages: company details and contacts,
  * the "What is BNW" story (welcome, who we are, vision, mission, services, sister firm, principles,
  * culture, expectations, commitment, journey, your role) and the CEO's message. Everything is saved
- * together with "Save"; the CEO's photo uploads straight away (JPG, PNG or WEBP up to 2 MB).
+ * together with "Save"; the CEO's photo uploads straight away (JPG, PNG or WEBP up to 5 MB).
  */
 export function AboutEditDialog({ about, open, onClose, initialTab = 'company' }: Props) {
   const { edition } = about;
@@ -129,8 +129,8 @@ export function AboutEditDialog({ about, open, onClose, initialTab = 'company' }
 
   const onPhoto = async (file: File | undefined) => {
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('The photo must be 2 MB or smaller');
+    if (file.size > AVATAR_MAX_BYTES) {
+      toast.error('The photo must be 5 MB or smaller');
       return;
     }
     setPhotoBusy(true);
@@ -359,7 +359,7 @@ export function AboutEditDialog({ about, open, onClose, initialTab = 'company' }
                     )}
                   </Stack>
                   <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    JPG, PNG or WEBP, up to 2 MB. Saved immediately. A portrait (head and shoulders,
+                    JPG, PNG or WEBP, up to 5 MB. Saved immediately. A portrait (head and shoulders,
                     plain background) looks best.
                     {!about.ceo.hasCustomPhoto &&
                       edition === 'BNW' &&

@@ -33,7 +33,7 @@ import { useAuthContext } from 'src/auth/hooks';
 
 // ----------------------------------------------------------------------
 
-const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
+const MAX_RECEIPT_BYTES = 50 * 1024 * 1024;
 const today = () => new Date().toISOString().slice(0, 10);
 
 type Props = {
@@ -90,7 +90,7 @@ export function WorkOrderCreateView({ current }: Props) {
     event.target.value = '';
     if (!file) return;
     if (file.size > MAX_RECEIPT_BYTES) {
-      toast.error('The file must be 10 MB or smaller');
+      toast.error('The file must be 50 MB or smaller');
       return;
     }
     if (!['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
@@ -305,7 +305,7 @@ export function WorkOrderCreateView({ current }: Props) {
               </Stack>
             ) : (
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                PDF or photo, up to 10 MB
+                PDF or photo, up to 50 MB
                 {isReimbursement ? ' — a receipt makes approval faster' : ''}
               </Typography>
             )}

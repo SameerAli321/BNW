@@ -58,7 +58,7 @@ export class UsersController {
     return { ...user, welcomeEmail };
   }
 
-  // Everyone — upload / replace your own profile picture (JPG, PNG or WEBP, up to 2MB).
+  // Everyone — upload / replace your own profile picture (JPG, PNG or WEBP, up to 5MB).
   @Post('me/avatar')
   @UseInterceptors(
     FileInterceptor('file', {

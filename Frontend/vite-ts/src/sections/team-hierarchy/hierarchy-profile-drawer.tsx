@@ -18,7 +18,13 @@ import ListItemAvatar from '@mui/material/ListItemAvatar';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
-import { avatarSrc, AVATAR_ACCEPT, uploadUserAvatar, removeUserAvatar } from 'src/actions/users';
+import {
+  avatarSrc,
+  AVATAR_ACCEPT,
+  AVATAR_MAX_BYTES,
+  uploadUserAvatar,
+  removeUserAvatar,
+} from 'src/actions/users';
 
 import { Label } from 'src/components/label';
 import { toast } from 'src/components/snackbar';
@@ -85,8 +91,8 @@ export function HierarchyProfileDrawer({
       toast.error('Choose a JPG, PNG or WEBP image');
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('The image must be 2MB or smaller');
+    if (file.size > AVATAR_MAX_BYTES) {
+      toast.error('The image must be 5 MB or smaller');
       return;
     }
     setPhotoBusy(true);

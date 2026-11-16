@@ -51,7 +51,7 @@ export class AboutController {
     return this.service.update(await this.service.editionFor(caller, company), dto, caller.sub);
   }
 
-  // JPG, PNG or WEBP, up to 2MB.
+  // JPG, PNG or WEBP, up to 5MB.
   @Roles(RoleName.CEO, RoleName.HR, RoleName.ADMIN)
   @Post('ceo-photo')
   @UseInterceptors(
