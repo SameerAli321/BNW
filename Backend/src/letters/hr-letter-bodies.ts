@@ -175,3 +175,41 @@ export const WARNING_LETTER_FIELDS: LetterFieldSchemaEntry[] = [
   },
   { key: 'reviewPeriod', label: 'Review period (e.g. 30 days)', autoFilled: false },
 ];
+
+// Salary revision after an appraisal. The company's form has "Signed / Name / Date" lines for the
+// employee — here that's the employee's digital acknowledgement the renderer adds once they sign.
+export const TERMS_CHANGE_LETTER_NAME = 'Changes to Terms of Employment';
+
+export const TERMS_CHANGE_LETTER_BODY =
+  '<h1>Changes to Terms of Employment</h1>' +
+  '<p><strong>Employer Name:</strong> BNW CONSULTANTS (SMC-PRIVATE) LIMITED<br/>' +
+  '<strong>Registered Office:</strong> 427, Street 5/2, Block D National Police Foundation 09, ' +
+  'Pwd, Islamabad</p>' +
+  '<p><strong>Employee Name:</strong> {{employee.fullName}}<br/>' +
+  '<strong>Job Title:</strong> {{employee.designation}}</p>' +
+  '<p>I am delighted to revise your salary based on your performance appraisal and commitment ' +
+  'shown. Your revised salary &amp; terms will be as follows</p>' +
+  '<p><strong>Gross Salary:</strong> {{grossSalary}}<br/>' +
+  '<strong>Basic Salary:</strong> {{basicSalary}}<br/>' +
+  '<strong>Effective Date:</strong> {{effectiveDate}}<br/>' +
+  '<strong>Contract end date:</strong> {{contractEndDate}}</p>' +
+  '<p>All others terms of employment remain same as of the original agreement, if there is any ' +
+  'conflict between both please arrange a discussion.</p>' +
+  '<p><strong>If you are in agreement with the above terms and conditions please sign this ' +
+  'letter.</strong></p>' +
+  '<p>I may reiterate that any changes, salary information, bonus &amp; any other employment ' +
+  'terms are highly confidential and shall not be discussed with any colleague.</p>' +
+  '<p>Yours Sincerely,</p>';
+
+export const TERMS_CHANGE_LETTER_FIELDS: LetterFieldSchemaEntry[] = [
+  { key: 'employee.fullName', label: 'Employee name', autoFilled: true },
+  { key: 'employee.designation', label: 'Job title', autoFilled: true },
+  { key: 'grossSalary', label: 'Gross salary (e.g. PKR 250,000)', autoFilled: false },
+  { key: 'basicSalary', label: 'Basic salary (e.g. PKR 150,000)', autoFilled: false },
+  { key: 'effectiveDate', label: 'Effective date (e.g. 1st December 2026)', autoFilled: false },
+  {
+    key: 'contractEndDate',
+    label: 'Contract end date (e.g. 30th November 2027)',
+    autoFilled: false,
+  },
+];

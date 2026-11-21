@@ -33,6 +33,9 @@ import {
   REDUNDANCY_LETTER_BODY,
   REDUNDANCY_LETTER_FIELDS,
   REDUNDANCY_LETTER_NAME,
+  TERMS_CHANGE_LETTER_BODY,
+  TERMS_CHANGE_LETTER_FIELDS,
+  TERMS_CHANGE_LETTER_NAME,
   WARNING_LETTER_BODY,
   WARNING_LETTER_FIELDS,
   WARNING_LETTER_NAME,
@@ -62,8 +65,7 @@ const DOCUMENT_TYPES = [
 ];
 
 // Letter templates. Offer / Experience / Redundancy / Warning carry the owner-provided wording
-// (letters/hr-letter-bodies.ts) and the contract (letters/contract-letter-body.ts); Terms Change is
-// still a Sprint 3 placeholder.
+// (letters/hr-letter-bodies.ts) and the contract (letters/contract-letter-body.ts).
 const LETTER_TEMPLATES: Array<{
   type: LetterTemplateType;
   name: string;
@@ -104,18 +106,10 @@ const LETTER_TEMPLATES: Array<{
   },
   {
     type: LetterTemplateType.TERMS_CHANGE,
-    name: 'Change of Contract Terms (placeholder)',
+    name: TERMS_CHANGE_LETTER_NAME,
     roleScope: null,
-    bodyHtml:
-      '<p><em>[PLACEHOLDER TEMPLATE — replace with real change-of-terms content]</em></p>' +
-      '<p>Dear {{employee.fullName}},</p>' +
-      '<p>Effective {{effectiveDate}}, the following change(s) apply to your contract: ' +
-      '{{changeSummary}}.</p>',
-    fieldsSchema: [
-      { key: 'employee.fullName', label: 'Employee name', autoFilled: true },
-      { key: 'effectiveDate', label: 'Effective date', autoFilled: false },
-      { key: 'changeSummary', label: 'Change summary', autoFilled: false },
-    ],
+    bodyHtml: TERMS_CHANGE_LETTER_BODY,
+    fieldsSchema: TERMS_CHANGE_LETTER_FIELDS,
   },
   {
     type: LetterTemplateType.WARNING,
@@ -161,9 +155,9 @@ const LETTER_TEMPLATES: Array<{
   },
 ];
 
-// The remaining placeholder templates are created hidden (inactive) — per the project owner only
-// the real letters are offered to HR. They can be re-activated from Letter Templates.
-const HIDDEN_TEMPLATE_TYPES: LetterTemplateType[] = [LetterTemplateType.TERMS_CHANGE];
+// Templates created hidden (inactive) — none now that every letter has the owner's wording. They
+// can be re-activated from Letter Templates.
+const HIDDEN_TEMPLATE_TYPES: LetterTemplateType[] = [];
 
 // Starter joining pack items (Sprint 5), per docs/API_CONTRACT_SPRINT5.md's "New tables" section.
 const JOINING_PACK_ITEMS: Array<{
