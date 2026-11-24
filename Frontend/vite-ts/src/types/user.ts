@@ -55,6 +55,17 @@ export const USER_FORM_ROLE_OPTIONS: { value: UserRole; label: string }[] = [
  */
 export const USER_CREATE_ROLE_OPTIONS = USER_FORM_ROLE_OPTIONS;
 
+/**
+ * Super Admin (ADMIN) accounts are Admin's alone: HR creates and edits every other user, but can't
+ * make anyone Admin or edit / reset an Admin. Mirrors Backend/src/users/admin-accounts.ts.
+ */
+export const canManageAccount = (viewerRole: string, targetRole: string) =>
+  targetRole !== 'ADMIN' || viewerRole === 'ADMIN';
+
+/** The role options a viewer may give — no Admin unless they're Admin. */
+export const assignableRoleOptions = <T extends { value: string }>(viewerRole: string, options: T[]) =>
+  viewerRole === 'ADMIN' ? options : options.filter((option) => option.value !== 'ADMIN');
+
 const OLDER_ROLE_LABELS: Partial<Record<UserRole, string>> = {};
 
 /** 'MANAGER' → 'Team Lead' etc. */

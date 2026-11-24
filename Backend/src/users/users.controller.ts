@@ -27,6 +27,7 @@ import { QueryUsersDto } from './dto/query-users.dto';
 import { UpdateEmployeeProfileDto } from './dto/update-employee-profile.dto';
 import { NotificationPreferencesDto } from './dto/notification-preferences.dto';
 import { AboutMeDto } from './dto/about-me.dto';
+import { assertMayAssignRole, assertMayManageAccount } from './admin-accounts';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RoleName } from '../common/enums/role.enum';
 import { CurrentUser, JwtUserPayload } from '../common/decorators/current-user.decorator';
@@ -50,9 +51,11 @@ export class UsersController {
   }
 
   // HR and Admin create accounts; employees and interns usually come in through Hiring → Convert.
+  // Only Admin can create another Admin.
   @Roles(RoleName.HR, RoleName.ADMIN)
   @Post()
   async create(@Body() dto: CreateUserDto, @CurrentUser() caller: JwtUserPayload) {
+    assertMayAssignRole(caller.role, dto.role);
     const { user, welcomeEmail } = await this.usersService.create(dto, caller.sub);
     // welcomeEmail tells the form whether the sign-in email reached the new user.
     return { ...user, welcomeEmail };
@@ -158,6 +161,7 @@ export class UsersController {
     return this.usersService.findOne(id, caller.role);
   }
 
+  // HR can't edit an Admin's account or make someone Admin.
   @Roles(RoleName.HR, RoleName.ADMIN)
   @Patch(':id')
   async update(
@@ -165,6 +169,8 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
     @CurrentUser() caller: JwtUserPayload,
   ) {
+    assertMayManageAccount(caller.role, (await this.usersService.findOneEntity(id)).role);
+    assertMayAssignRole(caller.role, dto.role);
     return this.usersService.update(id, dto, caller.sub, caller.role);
   }
 
@@ -183,6 +189,7 @@ export class UsersController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() caller: JwtUserPayload,
   ) {
+    assertMayManageAccount(caller.role, (await this.usersService.findOneEntity(id)).role);
     return this.usersService.resetPassword(id, caller.sub);
   }
 
@@ -201,7 +208,7 @@ export class UsersController {
   }
 
   // HR, ADMIN, or self only (no manager-of) — an employee can fill in their own profile, HR/Admin
-  // can edit anyone's. Upserts on first write. Gap-fix Gap 1.
+  // can edit anyone's (except HR on an Admin's). Upserts on first write. Gap-fix Gap 1.
   @Patch(':id/profile')
   async updateProfile(
     @Param('id', ParseIntPipe) id: number,
@@ -209,6 +216,9 @@ export class UsersController {
     @CurrentUser() caller: JwtUserPayload,
   ) {
     this.usersService.assertCanEditProfile(caller, id);
+    if (caller.sub !== id) {
+      assertMayManageAccount(caller.role, (await this.usersService.findOneEntity(id)).role);
+    }
     return this.usersService.upsertProfile(id, dto);
   }
 }

@@ -3,7 +3,7 @@ import type { UserRole, EmploymentType } from 'src/types/user';
 
 import dayjs from 'dayjs';
 import { z as zod } from 'zod';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -23,9 +23,13 @@ import { useGetUsers, useGetDepartments } from 'src/actions/users';
 
 import { toast } from 'src/components/snackbar';
 import { Form, Field } from 'src/components/hook-form';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 import {
   USER_FORM_DEPARTMENTS,
+  assignableRoleOptions,
   USER_FORM_ROLE_OPTIONS,
   EMPLOYMENT_TYPE_OPTIONS,
 } from 'src/types/user';
@@ -68,9 +72,13 @@ function splitName(name: string) {
 
 export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
   const { users } = useGetUsers({ limit: 200 });
+  // Only Admin can give the Admin role.
+  const { user: viewer } = useAuthContext();
+  const roleOptions = assignableRoleOptions(viewer?.role ?? '', USER_FORM_ROLE_OPTIONS);
   const { departments } = useGetDepartments();
 
   const smDown = useMediaQuery((theme) => theme.breakpoints.down('sm'));
+  const [noteForHr, setNoteForHr] = useState('');
 
   const { first: defaultFirstName, last: defaultLastName } = useMemo(
     () => splitName(candidate.name),
@@ -102,6 +110,7 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
 
   const handleClose = () => {
     reset();
+    setNoteForHr('');
     onClose();
   };
 
@@ -120,6 +129,7 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
         ...(data.lastName ? { lastName: data.lastName } : {}),
         ...(data.email ? { email: data.email } : {}),
       });
+      await saveNoteForHr('USER', user.id, noteForHr);
       const name = `${user.firstName} ${user.lastName}`;
       if (welcomeEmail?.status === 'SENT') {
         toast.success(
@@ -179,7 +189,7 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
             />
 
             <Field.Select name="role" label="Role">
-              {USER_FORM_ROLE_OPTIONS.map((option) => (
+              {roleOptions.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
                   {option.label}
                 </MenuItem>
@@ -231,6 +241,12 @@ export function CandidateConvertDialog({ open, onClose, candidate }: Props) {
               label="Password"
               type="text"
               helperText="Sets this new employee's password. They must change it on first login. Minimum 8 characters."
+              sx={{ gridColumn: { sm: '1 / -1' } }}
+            />
+
+            <NotesForHrField
+              value={noteForHr}
+              onChange={setNoteForHr}
               sx={{ gridColumn: { sm: '1 / -1' } }}
             />
           </Box>

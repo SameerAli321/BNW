@@ -21,6 +21,7 @@ import { createLetter, useGetLetterTemplates, useGetLetterTemplateFields } from 
 
 import { toast } from 'src/components/snackbar';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { RoleBasedGuard } from 'src/auth/guard';
@@ -61,6 +62,7 @@ export function LetterCreateView() {
   );
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [noteForHr, setNoteForHr] = useState('');
 
   const { templates } = useGetLetterTemplates({ isActive: true });
   const { users } = useGetUsers({ limit: 200 });
@@ -117,6 +119,8 @@ export function LetterCreateView() {
         ...(isCandidate ? { subjectCandidateId: subjectId } : { subjectUserId: subjectId }),
         fieldValues,
       });
+      await saveNoteForHr('LETTER', letter.id, noteForHr);
+      setNoteForHr('');
       toast.success('Draft letter created!');
       router.push(paths.dashboard.letters.details(letter.id));
     } catch (error) {
@@ -238,6 +242,8 @@ export function LetterCreateView() {
                   />
                 </Stack>
               )}
+
+              <NotesForHrField value={noteForHr} onChange={setNoteForHr} sx={{ mt: 3 }} />
 
               <Stack sx={{ mt: 3, alignItems: 'flex-end' }}>
                 <Button variant="contained" loading={submitting} onClick={onSubmit}>

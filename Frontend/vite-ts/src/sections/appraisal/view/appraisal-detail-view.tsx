@@ -16,6 +16,7 @@ import { useGetAppraisal, submitCeoDecision, submitManagerDecision } from 'src/a
 
 import { EmptyContent } from 'src/components/empty-content';
 import { LoadingScreen } from 'src/components/loading-screen';
+import { InternalNotesCard } from 'src/components/internal-notes';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
 import { useAuthContext } from 'src/auth/hooks';
@@ -238,6 +239,8 @@ export function AppraisalDetailView() {
                 </Stack>
               </Card>
             )}
+
+            <InternalNotesCard entity="APPRAISAL" entityId={appraisal.id} />
           </Stack>
         </Grid>
 

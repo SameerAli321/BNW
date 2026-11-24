@@ -27,6 +27,7 @@ import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 import { Scrollbar } from 'src/components/scrollbar';
 import { ConfirmDialog } from 'src/components/custom-dialog';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 import { pktToday } from './booking-utils';
 
@@ -41,6 +42,7 @@ export function BookingOffDays() {
   const today = pktToday();
   const { offDays, offDaysLoading } = useGetOffDays({ from: today });
   const [draft, setDraft] = useState<{ date: string; reason: string } | null>(null);
+  const [noteForHr, setNoteForHr] = useState('');
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState<OffDay | null>(null);
 
@@ -52,9 +54,11 @@ export function BookingOffDays() {
     }
     setSaving(true);
     try {
-      await createOffDay({ date: draft.date, reason: draft.reason.trim() });
+      const { offDay } = await createOffDay({ date: draft.date, reason: draft.reason.trim() });
+      await saveNoteForHr('OFF_DAY', offDay?.id, noteForHr);
       toast.success('Off day added — it now shows as a holiday on the calendar');
       setDraft(null);
+      setNoteForHr('');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not add the off day');
     } finally {
@@ -84,7 +88,10 @@ export function BookingOffDays() {
             <Button
               variant="outlined"
               startIcon={<Iconify icon="mingcute:add-line" />}
-              onClick={() => setDraft({ date: '', reason: '' })}
+              onClick={() => {
+                setNoteForHr('');
+                setDraft({ date: '', reason: '' });
+              }}
             >
               Add off day
             </Button>
@@ -156,6 +163,7 @@ export function BookingOffDays() {
                 placeholder="e.g. Eid holiday"
                 slotProps={{ htmlInput: { maxLength: 200 } }}
               />
+              <NotesForHrField value={noteForHr} onChange={setNoteForHr} />
               <Alert severity="info">
                 It shows as a holiday on everyone&apos;s calendar. Bookings already on this day are
                 kept.

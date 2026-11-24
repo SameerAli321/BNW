@@ -126,6 +126,8 @@ export const paths = {
     staffSummary: `${ROOTS.DASHBOARD}/staff-summary`,
     // Gap-fix — Audit Log, see docs/API_CONTRACT_GAPS_FIX.md Gap 2.
     auditLog: `${ROOTS.DASHBOARD}/audit-log`,
+    // "Notes for HR" from every create form — HR / ADMIN.
+    internalNotes: `${ROOTS.DASHBOARD}/internal-notes`,
     employees: {
       record: (id: number | string) => `${ROOTS.DASHBOARD}/employees/${id}/record`,
     },

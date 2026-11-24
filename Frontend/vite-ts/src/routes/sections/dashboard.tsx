@@ -39,6 +39,7 @@ const AccountPersonalDetailsPage = lazy(
   () => import('src/pages/dashboard/user/account/personal-details')
 );
 const AuditLogListPage = lazy(() => import('src/pages/dashboard/audit-log/list'));
+const InternalNotesPage = lazy(() => import('src/pages/dashboard/internal-notes/list'));
 // Sprint 2 — E-record & Staff summary (see docs/API_CONTRACT_SPRINT2.md)
 const StaffSummaryListPage = lazy(() => import('src/pages/dashboard/staff-summary/list'));
 const EmployeeRecordPage = lazy(() => import('src/pages/dashboard/employees/record'));
@@ -166,6 +167,7 @@ export const dashboardRoutes: RouteObject[] = [
       { path: 'staff-summary', element: <StaffSummaryListPage /> },
       { path: 'team-hierarchy', element: <TeamHierarchyPage /> },
       { path: 'audit-log', element: <AuditLogListPage /> },
+      { path: 'internal-notes', element: <InternalNotesPage /> },
       { path: 'my-e-record', element: <MyERecordPage /> },
       {
         path: 'employees',

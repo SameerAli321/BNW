@@ -6,12 +6,15 @@ import { paths } from 'src/routes/paths';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 
+import { EmptyContent } from 'src/components/empty-content';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
 import { EmployeeProfileForm } from 'src/sections/employee-profile/employee-profile-form';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { RoleBasedGuard } from 'src/auth/guard';
+
+import { canManageAccount } from 'src/types/user';
 
 import { UserNewEditForm } from '../user-new-edit-form';
 
@@ -40,6 +43,15 @@ export function UserEditView({ user: currentUser }: Props) {
           sx={{ mb: { xs: 3, md: 5 } }}
         />
 
+        {/* HR can't edit a Super Admin's account (the API refuses it too). */}
+        {currentUser && !canManageAccount(user?.role ?? '', currentUser.role) ? (
+          <EmptyContent
+            filled
+            title="Only a Super Admin can edit this account"
+            description="Ask an Admin to make changes to a Super Admin's details or password."
+            sx={{ py: 10 }}
+          />
+        ) : (
         <Stack spacing={3}>
           <UserNewEditForm currentUser={currentUser} />
 
@@ -54,6 +66,7 @@ export function UserEditView({ user: currentUser }: Props) {
             />
           )}
         </Stack>
+        )}
       </DashboardContent>
     </RoleBasedGuard>
   );

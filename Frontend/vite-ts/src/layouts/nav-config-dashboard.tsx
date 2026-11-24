@@ -172,6 +172,13 @@ export const navData: NavSectionProps['data'] = [
         icon: ICONS.lock,
         allowedRoles: ['CEO', 'ADMIN'],
       },
+      {
+        // What people wrote in the "Notes for HR" box on create forms.
+        title: 'Notes for HR',
+        path: paths.dashboard.internalNotes,
+        icon: ICONS.mail,
+        allowedRoles: ['HR', 'ADMIN'],
+      },
     ],
   },
   {

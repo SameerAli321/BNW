@@ -35,6 +35,7 @@ import { Iconify } from 'src/components/iconify';
 import { Scrollbar } from 'src/components/scrollbar';
 import { EmptyContent } from 'src/components/empty-content';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 import { RoleBasedGuard } from 'src/auth/guard';
 import { useAuthContext } from 'src/auth/hooks';
@@ -64,6 +65,7 @@ export function BookingResourcesView() {
   const { user } = useAuthContext();
   const { resources, resourcesLoading } = useGetBookingResources({ includeInactive: true });
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [noteForHr, setNoteForHr] = useState('');
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -85,9 +87,13 @@ export function BookingResourcesView() {
         capacity,
       };
       if (draft.id) await updateBookingResource(draft.id, payload);
-      else await createBookingResource({ type: draft.type, ...payload });
+      else {
+        const created = await createBookingResource({ type: draft.type, ...payload });
+        await saveNoteForHr('BOOKING_RESOURCE', created?.id, noteForHr);
+      }
       toast.success(draft.id ? 'Saved' : `${TYPE_LABEL[draft.type]} added`);
       setDraft(null);
+      setNoteForHr('');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not save');
     } finally {
@@ -122,9 +128,10 @@ export function BookingResourcesView() {
             <Button
               variant="contained"
               startIcon={<Iconify icon="mingcute:add-line" />}
-              onClick={() =>
-                setDraft({ type: 'MEETING_ROOM', name: '', location: '', capacity: '' })
-              }
+              onClick={() => {
+                setNoteForHr('');
+                setDraft({ type: 'MEETING_ROOM', name: '', location: '', capacity: '' });
+              }}
             >
               Add room / table
             </Button>
@@ -249,6 +256,7 @@ export function BookingResourcesView() {
                   placeholder="e.g. 2nd floor"
                   slotProps={{ htmlInput: { maxLength: 200 } }}
                 />
+                {!draft.id && <NotesForHrField value={noteForHr} onChange={setNoteForHr} />}
               </Stack>
             </DialogContent>
           )}

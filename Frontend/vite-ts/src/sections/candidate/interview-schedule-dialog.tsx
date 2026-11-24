@@ -37,6 +37,7 @@ import {
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 // ----------------------------------------------------------------------
 
@@ -121,6 +122,7 @@ export function InterviewScheduleDialog({ open, onClose, candidate, current }: P
   );
   const [message, setMessage] = useState(current?.message ?? '');
   const [notify, setNotify] = useState(true);
+  const [noteForHr, setNoteForHr] = useState('');
 
   const [preview, setPreview] = useState<EmailPreview | null>(null);
   const [busy, setBusy] = useState<'preview' | 'send' | null>(null);
@@ -181,6 +183,10 @@ export function InterviewScheduleDialog({ open, onClose, candidate, current }: P
       const saved = current
         ? await rescheduleInterview(current.id, body)
         : await scheduleInterview(candidate.id, body);
+      if (!current) {
+        await saveNoteForHr('INTERVIEW', saved.id, noteForHr);
+        setNoteForHr('');
+      }
       if (mode === 'IN_PERSON') {
         try {
           localStorage.setItem(LOCATION_STORAGE_KEY, location.trim());
@@ -357,6 +363,8 @@ export function InterviewScheduleDialog({ open, onClose, candidate, current }: P
               slotProps={{ htmlInput: { maxLength: 3000 } }}
               fullWidth
             />
+
+            {!current && <NotesForHrField value={noteForHr} onChange={setNoteForHr} />}
 
             {current && (
               <FormControlLabel

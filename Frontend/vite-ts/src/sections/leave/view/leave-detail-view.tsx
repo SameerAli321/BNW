@@ -36,6 +36,7 @@ import { PdfViewerDialog } from 'src/components/pdf-viewer';
 import { EmptyContent } from 'src/components/empty-content';
 import { ConfirmDialog } from 'src/components/custom-dialog';
 import { LoadingScreen } from 'src/components/loading-screen';
+import { InternalNotesCard } from 'src/components/internal-notes';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
 import { HrFormField, HrFormSection } from 'src/sections/hr-forms/hr-form-section';
@@ -373,6 +374,8 @@ export function LeaveDetailView() {
               : 'This request was withdrawn by the employee before it was decided.'}
           </Typography>
         )}
+
+        <InternalNotesCard entity="LEAVE" entityId={request.id} />
       </Stack>
       <ConfirmDialog
         open={confirmCancel}

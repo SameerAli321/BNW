@@ -26,6 +26,7 @@ import {
 
 import { toast } from 'src/components/snackbar';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 import { isWeekendDay } from 'src/sections/booking/booking-utils';
 import { HrFormSection } from 'src/sections/hr-forms/hr-form-section';
@@ -77,6 +78,7 @@ export function LeaveCreateView({ current }: Props) {
   const [halfDay, setHalfDay] = useState(current?.halfDay ?? false);
   const [reason, setReason] = useState(current?.reason ?? '');
   const [contactDuringLeave, setContactDuringLeave] = useState(current?.contactDuringLeave ?? '');
+  const [noteForHr, setNoteForHr] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const year = startDate ? Number(startDate.slice(0, 4)) : new Date().getFullYear();
@@ -137,6 +139,7 @@ export function LeaveCreateView({ current }: Props) {
             ...payload,
             ...(contactDuringLeave.trim() ? { contactDuringLeave } : {}),
           });
+      if (!current) await saveNoteForHr('LEAVE', saved.id, noteForHr);
       // The server may add a weekend that sits between this and another leave.
       const savedDays = `${saved.days} day${saved.days === 1 ? '' : 's'}`;
       const weekendNote =
@@ -296,6 +299,7 @@ export function LeaveCreateView({ current }: Props) {
             slotProps={{ htmlInput: { maxLength: 100 } }}
             fullWidth
           />
+          {!isEdit && <NotesForHrField value={noteForHr} onChange={setNoteForHr} />}
         </HrFormSection>
 
         <Stack direction="row" spacing={1.5} justifyContent="flex-end">

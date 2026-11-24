@@ -41,6 +41,7 @@ import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 import { Scrollbar } from 'src/components/scrollbar';
 import { ConfirmDialog } from 'src/components/custom-dialog';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 import { TableNoData, TableSkeleton, TableHeadCustom } from 'src/components/table';
 
 // ----------------------------------------------------------------------
@@ -220,6 +221,7 @@ function NewLoanDialog({ onClose }: { onClose: () => void }) {
   const [instalments, setInstalments] = useState('6');
   const [startMonth, setStartMonth] = useState(currentSalaryMonth());
   const [notes, setNotes] = useState('');
+  const [noteForHr, setNoteForHr] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
   const { users, usersLoading } = useGetUsers({ q: search.trim() || undefined, limit: 50 });
@@ -249,13 +251,14 @@ function NewLoanDialog({ onClose }: { onClose: () => void }) {
     if (!valid || !employee) return;
     setSaving(true);
     try {
-      await createLoan({
+      const loan = await createLoan({
         employeeId: employee.id,
         principal: amount,
         instalments: months,
         startMonth,
         notes: notes.trim() || undefined,
       });
+      await saveNoteForHr('LOAN', loan.id, noteForHr);
       toast.success(`Loan added for ${employee.firstName} ${employee.lastName}`);
       onClose();
     } catch (error) {
@@ -337,6 +340,7 @@ function NewLoanDialog({ onClose }: { onClose: () => void }) {
             onChange={(event) => setNotes(event.target.value)}
             slotProps={{ htmlInput: { maxLength: 500 } }}
           />
+          <NotesForHrField value={noteForHr} onChange={setNoteForHr} />
           {valid && lastMonth && (
             <Alert severity="info">
               {fSalary(monthly)} will be deducted from each salary slip for {months}{' '}

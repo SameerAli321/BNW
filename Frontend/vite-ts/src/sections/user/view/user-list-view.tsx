@@ -42,6 +42,7 @@ import { useAuthContext } from 'src/auth/hooks';
 import { RoleBasedGuard } from 'src/auth/guard';
 
 import {
+  canManageAccount,
   USER_ROLE_OPTIONS,
   EMPLOYMENT_TYPE_OPTIONS,
   USER_ACCOUNT_STATUS_OPTIONS,
@@ -312,6 +313,7 @@ export function UserListView() {
                         key={row.id}
                         row={row}
                         canDelete={canDelete}
+                        canManage={canManageAccount(currentRole, row.role)}
                         canResetPassword={canResetPassword}
                         selected={table.selected.includes(String(row.id))}
                         onSelectRow={() => table.onSelectRow(String(row.id))}

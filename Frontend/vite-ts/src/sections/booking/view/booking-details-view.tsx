@@ -30,6 +30,7 @@ import { Iconify } from 'src/components/iconify';
 import { EmptyContent } from 'src/components/empty-content';
 import { ConfirmDialog } from 'src/components/custom-dialog';
 import { LoadingScreen } from 'src/components/loading-screen';
+import { InternalNotesCard } from 'src/components/internal-notes';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
 import {
@@ -329,79 +330,84 @@ export function BookingDetailsView({ id }: Props) {
         </Grid>
 
         <Grid size={{ xs: 12, md: 4 }}>
-          {isMeeting ? (
-            <Card sx={{ p: { xs: 2, md: 3 } }}>
-              <Typography variant="subtitle1">
-                Participants ({booking.participants.length + 1})
-              </Typography>
-              <Typography variant="caption" component="p" sx={{ color: 'text.secondary', mb: 2 }}>
-                {replyCounts.ACCEPTED} accepted · {replyCounts.DECLINED} declined ·{' '}
-                {replyCounts.PENDING} awaiting reply
-              </Typography>
-              <Stack spacing={1.5} component="ul" sx={{ m: 0, p: 0, listStyle: 'none' }}>
-                {[
-                  ...(booking.organizer
-                    ? [
-                        {
-                          ...booking.organizer,
-                          organiser: true,
-                          response: null,
-                          declineReason: null,
-                        },
-                      ]
-                    : []),
-                  ...booking.participants.map((p) => ({ ...p, organiser: false })),
-                ].map((p) => (
-                  <Stack
-                    key={p.id}
-                    component="li"
-                    direction="row"
-                    spacing={1.5}
-                    alignItems="center"
-                  >
-                    <Avatar sx={{ width: 36, height: 36, fontSize: 14 }}>{initials(p.name)}</Avatar>
-                    <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                      <Typography variant="subtitle2" noWrap>
-                        {p.name}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }} noWrap>
-                        {p.designation ?? '—'}
-                      </Typography>
-                      {p.declineReason && (
-                        <Typography
-                          variant="caption"
-                          component="p"
-                          sx={{ color: 'error.main', wordBreak: 'break-word' }}
-                        >
-                          “{p.declineReason}”
+          <Stack spacing={3}>
+            {isMeeting ? (
+              <Card sx={{ p: { xs: 2, md: 3 } }}>
+                <Typography variant="subtitle1">
+                  Participants ({booking.participants.length + 1})
+                </Typography>
+                <Typography variant="caption" component="p" sx={{ color: 'text.secondary', mb: 2 }}>
+                  {replyCounts.ACCEPTED} accepted · {replyCounts.DECLINED} declined ·{' '}
+                  {replyCounts.PENDING} awaiting reply
+                </Typography>
+                <Stack spacing={1.5} component="ul" sx={{ m: 0, p: 0, listStyle: 'none' }}>
+                  {[
+                    ...(booking.organizer
+                      ? [
+                          {
+                            ...booking.organizer,
+                            organiser: true,
+                            response: null,
+                            declineReason: null,
+                          },
+                        ]
+                      : []),
+                    ...booking.participants.map((p) => ({ ...p, organiser: false })),
+                  ].map((p) => (
+                    <Stack
+                      key={p.id}
+                      component="li"
+                      direction="row"
+                      spacing={1.5}
+                      alignItems="center"
+                    >
+                      <Avatar sx={{ width: 36, height: 36, fontSize: 14 }}>
+                        {initials(p.name)}
+                      </Avatar>
+                      <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                        <Typography variant="subtitle2" noWrap>
+                          {p.name}
                         </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }} noWrap>
+                          {p.designation ?? '—'}
+                        </Typography>
+                        {p.declineReason && (
+                          <Typography
+                            variant="caption"
+                            component="p"
+                            sx={{ color: 'error.main', wordBreak: 'break-word' }}
+                          >
+                            “{p.declineReason}”
+                          </Typography>
+                        )}
+                      </Box>
+                      {p.organiser && <Label color="primary">Organiser</Label>}
+                      {p.response && (
+                        <Label color={RESPONSE_META[p.response].color}>
+                          {RESPONSE_META[p.response].label}
+                        </Label>
                       )}
-                    </Box>
-                    {p.organiser && <Label color="primary">Organiser</Label>}
-                    {p.response && (
-                      <Label color={RESPONSE_META[p.response].color}>
-                        {RESPONSE_META[p.response].label}
-                      </Label>
-                    )}
-                  </Stack>
-                ))}
-              </Stack>
-            </Card>
-          ) : (
-            <Card sx={{ p: { xs: 2, md: 3 } }}>
-              <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                {booking.resource?.name}
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                {booking.resource?.capacity ? `${booking.resource.capacity} seats` : null}
-                {booking.resource?.capacity && booking.resource?.location ? ' · ' : null}
-                {booking.resource?.location}
-                {!booking.resource?.capacity && !booking.resource?.location
-                  ? 'Reserved for this time slot. Others see it as booked on the calendar.'
-                  : null}
-              </Typography>
-            </Card>
-          )}
+                    </Stack>
+                  ))}
+                </Stack>
+              </Card>
+            ) : (
+              <Card sx={{ p: { xs: 2, md: 3 } }}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  {booking.resource?.name}
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  {booking.resource?.capacity ? `${booking.resource.capacity} seats` : null}
+                  {booking.resource?.capacity && booking.resource?.location ? ' · ' : null}
+                  {booking.resource?.location}
+                  {!booking.resource?.capacity && !booking.resource?.location
+                    ? 'Reserved for this time slot. Others see it as booked on the calendar.'
+                    : null}
+                </Typography>
+              </Card>
+            )}
+            <InternalNotesCard entity="BOOKING" entityId={booking.id} />
+          </Stack>
         </Grid>
       </Grid>
 

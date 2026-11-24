@@ -2,8 +2,8 @@ import type { AppraisalRating, CreateAppraisalRequestDto } from 'src/types/appra
 
 import dayjs from 'dayjs';
 import { z as zod } from 'zod';
-import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import Box from '@mui/material/Box';
@@ -29,6 +29,7 @@ import {
 import { toast } from 'src/components/snackbar';
 import { Form, Field } from 'src/components/hook-form';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -128,6 +129,7 @@ export function AppraisalRequestFormView() {
   const canRequestNext = appraisalsMeta?.canRequestNext ?? true;
   const openRequestId = appraisalsMeta?.openRequestId ?? null;
   const blocked = isCeo || !canRequestNext;
+  const [noteForHr, setNoteForHr] = useState('');
 
   const methods = useForm<SelfEvaluationSchemaType>({
     resolver: zodResolver(SelfEvaluationSchema),
@@ -177,6 +179,7 @@ export function AppraisalRequestFormView() {
 
     try {
       const created = await createAppraisalRequest(payload);
+      await saveNoteForHr('APPRAISAL', created.id, noteForHr);
       toast.success('Self evaluation submitted!');
       router.push(paths.dashboard.appraisals.details(created.id));
     } catch (error) {
@@ -339,6 +342,7 @@ export function AppraisalRequestFormView() {
                 multiline
                 minRows={5}
               />
+              <NotesForHrField value={noteForHr} onChange={setNoteForHr} />
             </Stack>
           </Card>
 

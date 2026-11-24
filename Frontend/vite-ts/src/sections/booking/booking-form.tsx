@@ -36,6 +36,7 @@ import {
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -131,6 +132,7 @@ export function BookingForm({ currentBooking, initialType, initialDate, initialT
     repeat: '',
     repeatUntil: '',
   }));
+  const [noteForHr, setNoteForHr] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -216,6 +218,8 @@ export function BookingForm({ currentBooking, initialType, initialDate, initialT
             type: form.type,
             ...(form.repeat ? { repeat: { frequency: form.repeat, until: form.repeatUntil } } : {}),
           });
+      // A repeating booking returns its first day; the note is saved on that one.
+      if (!isEdit) await saveNoteForHr('BOOKING', saved.id, noteForHr);
       toast.success(
         isEdit
           ? 'Booking updated'
@@ -497,6 +501,8 @@ export function BookingForm({ currentBooking, initialType, initialDate, initialT
               onChange={(e) => set('description', e.target.value)}
               slotProps={{ htmlInput: { maxLength: 5000 } }}
             />
+
+            {!isEdit && <NotesForHrField value={noteForHr} onChange={setNoteForHr} />}
 
             {serverError && <Alert severity="error">{serverError}</Alert>}
 

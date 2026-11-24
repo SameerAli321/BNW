@@ -24,12 +24,19 @@ import { Label } from 'src/components/label';
 import { Iconify } from 'src/components/iconify';
 import { EmptyContent } from 'src/components/empty-content';
 import { LoadingScreen } from 'src/components/loading-screen';
+import { InternalNotesCard } from 'src/components/internal-notes';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
 import { useAuthContext } from 'src/auth/hooks';
 
 import { EMPLOYEE_PROFILE_GENDER_OPTIONS } from 'src/types/employee-profile';
-import { companyLabel, userRoleLabel, userStatusLabel, employmentTypeLabel } from 'src/types/user';
+import {
+  companyLabel,
+  userRoleLabel,
+  userStatusLabel,
+  canManageAccount,
+  employmentTypeLabel,
+} from 'src/types/user';
 
 // ----------------------------------------------------------------------
 
@@ -116,7 +123,7 @@ export function UserDetailsView({ id }: Props) {
               >
                 E-record
               </Button>
-              {canEdit && (
+              {canEdit && canManageAccount(currentRole, user.role) && (
                 <Button
                   component={RouterLink}
                   href={paths.dashboard.user.edit(String(user.id))}
@@ -279,6 +286,8 @@ function UserInfoCards({ user, profile }: { user: UserDto; profile: EmployeeProf
         <InfoRow label="Created" value={date(user.createdAt)} />
         <InfoRow label="Last updated" value={date(user.updatedAt)} />
       </InfoCard>
+
+      <InternalNotesCard entity="USER" entityId={user.id} />
     </Stack>
   );
 }

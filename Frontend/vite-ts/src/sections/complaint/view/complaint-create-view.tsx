@@ -20,6 +20,7 @@ import { createComplaint, updateComplaint } from 'src/actions/complaints';
 
 import { toast } from 'src/components/snackbar';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 import { HrFormSection } from 'src/sections/hr-forms/hr-form-section';
 
@@ -65,6 +66,7 @@ export function ComplaintCreateView({ current }: Props) {
         }
       : EMPTY
   );
+  const [noteForHr, setNoteForHr] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const field = (key: keyof FormState) => ({
@@ -86,6 +88,7 @@ export function ComplaintCreateView({ current }: Props) {
     setSubmitting(true);
     try {
       const saved = current ? await updateComplaint(current.id, form) : await createComplaint(form);
+      if (!current) await saveNoteForHr('COMPLAINT', saved.id, noteForHr);
       toast.success(current ? 'Complaint updated — HR has been told' : 'Complaint submitted to HR!');
       router.push(paths.dashboard.complaints.details(saved.id));
     } catch (error) {
@@ -196,6 +199,12 @@ export function ComplaintCreateView({ current }: Props) {
             {...field('maintenanceDescription')}
           />
         </HrFormSection>
+
+        {!current && (
+          <HrFormSection title="Notes for HR">
+            <NotesForHrField value={noteForHr} onChange={setNoteForHr} />
+          </HrFormSection>
+        )}
 
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
           The &quot;Human Resource Department Only&quot; section is completed by HR after you submit.

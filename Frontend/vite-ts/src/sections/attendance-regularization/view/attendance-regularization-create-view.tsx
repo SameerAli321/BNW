@@ -20,6 +20,7 @@ import {
 
 import { toast } from 'src/components/snackbar';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 import { HrFormSection } from 'src/sections/hr-forms/hr-form-section';
 
@@ -54,6 +55,7 @@ export function AttendanceRegularizationCreateView({ current }: Props) {
   const [timeArrival, setTimeArrival] = useState(current?.timeArrival?.slice(0, 5) ?? '');
   const [timeDeparture, setTimeDeparture] = useState(current?.timeDeparture?.slice(0, 5) ?? '');
   const [reason, setReason] = useState(current?.reason ?? '');
+  const [noteForHr, setNoteForHr] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const onSubmit = async () => {
@@ -91,6 +93,7 @@ export function AttendanceRegularizationCreateView({ current }: Props) {
         ...(timeArrival ? { timeArrival } : {}),
         ...(timeDeparture ? { timeDeparture } : {}),
       });
+      await saveNoteForHr('ATTENDANCE', created.id, noteForHr);
       toast.success(
         created.hodId ? 'Sent to your head of department!' : 'Sent to HR!'
       );
@@ -211,6 +214,7 @@ export function AttendanceRegularizationCreateView({ current }: Props) {
             slotProps={{ htmlInput: { maxLength: 2000 } }}
             fullWidth
           />
+          {!current && <NotesForHrField value={noteForHr} onChange={setNoteForHr} />}
         </HrFormSection>
 
         <Stack direction="row" spacing={1.5} justifyContent="flex-end">

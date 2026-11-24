@@ -1,6 +1,7 @@
 import type { JoiningPackItemDto } from 'src/types/candidate';
 
 import { z as zod } from 'zod';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -15,6 +16,7 @@ import { createJoiningPackItem, updateJoiningPackItem } from 'src/actions/joinin
 
 import { toast } from 'src/components/snackbar';
 import { Form, Field } from 'src/components/hook-form';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 import { JOINING_PACK_ITEM_KIND_OPTIONS } from 'src/types/candidate';
 
@@ -39,6 +41,7 @@ type Props = {
 
 export function JoiningPackItemDialog({ open, onClose, currentItem }: Props) {
   const isEdit = !!currentItem;
+  const [noteForHr, setNoteForHr] = useState('');
 
   const methods = useForm<JoiningPackItemSchemaType>({
     resolver: zodResolver(JoiningPackItemSchema),
@@ -58,6 +61,7 @@ export function JoiningPackItemDialog({ open, onClose, currentItem }: Props) {
 
   const handleClose = () => {
     reset();
+    setNoteForHr('');
     onClose();
   };
 
@@ -72,7 +76,8 @@ export function JoiningPackItemDialog({ open, onClose, currentItem }: Props) {
       if (currentItem) {
         await updateJoiningPackItem(currentItem.id, { ...payload, isActive: data.isActive });
       } else {
-        await createJoiningPackItem(payload);
+        const created = await createJoiningPackItem(payload);
+        await saveNoteForHr('JOINING_PACK_ITEM', created?.id, noteForHr);
       }
 
       toast.success(isEdit ? 'Item updated!' : 'Item added!');
@@ -102,6 +107,8 @@ export function JoiningPackItemDialog({ open, onClose, currentItem }: Props) {
           <Field.Text name="description" label="Description (optional)" multiline rows={3} />
 
           {isEdit && <Field.Switch name="isActive" label="Active" />}
+
+          {!isEdit && <NotesForHrField value={noteForHr} onChange={setNoteForHr} />}
         </DialogContent>
 
         <DialogActions>

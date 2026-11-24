@@ -21,6 +21,7 @@ import { Iconify } from 'src/components/iconify';
 import { PdfViewerDialog } from 'src/components/pdf-viewer';
 import { EmptyContent } from 'src/components/empty-content';
 import { LoadingScreen } from 'src/components/loading-screen';
+import { InternalNotesCard } from 'src/components/internal-notes';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
 import { HrFormField, HrFormSection } from 'src/sections/hr-forms/hr-form-section';
@@ -197,6 +198,8 @@ export function AttendanceRegularizationDetailView() {
             </>
           )}
         </HrFormSection>
+
+        <InternalNotesCard entity="ATTENDANCE" entityId={form.id} />
       </Stack>
 
       <PdfViewerDialog

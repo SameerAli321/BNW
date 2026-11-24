@@ -2,8 +2,8 @@ import type { ActivityLogDto, CreateActivityLogDto } from 'src/types/activity-lo
 
 import dayjs from 'dayjs';
 import { z as zod } from 'zod';
-import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import Box from '@mui/material/Box';
@@ -18,6 +18,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { toast } from 'src/components/snackbar';
 import { Form, Field } from 'src/components/hook-form';
+import { NotesForHrField } from 'src/components/internal-notes';
 
 import { ACTIVITY_CATEGORY_OPTIONS } from 'src/types/activity-log';
 
@@ -50,7 +51,8 @@ type Props = {
   onClose: () => void;
   /** Present when editing an existing entry; absent when logging a new one. */
   current?: ActivityLogDto | null;
-  onConfirm: (payload: CreateActivityLogDto) => Promise<void>;
+  /** `noteForHr` is only filled in when logging a new entry. */
+  onConfirm: (payload: CreateActivityLogDto, noteForHr: string) => Promise<void>;
 };
 
 function defaultValues(current?: ActivityLogDto | null): ActivityLogSchemaType {
@@ -71,6 +73,8 @@ export function ActivityLogDialog({ open, onClose, current, onConfirm }: Props) 
     defaultValues: defaultValues(current),
   });
 
+  const [noteForHr, setNoteForHr] = useState('');
+
   const {
     reset,
     handleSubmit,
@@ -81,17 +85,21 @@ export function ActivityLogDialog({ open, onClose, current, onConfirm }: Props) 
   useEffect(() => {
     if (open) {
       reset(defaultValues(current));
+      setNoteForHr('');
     }
   }, [open, current, reset]);
 
   const onSubmit = handleSubmit(async (data) => {
     try {
-      await onConfirm({
-        activityDate: dayjs(data.activityDate).format('YYYY-MM-DD'),
-        category: data.category as CreateActivityLogDto['category'],
-        hours: Number(data.hours),
-        description: data.description.trim(),
-      });
+      await onConfirm(
+        {
+          activityDate: dayjs(data.activityDate).format('YYYY-MM-DD'),
+          category: data.category as CreateActivityLogDto['category'],
+          hours: Number(data.hours),
+          description: data.description.trim(),
+        },
+        current ? '' : noteForHr
+      );
       toast.success(current ? 'Activity updated!' : 'Activity logged!');
       onClose();
     } catch (error) {
@@ -139,6 +147,8 @@ export function ActivityLogDialog({ open, onClose, current, onConfirm }: Props) 
             multiline
             rows={5}
           />
+
+          {!current && <NotesForHrField value={noteForHr} onChange={setNoteForHr} />}
         </DialogContent>
 
         <DialogActions>

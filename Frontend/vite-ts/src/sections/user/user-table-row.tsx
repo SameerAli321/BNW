@@ -42,6 +42,8 @@ type Props = {
   editHref: string;
   viewHref: string;
   canDelete: boolean;
+  /** False for HR on a Super Admin's row — Edit and Reset password are hidden. */
+  canManage: boolean;
   canResetPassword: boolean;
   onSelectRow: () => void;
   onDeleteRow: () => void;
@@ -53,6 +55,7 @@ export function UserTableRow({
   editHref,
   viewHref,
   canDelete,
+  canManage,
   canResetPassword,
   onSelectRow,
   onDeleteRow,
@@ -94,14 +97,16 @@ export function UserTableRow({
           </MenuItem>
         </li>
 
-        <li>
-          <MenuItem component={RouterLink} href={editHref} onClick={() => menuActions.onClose()}>
-            <Iconify icon="solar:pen-bold" />
-            Edit
-          </MenuItem>
-        </li>
+        {canManage && (
+          <li>
+            <MenuItem component={RouterLink} href={editHref} onClick={() => menuActions.onClose()}>
+              <Iconify icon="solar:pen-bold" />
+              Edit
+            </MenuItem>
+          </li>
+        )}
 
-        {canResetPassword && (
+        {canManage && canResetPassword && (
           <MenuItem
             onClick={() => {
               setTempPassword(null);

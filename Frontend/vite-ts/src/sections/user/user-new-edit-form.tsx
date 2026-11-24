@@ -24,11 +24,15 @@ import { createUser, updateUser, useGetUsers, useGetDepartments } from 'src/acti
 import { toast } from 'src/components/snackbar';
 import { Form, Field } from 'src/components/hook-form';
 import { ConfirmDialog } from 'src/components/custom-dialog';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 import {
   userRoleLabel,
   COMPANY_OPTIONS,
   departmentsForCompany,
+  assignableRoleOptions,
   USER_FORM_ROLE_OPTIONS,
   EMPLOYMENT_TYPE_OPTIONS,
   USER_CREATE_ROLE_OPTIONS,
@@ -156,15 +160,16 @@ export function UserNewEditForm({ currentUser }: Props) {
   // Creating: CEO / HR / Admin / Team Lead only (team members and interns come in through
   // Hiring → Convert). Editing: those plus Team Member, plus an older role (Payroll) a user may
   // already have.
+  // Only Admin can give the Admin role.
+  const { user: viewer } = useAuthContext();
+  const viewerRole = viewer?.role ?? '';
   const roleOptions = useMemo(() => {
-    if (!currentUser) return USER_CREATE_ROLE_OPTIONS;
-    return USER_FORM_ROLE_OPTIONS.some((o) => o.value === currentUser.role)
-      ? USER_FORM_ROLE_OPTIONS
-      : [
-          ...USER_FORM_ROLE_OPTIONS,
-          { value: currentUser.role, label: userRoleLabel(currentUser.role) },
-        ];
-  }, [currentUser]);
+    if (!currentUser) return assignableRoleOptions(viewerRole, USER_CREATE_ROLE_OPTIONS);
+    const options = assignableRoleOptions(viewerRole, USER_FORM_ROLE_OPTIONS);
+    return options.some((o) => o.value === currentUser.role)
+      ? options
+      : [...options, { value: currentUser.role, label: userRoleLabel(currentUser.role) }];
+  }, [currentUser, viewerRole]);
 
   const defaultValues: NewUserSchemaType = {
     firstName: '',
@@ -223,6 +228,7 @@ export function UserNewEditForm({ currentUser }: Props) {
   );
 
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [noteForHr, setNoteForHr] = useState('');
 
   const methods = useForm<NewUserSchemaType>({
     mode: 'onSubmit',
@@ -325,6 +331,8 @@ export function UserNewEditForm({ currentUser }: Props) {
         });
       } else {
         const created = await createUser({ ...payload, password: data.password ?? '' });
+        await saveNoteForHr('USER', created.id, noteForHr);
+        setNoteForHr('');
         const mail = created.welcomeEmail;
         if (mail?.status === 'SENT') {
           toast.success(`User created — sign-in details emailed to ${mail.sentTo}`);
@@ -527,6 +535,10 @@ export function UserNewEditForm({ currentUser }: Props) {
                 }
               />
             </Box>
+
+            {!currentUser && (
+              <NotesForHrField value={noteForHr} onChange={setNoteForHr} sx={{ mt: 3 }} />
+            )}
 
             <Stack
               direction={{ xs: 'column', sm: 'row' }}

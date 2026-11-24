@@ -26,6 +26,7 @@ import {
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 import { HrFormSection } from 'src/sections/hr-forms/hr-form-section';
 
@@ -69,6 +70,7 @@ export function WorkOrderCreateView({ current }: Props) {
   const [keptReceiptName, setKeptReceiptName] = useState(
     current?.hasReceipt ? (current.receiptOriginalName ?? 'Attached file') : null
   );
+  const [noteForHr, setNoteForHr] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const isReimbursement = type === 'REIMBURSEMENT';
@@ -142,6 +144,7 @@ export function WorkOrderCreateView({ current }: Props) {
         },
         receipt
       );
+      await saveNoteForHr('WORK_ORDER', created.id, noteForHr);
       toast.success(
         created.status === 'PENDING_MANAGER'
           ? 'Sent to your line manager for approval!'
@@ -310,6 +313,8 @@ export function WorkOrderCreateView({ current }: Props) {
               </Typography>
             )}
           </Stack>
+
+          {!current && <NotesForHrField value={noteForHr} onChange={setNoteForHr} />}
         </HrFormSection>
 
         <Alert

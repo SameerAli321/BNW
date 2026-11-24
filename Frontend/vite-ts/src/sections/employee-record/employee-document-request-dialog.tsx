@@ -2,6 +2,7 @@ import type { DocumentTypeDto } from 'src/types/employee-record';
 
 import dayjs from 'dayjs';
 import { z as zod } from 'zod';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -16,6 +17,7 @@ import { createDocumentRequest } from 'src/actions/employee-records';
 
 import { toast } from 'src/components/snackbar';
 import { Form, Field } from 'src/components/hook-form';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 // ----------------------------------------------------------------------
 
@@ -42,6 +44,7 @@ export function EmployeeDocumentRequestDialog({ open, onClose, userId, documentT
     resolver: zodResolver(RequestDocumentSchema),
     defaultValues: { documentTypeId: '', dueDate: '' },
   });
+  const [noteForHr, setNoteForHr] = useState('');
 
   const {
     reset,
@@ -51,6 +54,7 @@ export function EmployeeDocumentRequestDialog({ open, onClose, userId, documentT
 
   const handleClose = () => {
     reset();
+    setNoteForHr('');
     onClose();
   };
 
@@ -61,10 +65,11 @@ export function EmployeeDocumentRequestDialog({ open, onClose, userId, documentT
     }
 
     try {
-      await createDocumentRequest(userId, {
+      const created = await createDocumentRequest(userId, {
         documentTypeId: data.documentTypeId,
         dueDate: data.dueDate ? dayjs(data.dueDate).format('YYYY-MM-DD') : null,
       });
+      await saveNoteForHr('DOCUMENT_REQUEST', created.id, noteForHr);
       toast.success('Document requested!');
       handleClose();
     } catch (error) {
@@ -88,6 +93,8 @@ export function EmployeeDocumentRequestDialog({ open, onClose, userId, documentT
           </Field.Select>
 
           <Field.DatePicker name="dueDate" label="Due date (optional)" />
+
+          <NotesForHrField value={noteForHr} onChange={setNoteForHr} />
         </DialogContent>
 
         <DialogActions>

@@ -32,6 +32,7 @@ import { EmptyContent } from 'src/components/empty-content';
 import { PdfViewerDialog } from 'src/components/pdf-viewer';
 import { ConfirmDialog } from 'src/components/custom-dialog';
 import { LoadingScreen } from 'src/components/loading-screen';
+import { InternalNotesCard } from 'src/components/internal-notes';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
 import { useAuthContext } from 'src/auth/hooks';
@@ -375,6 +376,8 @@ export function LetterDetailView() {
                 ))}
               </Stack>
             </Card>
+
+            <InternalNotesCard entity="LETTER" entityId={letter.id} />
           </Stack>
         </Grid>
 

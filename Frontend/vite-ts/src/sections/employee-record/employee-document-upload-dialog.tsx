@@ -1,6 +1,7 @@
 import type { DocumentTypeDto } from 'src/types/employee-record';
 
 import { z as zod } from 'zod';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -17,6 +18,7 @@ import { uploadEmployeeDocument } from 'src/actions/employee-records';
 
 import { toast } from 'src/components/snackbar';
 import { Form, Field, schemaHelper } from 'src/components/hook-form';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 // ----------------------------------------------------------------------
 
@@ -55,6 +57,7 @@ export function EmployeeDocumentUploadDialog({ open, onClose, userId, documentTy
     resolver: zodResolver(UploadDocumentSchema),
     defaultValues: { documentTypeId: '', file: null },
   });
+  const [noteForHr, setNoteForHr] = useState('');
 
   const {
     reset,
@@ -64,6 +67,7 @@ export function EmployeeDocumentUploadDialog({ open, onClose, userId, documentTy
 
   const handleClose = () => {
     reset();
+    setNoteForHr('');
     onClose();
   };
 
@@ -74,10 +78,11 @@ export function EmployeeDocumentUploadDialog({ open, onClose, userId, documentTy
     }
 
     try {
-      await uploadEmployeeDocument(userId, {
+      const created = await uploadEmployeeDocument(userId, {
         file: data.file as File,
         documentTypeId: data.documentTypeId,
       });
+      await saveNoteForHr('DOCUMENT', created.id, noteForHr);
       toast.success('Document uploaded!');
       handleClose();
     } catch (error) {
@@ -106,6 +111,8 @@ export function EmployeeDocumentUploadDialog({ open, onClose, userId, documentTy
             accept={ACCEPTED_MIME}
             helperText={`Allowed *.pdf, *.png, *.jpg, *.doc, *.docx — max size ${fData(MAX_SIZE)}`}
           />
+
+          <NotesForHrField value={noteForHr} onChange={setNoteForHr} />
         </DialogContent>
 
         <DialogActions>

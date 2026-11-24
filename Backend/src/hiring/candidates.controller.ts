@@ -24,6 +24,7 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { UpdateCandidateDto } from './dto/update-candidate.dto';
 import { QueryCandidatesDto } from './dto/query-candidates.dto';
 import { ConvertCandidateDto } from './dto/convert-candidate.dto';
+import { assertMayAssignRole } from '../users/admin-accounts';
 import {
   candidateCvFileFilter,
   candidateCvStorage,
@@ -105,6 +106,7 @@ export class CandidatesController {
     @Body() dto: ConvertCandidateDto,
     @CurrentUser() caller: JwtUserPayload,
   ) {
+    assertMayAssignRole(caller.role, dto.role);
     return this.candidatesService.convert(id, dto, caller.sub);
   }
 }

@@ -42,6 +42,7 @@ import { BookingResource } from './entities/booking-resource.entity';
 import { FormAssignment } from './entities/form-assignment.entity';
 import { PolicyAcknowledgement } from './entities/policy-acknowledgement.entity';
 import { OffDay } from './entities/off-day.entity';
+import { InternalNote } from './entities/internal-note.entity';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
@@ -69,6 +70,7 @@ import { BookingsModule } from './bookings/bookings.module';
 import { AboutModule } from './about/about.module';
 import { RequestWatchersModule } from './notifications/request-watchers.module';
 import { FormAssignmentsModule } from './form-assignments/form-assignments.module';
+import { InternalNotesModule } from './internal-notes/internal-notes.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -126,6 +128,7 @@ import { RolesGuard } from './common/guards/roles.guard';
           FormAssignment,
           PolicyAcknowledgement,
           OffDay,
+          InternalNote,
         ],
         synchronize: false, // migrations only — never sync() against a real schema
         autoLoadEntities: true,
@@ -165,6 +168,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     AboutModule,
     RequestWatchersModule,
     FormAssignmentsModule,
+    InternalNotesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

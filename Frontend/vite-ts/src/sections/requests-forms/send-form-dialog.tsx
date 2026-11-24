@@ -24,6 +24,7 @@ import { avatarSrc, useGetUsers } from 'src/actions/users';
 import { sendFormAssignment, FORM_ASSIGNMENT_TYPE_OPTIONS } from 'src/actions/form-assignments';
 
 import { toast } from 'src/components/snackbar';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 // ----------------------------------------------------------------------
 
@@ -48,6 +49,7 @@ export function SendFormDialog({ open, onClose }: Props) {
   const [dueDate, setDueDate] = useState<Dayjs | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending] = useState(false);
+  const [noteForHr, setNoteForHr] = useState('');
 
   const recipientsError = submitted && !recipients.length;
   const formTypeError = submitted && !formType;
@@ -59,6 +61,7 @@ export function SendFormDialog({ open, onClose }: Props) {
     setMessage('');
     setDueDate(null);
     setSubmitted(false);
+    setNoteForHr('');
     onClose();
   };
 
@@ -74,6 +77,10 @@ export function SendFormDialog({ open, onClose }: Props) {
         message: message.trim() || undefined,
         dueDate: dueDate ? dueDate.format('YYYY-MM-DD') : undefined,
       });
+      // One assignment per employee — the note goes on each.
+      await Promise.all(
+        created.map((assignment) => saveNoteForHr('FORM_ASSIGNMENT', assignment.id, noteForHr))
+      );
       toast.success(
         created.length === 1
           ? `Form sent to ${created[0].userName}`
@@ -186,6 +193,8 @@ export function SendFormDialog({ open, onClose }: Props) {
               field: { clearable: true },
             }}
           />
+
+          <NotesForHrField value={noteForHr} onChange={setNoteForHr} />
         </Stack>
       </DialogContent>
 

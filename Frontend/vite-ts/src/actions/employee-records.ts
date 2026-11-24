@@ -2,7 +2,9 @@ import type { SWRConfiguration } from 'swr';
 import type {
   DocumentTypeDto,
   EmployeeRecordDto,
+  DocumentRequestDto,
   StaffSummaryRowDto,
+  EmployeeDocumentDto,
   IStaffSummaryListMeta,
 } from 'src/types/employee-record';
 
@@ -143,25 +145,27 @@ function revalidateEmployeeRecord(userId: number | string) {
 export async function uploadEmployeeDocument(
   userId: number | string,
   payload: { file: File; documentTypeId: number }
-): Promise<void> {
+): Promise<EmployeeDocumentDto> {
   const formData = new FormData();
   formData.append('file', payload.file);
   formData.append('documentTypeId', String(payload.documentTypeId));
 
-  await axiosInstance.post(endpoints.employees.documents(userId), formData, {
+  const res = await axiosInstance.post(endpoints.employees.documents(userId), formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
   await revalidateEmployeeRecord(userId);
+  return res.data.data;
 }
 
 /** POST /employees/:id/document-requests — HR/ADMIN only. */
 export async function createDocumentRequest(
   userId: number | string,
   payload: { documentTypeId: number; dueDate?: string | null }
-): Promise<void> {
-  await axiosInstance.post(endpoints.employees.documentRequests(userId), payload);
+): Promise<DocumentRequestDto> {
+  const res = await axiosInstance.post(endpoints.employees.documentRequests(userId), payload);
   await revalidateEmployeeRecord(userId);
+  return res.data.data;
 }
 
 /**

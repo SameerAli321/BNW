@@ -31,6 +31,7 @@ import {
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 import { Scrollbar } from 'src/components/scrollbar';
+import { saveNoteForHr } from 'src/components/internal-notes';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 import {
   useTable,
@@ -130,11 +131,12 @@ export function ActivityLogListView() {
     logDialog.onTrue();
   };
 
-  const handleSave = async (payload: CreateActivityLogDto) => {
+  const handleSave = async (payload: CreateActivityLogDto, noteForHr: string) => {
     if (editing) {
       await updateActivityLog(editing.id, payload);
     } else {
-      await createActivityLog(payload);
+      const created = await createActivityLog(payload);
+      await saveNoteForHr('ACTIVITY_LOG', created.id, noteForHr);
     }
   };
 

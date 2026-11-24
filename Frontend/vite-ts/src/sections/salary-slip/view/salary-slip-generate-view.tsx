@@ -51,6 +51,7 @@ import { Label } from 'src/components/label';
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 import { RoleBasedGuard } from 'src/auth/guard';
 import { useAuthContext } from 'src/auth/hooks';
@@ -159,6 +160,7 @@ export function SalarySlipGenerateView() {
   const [reviseIntent, setReviseIntent] = useState(!!searchParams.get('employeeId'));
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [noteForHr, setNoteForHr] = useState('');
   const [result, setResult] = useState<SalarySlipDto | null>(null);
   const [viewingExisting, setViewingExisting] = useState(false);
 
@@ -272,6 +274,7 @@ export function SalarySlipGenerateView() {
     setRegenerate(false);
     setReviseIntent(false);
     setSubmitted(false);
+    setNoteForHr('');
     router.replace(paths.dashboard.salarySlips.new);
   };
 
@@ -303,6 +306,8 @@ export function SalarySlipGenerateView() {
         notes: form.notes.trim() || undefined,
         regenerate: regenerate || undefined,
       });
+      await saveNoteForHr('SALARY_SLIP', slip.id, noteForHr);
+      setNoteForHr('');
       // Straight to the chosen employee's slip.
       setResult(slip);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -698,6 +703,7 @@ export function SalarySlipGenerateView() {
                           onChange={(event) => set('notes', event.target.value)}
                           slotProps={{ htmlInput: { maxLength: 1000 } }}
                         />
+                        <NotesForHrField value={noteForHr} onChange={setNoteForHr} />
                       </Stack>
                     </CardContent>
                   </Card>

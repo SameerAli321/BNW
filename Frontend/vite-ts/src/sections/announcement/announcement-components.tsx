@@ -45,6 +45,7 @@ import { Label } from 'src/components/label';
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 import { ConfirmDialog } from 'src/components/custom-dialog';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -537,6 +538,7 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
   const [company, setCompany] = useState<AnnouncementCompany | ''>(current?.company ?? '');
   const [pinned, setPinned] = useState(current?.pinned ?? false);
   const [expiresOn, setExpiresOn] = useState(current?.expiresOn ?? '');
+  const [noteForHr, setNoteForHr] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
   const theme = useTheme();
@@ -571,7 +573,9 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
         await updateAnnouncement(current.id, payload);
         toast.success('Announcement updated!');
       } else {
-        await createAnnouncement(payload);
+        const created = await createAnnouncement(payload);
+        await saveNoteForHr('ANNOUNCEMENT', created.id, noteForHr);
+        setNoteForHr('');
         toast.success('Announcement posted — everyone it’s for has been notified');
       }
       onClose();
@@ -752,6 +756,12 @@ export function AnnouncementDialog({ open, onClose, current }: DialogProps) {
               </Typography>
             </Box>
           </Grid>
+
+          {!current && (
+            <Grid size={12}>
+              <NotesForHrField value={noteForHr} onChange={setNoteForHr} />
+            </Grid>
+          )}
         </Grid>
       </DialogContent>
       <DialogActions>

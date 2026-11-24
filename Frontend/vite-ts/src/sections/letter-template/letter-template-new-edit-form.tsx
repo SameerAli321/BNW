@@ -18,6 +18,7 @@ import { useRouter } from 'src/routes/hooks';
 import { createLetterTemplate, updateLetterTemplate } from 'src/actions/letters';
 
 import { toast } from 'src/components/snackbar';
+import { saveNoteForHr, NotesForHrField } from 'src/components/internal-notes';
 
 import { LETTER_TYPE_OPTIONS } from 'src/types/letter';
 
@@ -48,6 +49,7 @@ export function LetterTemplateNewEditForm({ currentTemplate, currentBodyHtml }: 
   // (`if (dto.bodyHtml !== undefined) ...`) keeps the stored body when it's left out.
   const [bodyHtmlTouched, setBodyHtmlTouched] = useState(false);
   const [fieldsSchema, setFieldsSchema] = useState(currentTemplate?.fieldsSchema ?? []);
+  const [noteForHr, setNoteForHr] = useState('');
 
   const onSubmit = async () => {
     if (!name.trim()) {
@@ -80,7 +82,9 @@ export function LetterTemplateNewEditForm({ currentTemplate, currentBodyHtml }: 
         toast.success('Template updated!');
       } else {
         // New template: always send bodyHtml (defaults to the placeholder copy if untouched).
-        await createLetterTemplate({ ...payload, bodyHtml });
+        const created = await createLetterTemplate({ ...payload, bodyHtml });
+        await saveNoteForHr('LETTER_TEMPLATE', created.id, noteForHr);
+        setNoteForHr('');
         toast.success('Template created!');
       }
       router.push(paths.dashboard.letterTemplates.root);
@@ -163,6 +167,8 @@ export function LetterTemplateNewEditForm({ currentTemplate, currentBodyHtml }: 
             />
 
             <LetterTemplateFieldsEditor fields={fieldsSchema} onChange={setFieldsSchema} />
+
+            {!currentTemplate && <NotesForHrField value={noteForHr} onChange={setNoteForHr} />}
           </Stack>
 
           <Stack sx={{ mt: 3, alignItems: 'flex-end' }}>

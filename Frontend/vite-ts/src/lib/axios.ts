@@ -41,6 +41,8 @@ export const endpoints = {
   departments: '/departments',
   // Gap-fix — see docs/API_CONTRACT_GAPS_FIX.md Gap 2. CEO/ADMIN only.
   auditLogs: '/audit-logs',
+  // "Notes for HR" written on create forms — POST anyone, GET / DELETE HR / ADMIN.
+  internalNotes: '/internal-notes',
   // Sprint 2 — E-record & Staff summary, see docs/API_CONTRACT_SPRINT2.md.
   staffSummary: {
     list: '/staff-summary',
