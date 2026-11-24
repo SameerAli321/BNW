@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AttendanceRegularization } from '../entities/attendance-regularization.entity';
 import { AttendanceHrDecision } from '../common/enums/attendance-regularization.enum';
-import { BnwFormPdf, formatFormDate } from '../common/pdf/bnw-form-pdf';
+import { BnwFormPdf, formatFormDate, PdfNote } from '../common/pdf/bnw-form-pdf';
 
 /** 'HH:MM' (24h) -> '9:40 AM'. */
 function formatTime(value: string | null): string | null {
@@ -17,7 +17,7 @@ function formatTime(value: string | null): string | null {
  */
 @Injectable()
 export class AttendanceRegularizationPdfService {
-  async render(row: AttendanceRegularization): Promise<Uint8Array> {
+  async render(row: AttendanceRegularization, notes: PdfNote[] = []): Promise<Uint8Array> {
     const { employee, hod, hrUser } = row;
     const pdf = await BnwFormPdf.create(`Attendance Regularization #${row.id}`);
 
@@ -106,7 +106,8 @@ export class AttendanceRegularizationPdfService {
       pdf.text(`Remarks: ${row.hrRemarks}`, { size: 8 });
     }
     pdf.gap(10);
-    pdf.signatureLine(right, 180, {
+    // Moves past the signature so anything printed after it (Notes for HR) starts below.
+    const hrUsed = pdf.signatureLine(right, 180, {
       signature: row.hrSignatureText,
       captions: [
         'Human Resource Department',
@@ -118,6 +119,9 @@ export class AttendanceRegularizationPdfService {
           .join(', '),
       ],
     });
+
+    pdf.gap(hrUsed);
+    pdf.notesForHr(notes);
 
     return pdf.save();
   }

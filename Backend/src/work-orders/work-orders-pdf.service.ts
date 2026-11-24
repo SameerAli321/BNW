@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { WorkOrder } from '../entities/work-order.entity';
 import { WorkOrderType } from '../common/enums/work-order.enum';
-import { BnwFormPdf, formatFormDate } from '../common/pdf/bnw-form-pdf';
+import { BnwFormPdf, formatFormDate, PdfNote } from '../common/pdf/bnw-form-pdf';
 import { formatPkr } from './work-orders.service';
 
 const name = (u: { firstName: string; lastName: string } | null | undefined) =>
@@ -14,7 +14,7 @@ const name = (u: { firstName: string; lastName: string } | null | undefined) =>
  */
 @Injectable()
 export class WorkOrdersPdfService {
-  async render(row: WorkOrder): Promise<Uint8Array> {
+  async render(row: WorkOrder, notes: PdfNote[] = []): Promise<Uint8Array> {
     const isReimbursement = row.type === WorkOrderType.REIMBURSEMENT;
     const title = isReimbursement ? 'Reimbursement Claim Form' : 'Equipment Request Form';
     const pdf = await BnwFormPdf.create(`${title} #${row.id}`);
@@ -131,6 +131,8 @@ export class WorkOrdersPdfService {
         ? `${isReimbursement ? 'Payment reference' : 'Asset tag / serial no.'}: ${row.processorReference}`
         : null,
     );
+
+    pdf.notesForHr(notes);
 
     return pdf.save();
   }

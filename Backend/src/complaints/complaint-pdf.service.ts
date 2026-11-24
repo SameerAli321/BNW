@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { rgb } from 'pdf-lib';
 import { Complaint } from '../entities/complaint.entity';
-import { BnwFormPdf, FORM_COLORS, formatFormDate } from '../common/pdf/bnw-form-pdf';
+import { BnwFormPdf, FORM_COLORS, formatFormDate, PdfNote } from '../common/pdf/bnw-form-pdf';
 
 /**
  * Renders a complaint as the BNW paper "Complaint Form" (bordered sections with shaded headers),
@@ -9,7 +9,7 @@ import { BnwFormPdf, FORM_COLORS, formatFormDate } from '../common/pdf/bnw-form-
  */
 @Injectable()
 export class ComplaintPdfService {
-  async render(complaint: Complaint): Promise<Uint8Array> {
+  async render(complaint: Complaint, notes: PdfNote[] = []): Promise<Uint8Array> {
     const c = complaint;
     const complainant = c.complainant;
     const pdf = await BnwFormPdf.create(`Complaint Form #${c.id}`);
@@ -61,6 +61,8 @@ export class ComplaintPdfService {
         value: hrSignedCaption || null,
       },
     ]);
+
+    pdf.notesForHr(notes);
 
     pdf.noteBox(
       'Please submit this form to your manager/supervisor for approval and forward a copy to the ' +

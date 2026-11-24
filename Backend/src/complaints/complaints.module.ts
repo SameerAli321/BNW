@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { InternalNotesModule } from '../internal-notes/internal-notes.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Complaint } from '../entities/complaint.entity';
 import { EmployeeProfile } from '../entities/employee-profile.entity';
@@ -9,7 +10,10 @@ import { ComplaintsService } from './complaints.service';
 import { ComplaintPdfService } from './complaint-pdf.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Complaint, EmployeeProfile, Notification, User])],
+  imports: [
+    InternalNotesModule,
+    TypeOrmModule.forFeature([Complaint, EmployeeProfile, Notification, User]),
+  ],
   controllers: [ComplaintsController],
   providers: [ComplaintsService, ComplaintPdfService],
 })

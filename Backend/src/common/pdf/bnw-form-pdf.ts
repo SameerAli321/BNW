@@ -10,6 +10,8 @@ import { PDFDocument, PDFFont, PDFPage, RGB, StandardFonts, rgb } from 'pdf-lib'
 // `signature` draws a typed name in a script face, with `value` as a small caption under it.
 export type FormCell = { label: string; value?: string | null; signature?: string | null };
 export type FormRow = FormCell | { cells: FormCell[] };
+/** A "Notes for HR" entry printed on HR / Admin's copy of a form (internal-notes module). */
+export type PdfNote = { note: string; author: string | null; createdAt: Date };
 
 export const FORM_COLORS = {
   headerFill: rgb(0.87, 0.85, 0.78),
@@ -270,6 +272,18 @@ export class BnwFormPdf {
       this.y -= height;
     }
     this.y -= 24;
+  }
+
+  /** The "Notes for HR" written on the record — only passed in for HR / Admin's copy. */
+  notesForHr(notes: PdfNote[]): void {
+    if (!notes.length) return;
+    this.section(
+      'Notes for HR (internal)',
+      notes.map((n, i) => ({
+        label: `${i + 1}.`,
+        value: `${n.note} (${n.author ?? 'Unknown'}, ${formatFormDate(n.createdAt)})`,
+      })),
+    );
   }
 
   /**

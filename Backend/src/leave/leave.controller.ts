@@ -25,6 +25,7 @@ import {
 import { QueryLeaveRequestsDto } from './dto/query-leave-requests.dto';
 import { UpdateLeaveTypeDto } from './dto/update-leave-type.dto';
 import { UpdateLeaveRequestDto } from './dto/update-leave-request.dto';
+import { InternalNotesService } from '../internal-notes/internal-notes.service';
 
 @Controller('leave-types')
 export class LeaveTypesController {
@@ -48,6 +49,7 @@ export class LeaveRequestsController {
   constructor(
     private readonly service: LeaveService,
     private readonly pdfService: LeavePdfService,
+    private readonly notesService: InternalNotesService,
   ) {}
 
   // Anyone can apply for themselves — no @Roles gate; the employee is always the caller.
@@ -114,6 +116,7 @@ export class LeaveRequestsController {
     const bytes = await this.pdfService.render(
       row,
       balances.find((b) => b.leaveTypeId === row.leaveTypeId) ?? null,
+      await this.notesService.forPdf(caller, 'LEAVE', row.id),
     );
     res.set({
       'Content-Type': 'application/pdf',

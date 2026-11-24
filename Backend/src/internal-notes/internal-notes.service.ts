@@ -1,10 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { PdfNote } from '../common/pdf/bnw-form-pdf';
+import { RoleName } from '../common/enums/role.enum';
+import { JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { InternalNote } from '../entities/internal-note.entity';
 import { CreateInternalNoteDto } from './dto/create-internal-note.dto';
 import { QueryInternalNotesDto } from './dto/query-internal-notes.dto';
-import { NOTE_ENTITY_TABLES } from './note-entities';
+import { NOTE_ENTITY_TABLES, NoteEntity } from './note-entities';
 
 export interface InternalNoteDto {
   id: number;
@@ -76,6 +79,21 @@ export class InternalNotesService {
     }
     const [rows, total] = await qb.getManyAndCount();
     return { data: rows.map(toDto), meta: { total, page, limit } };
+  }
+
+  /** A record's notes, oldest first, for its PDF — empty unless the caller is HR / Admin. */
+  async forPdf(caller: JwtUserPayload, entity: NoteEntity, entityId: number): Promise<PdfNote[]> {
+    if (caller.role !== RoleName.HR && caller.role !== RoleName.ADMIN) return [];
+    const rows = await this.notesRepo.find({
+      where: { entity, entityId },
+      relations: ['createdBy'],
+      order: { createdAt: 'ASC', id: 'ASC' },
+    });
+    return rows.map((row) => ({
+      note: row.note,
+      author: row.createdBy ? `${row.createdBy.firstName} ${row.createdBy.lastName}` : null,
+      createdAt: row.createdAt,
+    }));
   }
 
   /** HR / Admin. */

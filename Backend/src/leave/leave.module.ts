@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { InternalNotesModule } from '../internal-notes/internal-notes.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LeaveRequest } from '../entities/leave-request.entity';
 import { OffDay } from '../entities/off-day.entity';
@@ -10,7 +11,10 @@ import { LeaveService } from './leave.service';
 import { LeavePdfService } from './leave-pdf.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([LeaveRequest, LeaveType, Notification, OffDay, User])],
+  imports: [
+    InternalNotesModule,
+    TypeOrmModule.forFeature([LeaveRequest, LeaveType, Notification, OffDay, User]),
+  ],
   controllers: [LeaveTypesController, LeaveRequestsController],
   providers: [LeaveService, LeavePdfService],
 })

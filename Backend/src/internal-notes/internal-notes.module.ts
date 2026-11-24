@@ -8,5 +8,6 @@ import { InternalNotesService } from './internal-notes.service';
   imports: [TypeOrmModule.forFeature([InternalNote])],
   controllers: [InternalNotesController],
   providers: [InternalNotesService],
+  exports: [InternalNotesService],
 })
 export class InternalNotesModule {}

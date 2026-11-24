@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { LeaveRequest } from '../entities/leave-request.entity';
 import { LeaveBalanceDto } from '../common/mappers/leave.mapper';
-import { BnwFormPdf, formatFormDate } from '../common/pdf/bnw-form-pdf';
+import { BnwFormPdf, formatFormDate, PdfNote } from '../common/pdf/bnw-form-pdf';
 
 /**
  * Renders a leave request as a BNW "Leave Application Form" — same look as the HRD's paper
@@ -10,7 +10,11 @@ import { BnwFormPdf, formatFormDate } from '../common/pdf/bnw-form-pdf';
  */
 @Injectable()
 export class LeavePdfService {
-  async render(row: LeaveRequest, balance: LeaveBalanceDto | null): Promise<Uint8Array> {
+  async render(
+    row: LeaveRequest,
+    balance: LeaveBalanceDto | null,
+    notes: PdfNote[] = [],
+  ): Promise<Uint8Array> {
     const { employee, manager, hrUser } = row;
     const pdf = await BnwFormPdf.create(`Leave Application #${row.id}`);
 
@@ -99,7 +103,8 @@ export class LeavePdfService {
     pdf.option(row.hrApproved === false, 'Leave not approved.');
     if (row.hrRemarks) pdf.text(`Remarks: ${row.hrRemarks}`, { size: 8 });
     pdf.gap(10);
-    pdf.signatureLine(right, 180, {
+    // Moves past the signature so anything printed after it (Notes for HR) starts below.
+    const hrUsed = pdf.signatureLine(right, 180, {
       signature: row.hrSignatureText,
       captions: [
         'Human Resource Department',
@@ -111,6 +116,9 @@ export class LeavePdfService {
           .join(', '),
       ],
     });
+
+    pdf.gap(hrUsed);
+    pdf.notesForHr(notes);
 
     return pdf.save();
   }

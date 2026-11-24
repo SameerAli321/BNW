@@ -30,12 +30,14 @@ import {
 import { MAX_RECEIPT_SIZE_BYTES, receiptFileFilter, receiptStorage } from './receipt.storage';
 import { WorkOrdersService } from './work-orders.service';
 import { WorkOrdersPdfService } from './work-orders-pdf.service';
+import { InternalNotesService } from '../internal-notes/internal-notes.service';
 
 @Controller('work-orders')
 export class WorkOrdersController {
   constructor(
     private readonly service: WorkOrdersService,
     private readonly pdfService: WorkOrdersPdfService,
+    private readonly notesService: InternalNotesService,
   ) {}
 
   // Everyone — the create form shows the categories and the CEO limit.
@@ -122,7 +124,10 @@ export class WorkOrdersController {
     @Res() res: Response,
   ) {
     const row = await this.service.findEntityForViewer(id, caller);
-    const bytes = await this.pdfService.render(row);
+    const bytes = await this.pdfService.render(
+      row,
+      await this.notesService.forPdf(caller, 'WORK_ORDER', row.id),
+    );
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="work-order-${row.id}.pdf"`,

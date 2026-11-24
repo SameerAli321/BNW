@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { InternalNotesModule } from '../internal-notes/internal-notes.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AttendanceRegularization } from '../entities/attendance-regularization.entity';
 import { Notification } from '../entities/notification.entity';
@@ -8,7 +9,10 @@ import { AttendanceRegularizationsService } from './attendance-regularizations.s
 import { AttendanceRegularizationPdfService } from './attendance-regularization-pdf.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AttendanceRegularization, Notification, User])],
+  imports: [
+    InternalNotesModule,
+    TypeOrmModule.forFeature([AttendanceRegularization, Notification, User]),
+  ],
   controllers: [AttendanceRegularizationsController],
   providers: [AttendanceRegularizationsService, AttendanceRegularizationPdfService],
 })

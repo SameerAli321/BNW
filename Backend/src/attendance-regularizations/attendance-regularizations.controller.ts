@@ -21,12 +21,14 @@ import { HodRecommendationDto } from './dto/hod-recommendation.dto';
 import { HrDecisionDto } from './dto/hr-decision.dto';
 import { QueryAttendanceRegularizationsDto } from './dto/query-attendance-regularizations.dto';
 import { UpdateAttendanceRegularizationDto } from './dto/update-attendance-regularization.dto';
+import { InternalNotesService } from '../internal-notes/internal-notes.service';
 
 @Controller('attendance-regularizations')
 export class AttendanceRegularizationsController {
   constructor(
     private readonly service: AttendanceRegularizationsService,
     private readonly pdfService: AttendanceRegularizationPdfService,
+    private readonly notesService: InternalNotesService,
   ) {}
 
   // Anyone can submit one for themselves — no @Roles gate; the employee is always the caller.
@@ -86,7 +88,10 @@ export class AttendanceRegularizationsController {
     @Res() res: Response,
   ) {
     const row = await this.service.findEntityForViewer(id, caller);
-    const bytes = await this.pdfService.render(row);
+    const bytes = await this.pdfService.render(
+      row,
+      await this.notesService.forPdf(caller, 'ATTENDANCE', row.id),
+    );
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="attendance-regularization-${row.id}.pdf"`,

@@ -19,12 +19,14 @@ import { CreateComplaintDto } from './dto/create-complaint.dto';
 import { HrResponseDto } from './dto/hr-response.dto';
 import { QueryComplaintsDto } from './dto/query-complaints.dto';
 import { UpdateComplaintDto } from './dto/update-complaint.dto';
+import { InternalNotesService } from '../internal-notes/internal-notes.service';
 
 @Controller('complaints')
 export class ComplaintsController {
   constructor(
     private readonly complaintsService: ComplaintsService,
     private readonly complaintPdfService: ComplaintPdfService,
+    private readonly notesService: InternalNotesService,
   ) {}
 
   // Anyone can submit a complaint to HR — no @Roles gate; the complainant is always the caller.
@@ -67,7 +69,10 @@ export class ComplaintsController {
     @Res() res: Response,
   ) {
     const complaint = await this.complaintsService.findEntityForViewer(id, caller);
-    const bytes = await this.complaintPdfService.render(complaint);
+    const bytes = await this.complaintPdfService.render(
+      complaint,
+      await this.notesService.forPdf(caller, 'COMPLAINT', complaint.id),
+    );
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="complaint-${complaint.id}.pdf"`,
