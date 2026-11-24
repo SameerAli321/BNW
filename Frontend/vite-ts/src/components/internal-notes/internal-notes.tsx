@@ -56,7 +56,8 @@ export async function saveNoteForHr(
     await saveInternalNote(entity, entityId, note);
   } catch (error) {
     console.error(error);
-    toast.warning('Saved, but your note for HR could not be added');
+    const reason = error instanceof Error && error.message ? ` (${error.message})` : '';
+    toast.warning(`Saved, but your note for HR could not be added${reason}`);
   }
 }
 

@@ -48,6 +48,7 @@ import { LetterPdfRendererService, resolveLetterFieldValues } from './letter-pdf
 import { UPLOADS_ROOT_DIR } from '../employees/employee-documents.storage';
 import { NotifyService } from '../notifications/notify.service';
 import { MailService } from '../mail/mail.service';
+import { InternalNotesService } from '../internal-notes/internal-notes.service';
 import { renderActionEmail } from '../mail/action-email';
 
 // Maps a letter template type to the E-record document type it should be filed under once the
@@ -114,6 +115,7 @@ export class LettersService {
     private readonly auditLogService: AuditLogService,
     private readonly notifier: NotifyService,
     private readonly mail: MailService,
+    private readonly notesService: InternalNotesService,
   ) {}
 
   // ---------------------------------------------------------------------------------------------
@@ -463,6 +465,7 @@ export class LettersService {
       letterSubjectForRender(letter),
       signatures,
       await this.findSubjectProfile(letter),
+      (await this.notesService.forRecord('LETTER', letter.id)).map((n) => n.note),
     );
     letter.pdfPath = pdfPath;
     await this.lettersRepo.save(letter);

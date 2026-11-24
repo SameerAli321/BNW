@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { InternalNotesModule } from '../internal-notes/internal-notes.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LetterTemplate } from '../entities/letter-template.entity';
 import { Letter } from '../entities/letter.entity';
@@ -17,6 +18,7 @@ import { LetterPdfRendererService } from './letter-pdf-renderer.service';
 
 @Module({
   imports: [
+    InternalNotesModule,
     TypeOrmModule.forFeature([
       LetterTemplate,
       Letter,

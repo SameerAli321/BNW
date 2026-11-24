@@ -84,6 +84,11 @@ export class InternalNotesService {
   /** A record's notes, oldest first, for its PDF — empty unless the caller is HR / Admin. */
   async forPdf(caller: JwtUserPayload, entity: NoteEntity, entityId: number): Promise<PdfNote[]> {
     if (caller.role !== RoleName.HR && caller.role !== RoleName.ADMIN) return [];
+    return this.forRecord(entity, entityId);
+  }
+
+  /** A record's notes, oldest first, whoever is asking — letters print theirs for everyone. */
+  async forRecord(entity: NoteEntity, entityId: number): Promise<PdfNote[]> {
     const rows = await this.notesRepo.find({
       where: { entity, entityId },
       relations: ['createdBy'],

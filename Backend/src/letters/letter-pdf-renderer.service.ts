@@ -141,6 +141,25 @@ export function resolveLetterFieldValues(
   });
 }
 
+/**
+ * Puts the letter's notes in a "Notes:" paragraph before the closing line ("Yours sincerely," etc.),
+ * or at the end of the body when there's no closing line.
+ */
+function withNotes(bodyHtml: string, notes: string[]): string {
+  const text = notes.map((n) => n.trim()).filter(Boolean);
+  if (!text.length) return bodyHtml;
+  const html =
+    '<p><strong>Notes:</strong><br/>' +
+    text.map((n) => escapeHtml(n).replace(/\r?\n/g, '<br/>')).join('<br/>') +
+    '</p>';
+  const closings = [
+    ...bodyHtml.matchAll(/<p[^>]*>\s*(?:yours\s+)?(?:sincerely|faithfully|regards)[^<]*<\/p>/gi),
+  ];
+  const closing = closings[closings.length - 1];
+  if (closing?.index === undefined) return bodyHtml + html;
+  return bodyHtml.slice(0, closing.index) + html + bodyHtml.slice(closing.index);
+}
+
 function formatLetterDate(date: Date): string {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 }
@@ -286,7 +305,8 @@ export class LetterPdfRendererService {
    * Renders (or re-renders) a letter's PDF from its current fieldValues and signatures, saves it
    * under uploads/letters/, and returns the path relative to the uploads root (same convention as
    * EmployeeDocument.filePath). `signatures` needs the `signer` relation loaded; `profile` is the
-   * subject's E-record profile (CNIC, gender), if they have one.
+   * subject's E-record profile (CNIC, gender), if they have one. `notes` are the "Notes" written
+   * when the letter was created — printed in the letter for everyone (client decision, Nov 2026).
    */
   async render(
     letter: Letter,
@@ -294,6 +314,7 @@ export class LetterPdfRendererService {
     subject: User,
     signatures: Signature[] = [],
     profile: EmployeeProfile | null = null,
+    notes: string[] = [],
   ): Promise<string> {
     const ceoSignature = signatures.find((s) => s.signerRole === RoleName.CEO) ?? null;
     const employeeSignature =
@@ -318,7 +339,9 @@ export class LetterPdfRendererService {
     )) {
       values[field.key] = field.value;
     }
-    const blocks = parseBodyBlocks(fillLetterPlaceholders(template.bodyHtml ?? '', values));
+    const blocks = parseBodyBlocks(
+      withNotes(fillLetterPlaceholders(template.bodyHtml ?? '', values), notes),
+    );
 
     const pdfDoc = await PDFDocument.create();
     pdfDoc.setTitle(`${template.name} — ${values['employee.fullName']}`);

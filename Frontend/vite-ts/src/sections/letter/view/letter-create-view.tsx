@@ -243,7 +243,15 @@ export function LetterCreateView() {
                 </Stack>
               )}
 
-              <NotesForHrField value={noteForHr} onChange={setNoteForHr} sx={{ mt: 3 }} />
+              {/* Letter notes are printed in the letter itself, so everyone sees them. */}
+              <NotesForHrField
+                value={noteForHr}
+                onChange={setNoteForHr}
+                label="Notes (optional)"
+                placeholder="Printed in the letter, above the sign-off"
+                helperText="Everyone who sees this letter, including the employee, will see this note."
+                sx={{ mt: 3 }}
+              />
 
               <Stack sx={{ mt: 3, alignItems: 'flex-end' }}>
                 <Button variant="contained" loading={submitting} onClick={onSubmit}>
