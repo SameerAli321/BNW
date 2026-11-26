@@ -97,6 +97,8 @@ export interface LetterDto {
   updatedAt: string;
   events?: LetterEventDto[];
   signatures?: SignatureDto[];
+  /** The letter's Notes, printed above the sign-off — GET /letters/:id only. */
+  notes?: string;
 }
 
 /**
@@ -118,7 +120,7 @@ export interface LetterDeliveryDto {
  */
 export function toLetterDto(
   letter: Letter,
-  extras?: { events?: LetterEventDto[]; signatures?: SignatureDto[] },
+  extras?: { events?: LetterEventDto[]; signatures?: SignatureDto[]; notes?: string },
 ): LetterDto {
   return {
     id: letter.id,
@@ -143,5 +145,6 @@ export function toLetterDto(
     updatedAt: letter.updatedAt.toISOString(),
     ...(extras?.events ? { events: extras.events } : {}),
     ...(extras?.signatures ? { signatures: extras.signatures } : {}),
+    ...(extras?.notes !== undefined ? { notes: extras.notes } : {}),
   };
 }

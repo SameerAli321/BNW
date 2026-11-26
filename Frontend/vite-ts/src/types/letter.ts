@@ -150,6 +150,8 @@ export interface LetterDto {
   updatedAt: string;
   events?: LetterEventDto[];
   signatures?: SignatureDto[];
+  /** The letter's Notes, printed above the sign-off — GET /letters/:id only. */
+  notes?: string;
 }
 
 /**
@@ -177,6 +179,8 @@ export type LetterDelivery = {
 /** `PATCH /letters/:id` body — HR/ADMIN only, while `DRAFT`/`CHANGES_REQUESTED`. */
 export type UpdateLetterDto = {
   fieldValues: Record<string, string>;
+  /** The letter's Notes (printed above the sign-off); '' removes them, omitted leaves them. */
+  notes?: string;
 };
 
 export type IListMeta = { total: number; page: number; limit: number };

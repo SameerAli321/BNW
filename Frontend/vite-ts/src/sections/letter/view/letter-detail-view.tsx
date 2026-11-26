@@ -5,6 +5,7 @@ import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
 import CardHeader from '@mui/material/CardHeader';
 import Typography from '@mui/material/Typography';
 
@@ -32,7 +33,6 @@ import { EmptyContent } from 'src/components/empty-content';
 import { PdfViewerDialog } from 'src/components/pdf-viewer';
 import { ConfirmDialog } from 'src/components/custom-dialog';
 import { LoadingScreen } from 'src/components/loading-screen';
-import { InternalNotesCard } from 'src/components/internal-notes';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 
 import { useAuthContext } from 'src/auth/hooks';
@@ -73,6 +73,7 @@ export function LetterDetailView() {
   const { fieldsSchema } = useGetLetterTemplateFields(letter?.templateId);
 
   const [editValues, setEditValues] = useState<Record<string, string> | null>(null);
+  const [editNotes, setEditNotes] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -160,8 +161,11 @@ export function LetterDetailView() {
     setEditValues({ ...values, [key]: value });
   };
 
+  const notesValue = editNotes ?? letter.notes ?? '';
+  const hasEdits = !!editValues || editNotes !== null;
+
   const handleSaveFields = async () => {
-    if (!editValues) return;
+    if (!hasEdits) return;
     if (editRemovesCeoSignature && !confirmResign.value) {
       confirmResign.onTrue();
       return;
@@ -169,13 +173,17 @@ export function LetterDetailView() {
     confirmResign.onFalse();
     setSaving(true);
     try {
-      await updateLetter(letter.id, { fieldValues: editValues });
+      await updateLetter(letter.id, {
+        fieldValues: values,
+        ...(editNotes !== null ? { notes: editNotes } : {}),
+      });
       toast.success(
         editRemovesCeoSignature
           ? 'Saved — the letter is back in Draft. Submit it to the CEO to sign again.'
           : 'Saved!'
       );
       setEditValues(null);
+      setEditNotes(null);
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : 'Save failed!');
@@ -266,12 +274,25 @@ export function LetterDetailView() {
                 disabled={!canEditFields}
               />
 
+              <TextField
+                fullWidth
+                multiline
+                minRows={2}
+                label="Notes (optional)"
+                placeholder="Printed in the letter, above the sign-off"
+                helperText="Everyone who sees this letter, including the employee, will see this note."
+                value={notesValue}
+                onChange={(event) => setEditNotes(event.target.value.slice(0, 2000))}
+                disabled={!canEditFields}
+                sx={{ mt: 3 }}
+              />
+
               <Stack
                 direction={{ xs: 'column', sm: 'row' }}
                 alignItems={{ xs: 'stretch', sm: 'center' }}
                 sx={{ mt: 3, flexWrap: 'wrap', gap: 1.5 }}
               >
-                {canEditFields && editValues && (
+                {canEditFields && hasEdits && (
                   <Button variant="contained" loading={saving} onClick={handleSaveFields}>
                     Save changes
                   </Button>
@@ -376,8 +397,6 @@ export function LetterDetailView() {
                 ))}
               </Stack>
             </Card>
-
-            <InternalNotesCard entity="LETTER" entityId={letter.id} />
           </Stack>
         </Grid>
 

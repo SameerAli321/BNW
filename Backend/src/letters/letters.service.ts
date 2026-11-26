@@ -331,6 +331,7 @@ export class LettersService {
     return toLetterDto(letter, {
       events: events.map(toLetterEventDto),
       signatures: signatures.map(toSignatureDto),
+      notes: await this.letterNotes(id),
     });
   }
 
@@ -417,8 +418,15 @@ export class LettersService {
           : `A ${letter.status.toLowerCase()} letter can't be edited`,
       );
     }
-    const changed = JSON.stringify(letter.fieldValues ?? {}) !== JSON.stringify(dto.fieldValues);
-    if (!changed) return toLetterDto(letter);
+    const fieldsChanged =
+      JSON.stringify(letter.fieldValues ?? {}) !== JSON.stringify(dto.fieldValues);
+    // The Notes box is edited with the fields, under the same rules (client feedback, Nov 2026).
+    const notesChanged =
+      dto.notes !== undefined && dto.notes.trim() !== (await this.letterNotes(id)).trim();
+    if (!fieldsChanged && !notesChanged) return toLetterDto(letter);
+    if (notesChanged) {
+      await this.notesService.replaceForRecord('LETTER', id, dto.notes ?? '', caller.sub);
+    }
 
     const wasSentToEmployee = letter.status === LetterStatus.SENT_TO_EMPLOYEE;
     const ceoSigned = letter.status === LetterStatus.CEO_SIGNED || wasSentToEmployee;
@@ -450,6 +458,11 @@ export class LettersService {
       );
     }
     return toLetterDto(await this.loadLetterWithRelations(id));
+  }
+
+  /** The letter's Notes as one text (normally a single note, written on create or edit). */
+  private async letterNotes(id: number): Promise<string> {
+    return (await this.notesService.forRecord('LETTER', id)).map((n) => n.note).join('\n');
   }
 
   /** Renders the letter's PDF with whatever signatures it has so far and stores the new path. */

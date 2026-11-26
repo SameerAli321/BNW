@@ -101,6 +101,22 @@ export class InternalNotesService {
     }));
   }
 
+  /** Replaces a record's notes with one note (none when blank) — a letter's Notes box on edit. */
+  async replaceForRecord(
+    entity: NoteEntity,
+    entityId: number,
+    note: string,
+    authorId: number,
+  ): Promise<void> {
+    await this.notesRepo.delete({ entity, entityId });
+    const text = note.trim();
+    if (text) {
+      await this.notesRepo.save(
+        this.notesRepo.create({ entity, entityId, note: text, createdById: authorId }),
+      );
+    }
+  }
+
   /** HR / Admin. */
   async remove(id: number): Promise<void> {
     const result = await this.notesRepo.delete(id);
