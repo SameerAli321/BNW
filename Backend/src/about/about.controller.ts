@@ -8,7 +8,6 @@ import {
   HttpStatus,
   Post,
   Put,
-  Query,
   Req,
   UploadedFile,
   UseInterceptors,
@@ -26,8 +25,8 @@ import { AcknowledgePolicyDto, RemindPolicyDto } from './policy.dto';
 
 /**
  * About us — everyone reads it; the CEO, HR and Admin edit it. The CEO photo is stored with the
- * profile pictures and served by the same public image route (GET /users/avatars/:file). There's
- * a BNW and a Hayes edition: Hayes staff always get Hayes; the others pick with `?company=HAYES`.
+ * profile pictures and served by the same public image route (GET /users/avatars/:file). Everyone,
+ * Hayes staff included, gets the BNW edition.
  */
 @Controller('about')
 export class AboutController {
@@ -37,18 +36,14 @@ export class AboutController {
   ) {}
 
   @Get()
-  async get(@CurrentUser() caller: JwtUserPayload, @Query('company') company?: string) {
-    return this.service.get(await this.service.editionFor(caller, company));
+  get() {
+    return this.service.get(this.service.editionFor());
   }
 
   @Roles(RoleName.CEO, RoleName.HR, RoleName.ADMIN)
   @Put()
-  async update(
-    @Body() dto: UpdateAboutDto,
-    @CurrentUser() caller: JwtUserPayload,
-    @Query('company') company?: string,
-  ) {
-    return this.service.update(await this.service.editionFor(caller, company), dto, caller.sub);
+  async update(@Body() dto: UpdateAboutDto, @CurrentUser() caller: JwtUserPayload) {
+    return this.service.update(this.service.editionFor(), dto, caller.sub);
   }
 
   // JPG, PNG or WEBP, up to 5MB.
@@ -64,10 +59,9 @@ export class AboutController {
   async uploadPhoto(
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() caller: JwtUserPayload,
-    @Query('company') company?: string,
   ) {
     if (!file) throw new BadRequestException('Choose an image to upload');
-    const edition = await this.service.editionFor(caller, company);
+    const edition = this.service.editionFor();
     return this.service.setPhoto(edition, file.filename, caller.sub);
   }
 
@@ -109,8 +103,8 @@ export class AboutController {
   @Roles(RoleName.CEO, RoleName.HR, RoleName.ADMIN)
   @Delete('ceo-photo')
   @HttpCode(HttpStatus.OK)
-  async removePhoto(@CurrentUser() caller: JwtUserPayload, @Query('company') company?: string) {
-    const edition = await this.service.editionFor(caller, company);
+  async removePhoto(@CurrentUser() caller: JwtUserPayload) {
+    const edition = this.service.editionFor();
     return this.service.removePhoto(edition, caller.sub);
   }
 }

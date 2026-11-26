@@ -1,14 +1,11 @@
-import { useState } from 'react';
 import { useBoolean } from 'minimal-shared/hooks';
 
 import Typography from '@mui/material/Typography';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 import { fDateTime } from 'src/utils/format-time';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { useGetAbout, type AboutEdition, ABOUT_EDITOR_ROLES } from 'src/actions/about';
+import { useGetAbout, ABOUT_EDITOR_ROLES } from 'src/actions/about';
 
 import { EmptyContent } from 'src/components/empty-content';
 import { LoadingScreen } from 'src/components/loading-screen';
@@ -24,35 +21,19 @@ import { AboutEditDialog } from './about-edit-dialog';
 /**
  * About us, one part per sidebar page: "What is BNW" (the company story — about-story-view) and
  * "CEO's Message" (the CEO's photo and message — about-ceo-poster). Both share the brand look in
- * about-brand.tsx. Everyone reads them; the CEO, HR and Admin edit them from here. There's a BNW
- * and a Hayes edition: Hayes staff only ever get Hayes; the editors switch between the two.
+ * about-brand.tsx. Everyone reads them, Hayes staff included; the CEO, HR and Admin edit them
+ * from here.
  */
 export function AboutUsView({ part = 'company' }: { part?: 'company' | 'ceo' }) {
   const { user } = useAuthContext();
   const canEdit = ABOUT_EDITOR_ROLES.includes(user?.role ?? '');
-  const [edition, setEdition] = useState<AboutEdition>('BNW');
-  const { about, aboutLoading, aboutError } = useGetAbout(canEdit ? edition : undefined);
+  // One About us for everyone — Hayes staff see BNW's too (client request, Nov 2026).
+  const { about, aboutLoading, aboutError } = useGetAbout();
   const editor = useBoolean();
-
-  const renderEditionSwitch = () =>
-    canEdit && (
-      <ToggleButtonGroup
-        exclusive
-        size="small"
-        color="primary"
-        value={edition}
-        onChange={(_, next: AboutEdition | null) => next && setEdition(next)}
-        sx={{ mb: 3, alignSelf: 'flex-start' }}
-      >
-        <ToggleButton value="BNW">BNW</ToggleButton>
-        <ToggleButton value="HAYES">Hayes (what Hayes staff see)</ToggleButton>
-      </ToggleButtonGroup>
-    );
 
   if (aboutLoading) {
     return (
       <DashboardContent>
-        {renderEditionSwitch()}
         <LoadingScreen />
       </DashboardContent>
     );
@@ -73,8 +54,6 @@ export function AboutUsView({ part = 'company' }: { part?: 'company' | 'ceo' }) 
 
   return (
     <DashboardContent>
-      {renderEditionSwitch()}
-
       {part === 'ceo' ? (
         <AboutCeoPoster about={about} canEdit={canEdit} onEdit={editor.onTrue} />
       ) : (

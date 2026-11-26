@@ -10,12 +10,10 @@ import { UserStatus } from '../common/enums/user-status.enum';
 import { AVATARS_DIR } from '../users/avatar.storage';
 import { UpdateAboutDto } from './about.dto';
 import { AboutStory, DEFAULT_STORY, emptyStory } from './about-story';
-import { JwtUserPayload } from '../common/decorators/current-user.decorator';
-import { isHayesOnly } from '../common/company-scope';
 
 /**
- * Which company's About us: BNW's, or the Hayes edition that Hayes staff see instead (client
- * checklist, Nov 2026). Each is stored under its own app_settings key.
+ * Which company's About us: BNW's, or the Hayes edition (client checklist, Nov
+ * 2026). Each is stored under its own app_settings key; only BNW's is shown now, to everyone.
  */
 export type AboutEdition = 'BNW' | 'HAYES';
 
@@ -173,13 +171,11 @@ export class AboutService {
   ) {}
 
   /**
-   * The edition the caller gets: Hayes staff always get Hayes; everyone else gets BNW unless they
-   * ask for Hayes (`?company=HAYES` — how HR / Admin view and edit it).
+   * Everyone, Hayes staff included, gets BNW's About us and CEO's message (client request,
+   * Nov 2026). The Hayes edition's saved content is kept but no longer shown.
    */
-  async editionFor(caller: JwtUserPayload, requested?: string): Promise<AboutEdition> {
-    const me = await this.usersRepo.findOne({ where: { id: caller.sub } });
-    if (me && isHayesOnly(me)) return 'HAYES';
-    return requested === 'HAYES' ? 'HAYES' : 'BNW';
+  editionFor(): AboutEdition {
+    return 'BNW';
   }
 
   private async stored(edition: AboutEdition): Promise<StoredAbout> {
