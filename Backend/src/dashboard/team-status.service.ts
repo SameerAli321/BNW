@@ -6,6 +6,7 @@ import { FORM_ASSIGNMENT_FORMS, FormAssignmentType } from '../common/enums/form-
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { dateToPkt } from '../bookings/booking-time';
 import { QueryTeamStatusDto, TodayStatus } from './dto/team-status.dto';
+import { reportsToSql } from '../common/managers';
 
 /** See everyone; Team Leads (MANAGER) see their direct reports only. */
 export const ALL_STAFF_ROLES: string[] = [RoleName.CEO, RoleName.HR, RoleName.ADMIN];
@@ -171,12 +172,13 @@ export class TeamStatusService {
     limit = 200,
   ): Promise<{ data: StaffActivityItemDto[] }> {
     const [target] = (await this.dataSource.query(
-      `SELECT id, manager_id FROM users WHERE id = $1 AND deleted_at IS NULL`,
+      `SELECT id, manager_id, additional_manager_ids FROM users WHERE id = $1 AND deleted_at IS NULL`,
       [userId],
-    )) as Array<{ id: number; manager_id: number | null }>;
+    )) as Array<{ id: number; manager_id: number | null; additional_manager_ids: number[] }>;
     if (!target) throw new NotFoundException('Employee not found');
     const seesAll = ALL_STAFF_ROLES.includes(caller.role);
-    if (!seesAll && target.manager_id !== caller.sub) {
+    const managers = [target.manager_id, ...(target.additional_manager_ids ?? [])];
+    if (!seesAll && !managers.includes(caller.sub)) {
       throw new ForbiddenException("You can only view your own team members' activity");
     }
 
@@ -264,7 +266,7 @@ export class TeamStatusService {
       return `$${params.length}`;
     };
     const where = ['u.deleted_at IS NULL'];
-    if (!ALL_STAFF_ROLES.includes(caller.role)) where.push(`u.manager_id = ${param(caller.sub)}`);
+    if (!ALL_STAFF_ROLES.includes(caller.role)) where.push(reportsToSql('u', param(caller.sub)));
     if (query.departmentId) where.push(`u.department_id = ${param(query.departmentId)}`);
     if (query.search) {
       const term = param(`%${query.search.replace(/[\\%_]/g, '\\$&')}%`);

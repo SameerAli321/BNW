@@ -32,6 +32,7 @@ import { AVATARS_DIR } from './avatar.storage';
 import { MailService } from '../mail/mail.service';
 import { renderWelcomeEmail } from './welcome-email';
 import { visibleCompanies } from '../common/company-scope';
+import { isManagerOf } from '../common/managers';
 
 /** Result of the welcome email sent when an account is created. */
 export type WelcomeEmailResult = {
@@ -48,6 +49,7 @@ export type HierarchyNodeDto = {
   role: string;
   departmentName: string | null;
   managerId: number | null;
+  additionalManagerIds: number[];
   avatarUrl: string | null;
   employmentType: string;
   company: string;
@@ -182,6 +184,7 @@ export class UsersService {
       role: user.role,
       departmentName: user.department ? user.department.name : null,
       managerId: user.managerId,
+      additionalManagerIds: user.additionalManagerIds ?? [],
       avatarUrl: user.avatarPath ? `/users/avatars/${user.avatarPath}` : null,
       employmentType: user.employmentType,
       company: user.company,
@@ -201,10 +204,18 @@ export class UsersService {
    */
   async toDetailedDto(user: User, viewerRole?: string): Promise<UserDto> {
     const profile = await this.employeeProfilesRepo.findOne({ where: { userId: user.id } });
-    return toUserDto(user, {
-      profile,
-      includeCompensation: !!viewerRole && COMPENSATION_VIEWER_ROLES.includes(viewerRole),
-    });
+    const ids = user.additionalManagerIds ?? [];
+    const others = ids.length ? await this.usersRepo.find({ where: { id: In(ids) } }) : [];
+    return {
+      ...toUserDto(user, {
+        profile,
+        includeCompensation: !!viewerRole && COMPENSATION_VIEWER_ROLES.includes(viewerRole),
+      }),
+      additionalManagerNames: ids
+        .map((id) => others.find((u) => u.id === id))
+        .filter((u): u is User => !!u)
+        .map((u) => `${u.firstName} ${u.lastName}`),
+    };
   }
 
   async findOneEntity(id: number): Promise<User> {
@@ -264,11 +275,13 @@ export class UsersService {
   async findReports(id: number): Promise<UserDto[]> {
     // Ensure the "manager" user itself exists first, so /users/:id/reports 404s cleanly.
     await this.findOneEntity(id);
-    const reports = await this.usersRepo.find({
-      where: { managerId: id },
-      relations: ['manager', 'department'],
-      order: { firstName: 'ASC' },
-    });
+    const reports = await this.usersRepo
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.manager', 'manager')
+      .leftJoinAndSelect('user.department', 'department')
+      .where('(user.managerId = :id OR :id = ANY(user.additionalManagerIds))', { id })
+      .orderBy('user.firstName', 'ASC')
+      .getMany();
     return reports.map((report) => toUserDto(report));
   }
 
@@ -290,13 +303,18 @@ export class UsersService {
 
     const password_hash = await bcrypt.hash(dto.password, 10);
     const currentSalary = dto.currentSalary ?? null;
+    const managers = await this.normalizeManagers(
+      dto.managerId ?? null,
+      dto.additionalManagerIds ?? [],
+      null,
+    );
 
     const user = this.usersRepo.create({
       firstName: dto.firstName,
       lastName: dto.lastName,
       email: dto.email,
       role: dto.role,
-      managerId: dto.managerId ?? null,
+      ...managers,
       departmentId: dto.departmentId ?? null,
       designation: dto.designation ?? null,
       joinDate: dto.joinDate ?? null,
@@ -411,6 +429,26 @@ export class UsersService {
     }
   }
 
+  /**
+   * The main reporting manager plus the others: no duplicates, never the person themself, and
+   * with no main manager the first of the others becomes it. Unknown ids are a 400.
+   */
+  private async normalizeManagers(
+    managerId: number | null,
+    additional: number[],
+    selfId: number | null,
+  ): Promise<{ managerId: number | null; additionalManagerIds: number[] }> {
+    const ids = [...new Set([managerId, ...additional])].filter(
+      (value): value is number => typeof value === 'number' && value !== selfId,
+    );
+    if (ids.length) {
+      const found = await this.usersRepo.count({ where: { id: In(ids) } });
+      if (found !== ids.length) throw new BadRequestException('Reporting manager not found');
+    }
+    const main = managerId !== null && managerId !== selfId ? managerId : (ids[0] ?? null);
+    return { managerId: main, additionalManagerIds: ids.filter((value) => value !== main) };
+  }
+
   private assertDates(
     joinDate: string | null,
     leavingDate: string | null,
@@ -449,7 +487,16 @@ export class UsersService {
     if (dto.firstName !== undefined) user.firstName = dto.firstName;
     if (dto.lastName !== undefined) user.lastName = dto.lastName;
     if (dto.role !== undefined) user.role = dto.role;
-    if (dto.managerId !== undefined) user.managerId = dto.managerId;
+    if (dto.managerId !== undefined || dto.additionalManagerIds !== undefined) {
+      Object.assign(
+        user,
+        await this.normalizeManagers(
+          dto.managerId !== undefined ? dto.managerId : user.managerId,
+          dto.additionalManagerIds ?? user.additionalManagerIds ?? [],
+          id,
+        ),
+      );
+    }
     if (dto.departmentId !== undefined) user.departmentId = dto.departmentId;
     if (dto.designation !== undefined) user.designation = dto.designation;
     if (dto.joinDate !== undefined) user.joinDate = dto.joinDate;
@@ -572,7 +619,7 @@ export class UsersService {
       return true;
     }
     const target = await this.usersRepo.findOne({ where: { id: targetUserId } });
-    return !!target && target.managerId === caller.sub;
+    return isManagerOf(target, caller.sub);
   }
 
   /**

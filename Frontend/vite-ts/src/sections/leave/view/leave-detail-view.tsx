@@ -102,7 +102,10 @@ export function LeaveDetailView() {
   }
 
   const isOwner = user?.id === request.employeeId;
-  const canManagerAct = request.status === 'PENDING_MANAGER' && user?.id === request.managerId;
+  const canManagerAct =
+    request.status === 'PENDING_MANAGER' &&
+    !!user?.id &&
+    (request.approverIds ?? [request.managerId]).includes(user.id);
   const canHrAct = request.status === 'PENDING_HR' && ['HR', 'ADMIN'].includes(user?.role ?? '');
   // Pending: the employee can withdraw it. Approved and not started yet: they can ask HR to
   // cancel it. HR / Admin decide on that cancellation request.

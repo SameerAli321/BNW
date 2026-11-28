@@ -10,6 +10,10 @@ export interface UserDto {
   role: string;
   managerId: number | null;
   managerName?: string | null;
+  /** Other reporting managers, with the same rights as the main one. */
+  additionalManagerIds: number[];
+  /** Their names, same order — GET /users/:id only. */
+  additionalManagerNames?: string[];
   departmentId: number | null;
   departmentName?: string | null;
   designation: string | null;
@@ -68,6 +72,7 @@ export function toUserDto(user: User, options: UserDtoOptions = {}): UserDto {
     role: user.role,
     managerId: user.managerId,
     managerName: user.manager ? `${user.manager.firstName} ${user.manager.lastName}` : null,
+    additionalManagerIds: user.additionalManagerIds ?? [],
     departmentId: user.departmentId,
     departmentName: user.department ? user.department.name : null,
     designation: user.designation,

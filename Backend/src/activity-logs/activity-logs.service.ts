@@ -148,9 +148,12 @@ export class ActivityLogsService {
     return this.paginate(qb, query);
   }
 
-  /** A manager's direct reports only (users whose managerId is the caller) — not the caller. */
+  /** A manager's direct reports only (main or other reporting manager) — not the caller. */
   async team(query: QueryActivityLogsDto, caller: JwtUserPayload): Promise<ActivityLogListResult> {
-    const qb = this.baseQuery().andWhere('user.managerId = :callerId', { callerId: caller.sub });
+    const qb = this.baseQuery().andWhere(
+      '(user.managerId = :callerId OR :callerId = ANY(user.additionalManagerIds))',
+      { callerId: caller.sub },
+    );
     this.applyDateAndCategory(qb, query);
     this.applyPeopleFilters(qb, query);
     return this.paginate(qb, query);

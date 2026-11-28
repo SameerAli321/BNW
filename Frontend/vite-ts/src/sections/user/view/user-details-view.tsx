@@ -245,6 +245,9 @@ function UserInfoCards({ user, profile }: { user: UserDto; profile: EmployeeProf
         <InfoRow label="Job title" value={user.designation} />
         <InfoRow label="Department" value={user.departmentName} />
         <InfoRow label="Reporting manager" value={user.managerName} />
+        {!!user.additionalManagerNames?.length && (
+          <InfoRow label="Other reporting managers" value={user.additionalManagerNames.join(', ')} />
+        )}
         <InfoRow label="Employment type" value={employmentTypeLabel(user.employmentType)} />
         <InfoRow label="Company" value={companyLabel(user.company)} />
         <InfoRow label="Role" value={userRoleLabel(user.role)} />

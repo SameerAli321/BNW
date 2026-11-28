@@ -34,6 +34,7 @@ import { QueryAppraisalRequestsDto } from './dto/query-appraisal-requests.dto';
 import { QueryTeamAppraisalsDto } from './dto/query-team-appraisals.dto';
 import { RequestWatchersService } from '../notifications/request-watchers.service';
 import { SELF_EVALUATION_COMPETENCIES, SelfEvaluationFormDefaults } from './self-evaluation-form';
+import { requestManagerIds } from '../common/managers';
 
 type AppraisalEligibility = {
   canRequestNext: boolean;
@@ -124,7 +125,7 @@ export class AppraisalsService {
     if (caller.sub === request.employeeId) {
       return;
     }
-    if (request.managerId !== null && caller.sub === request.managerId) {
+    if (requestManagerIds(request).includes(caller.sub)) {
       return;
     }
     throw new ForbiddenException('You do not have access to this appraisal request');
@@ -272,7 +273,7 @@ export class AppraisalsService {
     const submitted = await this.loadWithRelations(saved.id);
     if (submitted.status === AppraisalStatus.PENDING_MANAGER) {
       await this.notify(
-        [submitted.managerId],
+        requestManagerIds(submitted),
         `${employeeName(submitted)} requested an appraisal — needs your review`,
         submitted,
         'Appraisal needs your review',
@@ -324,16 +325,18 @@ export class AppraisalsService {
     query: QueryTeamAppraisalsDto,
     caller: JwtUserPayload,
   ): Promise<AppraisalRequestDto[]> {
-    const where: { managerId: number; status?: AppraisalStatus } = { managerId: caller.sub };
+    const qb = this.requestsRepo
+      .createQueryBuilder('request')
+      .leftJoinAndSelect('request.employee', 'employee')
+      .leftJoinAndSelect('request.manager', 'manager')
+      .where('(request.managerId = :uid OR :uid = ANY(employee.additionalManagerIds))', {
+        uid: caller.sub,
+      })
+      .orderBy('request.submittedAt', 'DESC');
     if (query.status) {
-      where.status = query.status;
+      qb.andWhere('request.status = :status', { status: query.status });
     }
-
-    const rows = await this.requestsRepo.find({
-      where,
-      relations: ['employee', 'manager'],
-      order: { submittedAt: 'DESC' },
-    });
+    const rows = await qb.getMany();
     return rows.map((row) => toAppraisalRequestDto(row));
   }
 
@@ -395,11 +398,11 @@ export class AppraisalsService {
     dto: ManagerDecisionDto,
     caller: JwtUserPayload,
   ): Promise<AppraisalRequestDto> {
-    const request = await this.requestsRepo.findOne({ where: { id } });
+    const request = await this.requestsRepo.findOne({ where: { id }, relations: ['employee'] });
     if (!request) {
       throw new NotFoundException('Appraisal request not found');
     }
-    if (request.managerId !== caller.sub) {
+    if (!requestManagerIds(request).includes(caller.sub)) {
       throw new ForbiddenException(
         "Only this request's assigned manager may record a manager decision",
       );
@@ -410,6 +413,8 @@ export class AppraisalsService {
       );
     }
 
+    // Whichever reporting manager decided is the one on record.
+    request.managerId = caller.sub;
     request.managerRemarks = dto.remarks;
     request.managerMessage = dto.message;
     request.managerDecision = dto.decision;
@@ -530,7 +535,7 @@ export class AppraisalsService {
       );
     } else {
       await this.notify(
-        [result.managerId],
+        requestManagerIds(result),
         `The CEO sent ${name}'s appraisal back to you — needs your review again`,
         result,
         'Appraisal sent back to you',

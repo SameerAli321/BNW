@@ -76,7 +76,11 @@ export function HierarchyProfileDrawer({
   onSelectPerson,
 }: Props) {
   const isSelf = !!person && person.id === currentUserId;
-  const isTheirManager = !!person && !!currentUserId && person.managerId === currentUserId;
+  const isTheirManager =
+    !!person &&
+    !!currentUserId &&
+    (person.managerId === currentUserId ||
+      (person.additionalManagerIds ?? []).includes(currentUserId));
   const isHrOrAdmin = currentRole === 'HR' || currentRole === 'ADMIN';
   const canViewProfile = isHrOrAdmin || isSelf || isTheirManager;
   const canViewRecord = canViewProfile || currentRole === 'CEO';

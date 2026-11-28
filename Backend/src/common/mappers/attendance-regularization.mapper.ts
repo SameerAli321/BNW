@@ -1,5 +1,6 @@
 import { AttendanceRegularization } from '../../entities/attendance-regularization.entity';
 import { User } from '../../entities/user.entity';
+import { requestManagerIds } from '../managers';
 
 export interface AttendanceRegularizationDto {
   id: number;
@@ -15,6 +16,8 @@ export interface AttendanceRegularizationDto {
   status: string;
   hodId: number | null;
   hodName: string | null;
+  /** Everyone who may recommend it: the HOD it went to + the employee's other reporting managers. */
+  hodIds: number[];
   hodRecommended: boolean | null;
   hodRemarks: string | null;
   hodSignatureText: string | null;
@@ -51,6 +54,7 @@ export function toAttendanceRegularizationDto(
     status: row.status,
     hodId: row.hodId,
     hodName: fullName(row.hod),
+    hodIds: requestManagerIds({ managerId: row.hodId, employee: row.employee }),
     hodRecommended: row.hodRecommended,
     hodRemarks: row.hodRemarks,
     hodSignatureText: row.hodSignatureText,

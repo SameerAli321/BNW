@@ -28,6 +28,11 @@ import { QueryAttendanceRegularizationsDto } from './dto/query-attendance-regula
 import { UpdateAttendanceRegularizationDto } from './dto/update-attendance-regularization.dto';
 import { RequestWatchersService } from '../notifications/request-watchers.service';
 import { NotifyService } from '../notifications/notify.service';
+import { managerIdsOf, requestManagerIds } from '../common/managers';
+
+/** The HOD it went to plus the employee's other reporting managers — all may recommend it. */
+const hodIdsOf = (row: AttendanceRegularization): number[] =>
+  requestManagerIds({ managerId: row.hodId, employee: row.employee });
 
 const VIEW_ALL_ROLES: string[] = [RoleName.HR, RoleName.ADMIN, RoleName.CEO];
 const RELATIONS = ['employee', 'employee.department', 'hod', 'hrUser'];
@@ -67,7 +72,7 @@ export class AttendanceRegularizationsService {
     }
     const allowed =
       row.employeeId === caller.sub ||
-      row.hodId === caller.sub ||
+      hodIdsOf(row).includes(caller.sub) ||
       VIEW_ALL_ROLES.includes(caller.role);
     if (!allowed) {
       throw new ForbiddenException('You do not have access to this form');
@@ -126,7 +131,7 @@ export class AttendanceRegularizationsService {
     const name = `${employee.firstName} ${employee.lastName}`;
     if (hodId) {
       await this.notify(
-        [hodId],
+        managerIdsOf(employee),
         `Attendance regularization from ${name} needs your recommendation`,
         saved.id,
       );
@@ -218,7 +223,7 @@ export class AttendanceRegularizationsService {
     const name = `${row.employee.firstName} ${row.employee.lastName}`;
     const approverIds = (
       row.status === AttendanceRegularizationStatus.PENDING_HOD && row.hodId
-        ? [row.hodId]
+        ? hodIdsOf(row)
         : await this.activeHrUserIds()
     ).filter((userId) => userId !== caller.sub);
     await this.notify(
@@ -251,7 +256,9 @@ export class AttendanceRegularizationsService {
       qb.andWhere('row.employeeId = :employeeId', { employeeId: scope.employeeId });
     }
     if (scope !== 'all' && 'hodId' in scope) {
-      qb.andWhere('row.hodId = :hodId', { hodId: scope.hodId });
+      qb.andWhere('(row.hodId = :hodId OR :hodId = ANY(employee.additionalManagerIds))', {
+        hodId: scope.hodId,
+      });
     }
     if (query.status) {
       qb.andWhere('row.status = :status', { status: query.status });
@@ -290,13 +297,15 @@ export class AttendanceRegularizationsService {
     caller: JwtUserPayload,
   ): Promise<AttendanceRegularizationDto> {
     const row = await this.findEntityForViewer(id, caller);
-    if (row.hodId !== caller.sub) {
+    if (!hodIdsOf(row).includes(caller.sub)) {
       throw new ForbiddenException("Only the employee's head of department can recommend this");
     }
     if (row.status !== AttendanceRegularizationStatus.PENDING_HOD) {
       throw new ConflictException(`This form is already ${row.status} — nothing to recommend`);
     }
     await this.repo.update(id, {
+      // Whichever reporting manager recommended it is the one on record (and on the PDF).
+      hodId: caller.sub,
       hodRecommended: dto.recommended,
       hodRemarks: dto.remarks?.trim() || null,
       hodSignatureText: dto.signatureText.trim(),

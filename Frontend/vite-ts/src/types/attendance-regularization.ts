@@ -34,6 +34,8 @@ export interface AttendanceRegularizationDto {
   reason: string;
   status: AttendanceRegularizationStatus;
   hodId: number | null;
+  /** Everyone who may recommend it: the HOD it went to + the employee's other reporting managers. */
+  hodIds?: number[];
   hodName: string | null;
   hodRecommended: boolean | null;
   hodRemarks: string | null;

@@ -1,4 +1,6 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -33,6 +35,13 @@ export class UpdateUserDto extends EmployeeInfoFields {
   @IsOptional()
   @IsInt()
   managerId?: number;
+
+  /** Other reporting managers (same rights as managerId). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsInt({ each: true })
+  additionalManagerIds?: number[];
 
   @IsOptional()
   @IsInt()

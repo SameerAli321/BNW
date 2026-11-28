@@ -36,6 +36,7 @@ import {
 import { WORK_ORDER_RECEIPTS_DIR } from './receipt.storage';
 import { RequestWatchersService } from '../notifications/request-watchers.service';
 import { NotifyService } from '../notifications/notify.service';
+import { requestManagerIds } from '../common/managers';
 
 export const CEO_LIMIT_KEY = 'work_orders.ceo_approval_limit';
 const DEFAULT_CEO_LIMIT = 50_000;
@@ -87,6 +88,8 @@ export interface WorkOrderDto {
   employeeDepartment: string | null;
   managerId: number | null;
   managerName: string | null;
+  /** Everyone who may act on the manager step: the manager it went to + the employee's others. */
+  approverIds: number[];
   managerApproved: boolean | null;
   managerRemarks: string | null;
   managerSignatureText: string | null;
@@ -134,6 +137,7 @@ export function toWorkOrderDto(row: WorkOrder): WorkOrderDto {
     employeeDepartment: row.employee?.department?.name ?? null,
     managerId: row.managerId,
     managerName: fullName(row.manager),
+    approverIds: requestManagerIds(row),
     managerApproved: row.managerApproved,
     managerRemarks: row.managerRemarks,
     managerSignatureText: row.managerSignatureText,
@@ -212,7 +216,7 @@ export class WorkOrdersService {
 
   /** Everyone involved can see it; Payroll sees reimbursements, HR / Admin / CEO see everything. */
   private canView(row: WorkOrder, caller: JwtUserPayload): boolean {
-    if (row.employeeId === caller.sub || row.managerId === caller.sub) return true;
+    if (row.employeeId === caller.sub || requestManagerIds(row).includes(caller.sub)) return true;
     if ([RoleName.HR, RoleName.ADMIN, RoleName.CEO].includes(caller.role as RoleName)) return true;
     return caller.role === RoleName.PAYROLL && row.type === WorkOrderType.REIMBURSEMENT;
   }
@@ -246,7 +250,11 @@ export class WorkOrdersService {
       .take(limit);
 
     if (scope.kind === 'mine') qb.andWhere('row.employeeId = :uid', { uid: scope.userId });
-    if (scope.kind === 'team') qb.andWhere('row.managerId = :uid', { uid: scope.userId });
+    if (scope.kind === 'team') {
+      qb.andWhere('(row.managerId = :uid OR :uid = ANY(employee.additionalManagerIds))', {
+        uid: scope.userId,
+      });
+    }
     if (scope.kind === 'all' && scope.caller.role === RoleName.PAYROLL) {
       qb.andWhere('row.type = :reimb', { reimb: WorkOrderType.REIMBURSEMENT });
     }
@@ -258,10 +266,13 @@ export class WorkOrdersService {
       );
       qb.andWhere('row.employeeId <> :uid', { uid: caller.sub }).andWhere(
         new Brackets((b) => {
-          b.where('(row.status = :pm AND row.managerId = :uid)', {
-            pm: WorkOrderStatus.PENDING_MANAGER,
-            uid: caller.sub,
-          });
+          b.where(
+            '(row.status = :pm AND (row.managerId = :uid OR :uid = ANY(employee.additionalManagerIds)))',
+            {
+              pm: WorkOrderStatus.PENDING_MANAGER,
+              uid: caller.sub,
+            },
+          );
           if (caller.role === RoleName.CEO) {
             b.orWhere('row.status = :pc', { pc: WorkOrderStatus.PENDING_CEO });
           }
@@ -544,11 +555,13 @@ export class WorkOrdersService {
     if (row.status !== WorkOrderStatus.PENDING_MANAGER) {
       throw new ConflictException('This work order is not waiting for the manager');
     }
-    if (row.managerId !== caller.sub) {
+    if (!requestManagerIds(row).includes(caller.sub)) {
       throw new ForbiddenException("Only the employee's line manager can approve this step");
     }
     const now = new Date();
     const update: Partial<WorkOrder> = {
+      // Whichever reporting manager decided is the one on record (and on the PDF).
+      managerId: caller.sub,
       managerApproved: dto.approved,
       managerRemarks: dto.remarks?.trim() || null,
       managerSignatureText: dto.signatureText.trim(),
@@ -650,7 +663,7 @@ export class WorkOrdersService {
     // Tell whoever it was waiting on that they no longer need to act.
     const waitingOn =
       row.status === WorkOrderStatus.PENDING_MANAGER
-        ? [row.managerId]
+        ? requestManagerIds(row)
         : row.status === WorkOrderStatus.PENDING_CEO
           ? await this.notifier.activeUserIds([RoleName.CEO], caller.sub)
           : await this.notifier.activeUserIds(
@@ -710,7 +723,9 @@ export class WorkOrdersService {
 
   /** Whoever the work order is waiting on right now. */
   private async nextApproverIds(row: WorkOrder): Promise<number[]> {
-    if (row.status === WorkOrderStatus.PENDING_MANAGER && row.managerId) return [row.managerId];
+    if (row.status === WorkOrderStatus.PENDING_MANAGER && row.managerId) {
+      return requestManagerIds(row);
+    }
     if (row.status === WorkOrderStatus.PENDING_CEO)
       return this.activeUserIds([RoleName.CEO], row.employeeId);
     if (row.status === WorkOrderStatus.PENDING_PROCESSING) {

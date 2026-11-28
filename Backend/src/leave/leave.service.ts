@@ -35,6 +35,7 @@ import { UpdateLeaveTypeDto } from './dto/update-leave-type.dto';
 import { UpdateLeaveRequestDto } from './dto/update-leave-request.dto';
 import { RequestWatchersService } from '../notifications/request-watchers.service';
 import { NotifyService } from '../notifications/notify.service';
+import { isManagerOf, managerIdsOf, requestManagerIds } from '../common/managers';
 
 const VIEW_ALL_ROLES: string[] = [RoleName.HR, RoleName.ADMIN, RoleName.CEO];
 const RELATIONS = [
@@ -147,7 +148,7 @@ export class LeaveService {
     if (caller.sub === userId || VIEW_ALL_ROLES.includes(caller.role)) return;
     const user = await this.usersRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
-    if (user.managerId !== caller.sub) {
+    if (!isManagerOf(user, caller.sub)) {
       throw new ForbiddenException("You can't view this person's leave balance");
     }
   }
@@ -212,7 +213,7 @@ export class LeaveService {
     if (!row) throw new NotFoundException('Leave request not found');
     const allowed =
       row.employeeId === caller.sub ||
-      row.managerId === caller.sub ||
+      requestManagerIds(row).includes(caller.sub) ||
       VIEW_ALL_ROLES.includes(caller.role);
     if (!allowed) throw new ForbiddenException('You do not have access to this leave request');
     return row;
@@ -434,7 +435,7 @@ export class LeaveService {
     const name = `${employee.firstName} ${employee.lastName}`;
     if (managerId) {
       await this.notify(
-        [managerId],
+        managerIdsOf(employee),
         `${name} applied for ${type.name} — needs your approval`,
         saved.id,
       );
@@ -499,7 +500,7 @@ export class LeaveService {
     const name = fullName(updated.employee);
     const approverIds = (
       updated.status === LeaveRequestStatus.PENDING_MANAGER
-        ? [updated.managerId]
+        ? requestManagerIds(updated)
         : await this.activeHrUserIds(updated.employeeId)
     ).filter((userId) => userId !== caller.sub);
     await this.notify(
@@ -534,7 +535,12 @@ export class LeaveService {
     const ownOnly = scope !== 'all' && 'employeeId' in scope;
     if (ownOnly) qb.andWhere('row.employeeId = :employeeId', { employeeId: scope.employeeId });
     if (scope !== 'all' && 'managerId' in scope) {
-      qb.andWhere('row.managerId = :managerId', { managerId: scope.managerId });
+      qb.andWhere(
+        '(row.managerId = :managerId OR :managerId = ANY(employee.additionalManagerIds))',
+        {
+          managerId: scope.managerId,
+        },
+      );
     }
     if (query.status) qb.andWhere('row.status = :status', { status: query.status });
     if (query.year) qb.andWhere('EXTRACT(YEAR FROM row.startDate) = :year', { year: query.year });
@@ -572,7 +578,7 @@ export class LeaveService {
     caller: JwtUserPayload,
   ): Promise<LeaveRequestDto> {
     const row = await this.findEntityForViewer(id, caller);
-    if (row.managerId !== caller.sub) {
+    if (!requestManagerIds(row).includes(caller.sub)) {
       throw new ForbiddenException("Only the employee's manager can approve this at this stage");
     }
     if (row.status !== LeaveRequestStatus.PENDING_MANAGER) {
@@ -580,6 +586,8 @@ export class LeaveService {
     }
     const remarks = dto.remarks?.trim() || null;
     await this.transition(id, LeaveRequestStatus.PENDING_MANAGER, {
+      // Whichever reporting manager decided is the one on record (and on the PDF).
+      managerId: caller.sub,
       managerApproved: dto.approved,
       managerRemarks: remarks,
       managerSignatureText: dto.signatureText.trim(),
@@ -593,7 +601,10 @@ export class LeaveService {
         label: 'Decision',
         value: dto.approved ? 'Approved by your manager — now with HR' : 'Rejected',
       },
-      { label: 'Decided by', value: `${fullName(row.manager)} (line manager)` },
+      {
+        label: 'Decided by',
+        value: `${fullName(await this.usersRepo.findOne({ where: { id: caller.sub } }))} (line manager)`,
+      },
       ...(remarks ? [{ label: dto.approved ? 'Comments' : 'Reason', value: remarks }] : []),
     ];
     await this.notify(
@@ -685,7 +696,7 @@ export class LeaveService {
     const leaveName = row.leaveType?.name ?? 'leave';
     const waitingOn =
       row.status === LeaveRequestStatus.PENDING_MANAGER
-        ? [row.managerId]
+        ? requestManagerIds(row)
         : await this.activeHrUserIds(caller.sub);
     await this.notify(
       waitingOn,

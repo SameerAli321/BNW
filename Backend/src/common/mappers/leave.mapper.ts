@@ -1,6 +1,7 @@
 import { LeaveRequest } from '../../entities/leave-request.entity';
 import { LeaveType } from '../../entities/leave-type.entity';
 import { User } from '../../entities/user.entity';
+import { requestManagerIds } from '../managers';
 
 export interface LeaveTypeDto {
   id: number;
@@ -46,6 +47,8 @@ export interface LeaveRequestDto {
   status: string;
   managerId: number | null;
   managerName: string | null;
+  /** Everyone who may act on the manager step: the manager it went to + the employee's others. */
+  approverIds: number[];
   managerApproved: boolean | null;
   managerRemarks: string | null;
   managerSignatureText: string | null;
@@ -91,6 +94,7 @@ export function toLeaveRequestDto(row: LeaveRequest): LeaveRequestDto {
     status: row.status,
     managerId: row.managerId,
     managerName: fullName(row.manager),
+    approverIds: requestManagerIds(row),
     managerApproved: row.managerApproved,
     managerRemarks: row.managerRemarks,
     managerSignatureText: row.managerSignatureText,

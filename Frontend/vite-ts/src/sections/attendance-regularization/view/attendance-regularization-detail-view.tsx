@@ -80,7 +80,8 @@ export function AttendanceRegularizationDetailView() {
     );
   }
 
-  const canRecommend = form.status === 'PENDING_HOD' && !!user?.id && user.id === form.hodId;
+  const canRecommend =
+    form.status === 'PENDING_HOD' && !!user?.id && (form.hodIds ?? [form.hodId]).includes(user.id);
   const canDecide =
     ['HR', 'ADMIN'].includes(user?.role ?? '') &&
     (form.status === 'PENDING_HR' || form.status === 'HOD_NOT_RECOMMENDED');

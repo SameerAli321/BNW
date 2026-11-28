@@ -108,7 +108,10 @@ export function WorkOrderDetailView() {
 
   const isReimbursement = order.type === 'REIMBURSEMENT';
   const isOwner = user?.id === order.employeeId;
-  const canManagerAct = order.status === 'PENDING_MANAGER' && user?.id === order.managerId;
+  const canManagerAct =
+    order.status === 'PENDING_MANAGER' &&
+    !!user?.id &&
+    (order.approverIds ?? [order.managerId]).includes(user.id);
   const canCeoAct = order.status === 'PENDING_CEO' && user?.role === 'CEO';
   const canProcess =
     order.status === 'PENDING_PROCESSING' &&

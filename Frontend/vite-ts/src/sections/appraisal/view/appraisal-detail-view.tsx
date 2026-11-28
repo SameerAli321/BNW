@@ -76,7 +76,8 @@ export function AppraisalDetailView() {
   }
 
   const isTheManager =
-    !!currentUserId && !!appraisal.managerId && currentUserId === appraisal.managerId;
+    !!currentUserId &&
+    (appraisal.approverIds ?? [appraisal.managerId]).includes(currentUserId);
   const isCeo = currentRole === 'CEO';
 
   const canManagerAct = isTheManager && appraisal.status === 'PENDING_MANAGER';

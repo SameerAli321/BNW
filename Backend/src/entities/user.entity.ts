@@ -55,6 +55,10 @@ export class User {
   @OneToMany(() => User, (user) => user.manager)
   reports: User[];
 
+  /** Other reporting managers, with the same rights as `managerId` (see common/managers.ts). */
+  @Column({ name: 'additional_manager_ids', type: 'int', array: true, default: () => "'{}'" })
+  additionalManagerIds: number[];
+
   @Column({ name: 'department_id', type: 'int', nullable: true })
   departmentId: number | null;
 

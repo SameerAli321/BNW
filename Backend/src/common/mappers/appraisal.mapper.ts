@@ -1,6 +1,7 @@
 import { AppraisalRequest } from '../../entities/appraisal-request.entity';
 import { AppraisalEvent } from '../../entities/appraisal-event.entity';
 import type { SelfEvaluationForm } from '../../appraisals/self-evaluation-form';
+import { requestManagerIds } from '../managers';
 
 export interface AppraisalEventDto {
   id: number;
@@ -29,6 +30,8 @@ export interface AppraisalRequestDto {
   employeeName: string;
   managerId: number | null;
   managerName: string | null;
+  /** Everyone who may act on the manager step: the manager it went to + the employee's others. */
+  approverIds: number[];
   selfEvaluation: string;
   selfEvaluationForm: SelfEvaluationForm | null;
   status: string;
@@ -60,6 +63,7 @@ export function toAppraisalRequestDto(
       ? `${request.employee.firstName} ${request.employee.lastName}`
       : '',
     managerId: request.managerId,
+    approverIds: requestManagerIds(request),
     managerName: request.manager
       ? `${request.manager.firstName} ${request.manager.lastName}`
       : null,

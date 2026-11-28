@@ -53,6 +53,8 @@ export interface LeaveRequestDto {
   status: LeaveRequestStatus;
   managerId: number | null;
   managerName: string | null;
+  /** Everyone who may act on the manager step: the manager it went to + the employee's others. */
+  approverIds?: number[];
   managerApproved: boolean | null;
   managerRemarks: string | null;
   managerSignatureText: string | null;

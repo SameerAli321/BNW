@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { RoleName } from '../common/enums/role.enum';
+import { reportsToSql } from '../common/managers';
 
 /** Roles that see the company-wide section of the dashboard. */
 export const COMPANY_DASHBOARD_ROLES: string[] = [RoleName.HR, RoleName.ADMIN, RoleName.CEO];
@@ -247,21 +248,23 @@ export class DashboardService {
 
   private async team(userId: number): Promise<TeamDashboard | null> {
     const size = await this.count(
-      `SELECT COUNT(*) AS count FROM users
-        WHERE manager_id = $1 AND deleted_at IS NULL AND status <> 'INACTIVE'`,
+      `SELECT COUNT(*) AS count FROM users u
+        WHERE ${reportsToSql('u', '$1')} AND deleted_at IS NULL AND status <> 'INACTIVE'`,
       [userId],
     );
     if (!size) return null;
     const [pendingLeave, pendingAttendance, onLeaveToday] = await Promise.all([
       this.count(
-        `SELECT COUNT(*) AS count FROM leave_requests WHERE manager_id = $1 AND status = 'PENDING_MANAGER'`,
+        `SELECT COUNT(*) AS count FROM leave_requests r JOIN users u ON u.id = r.employee_id
+          WHERE (r.manager_id = $1 OR $1 = ANY(u.additional_manager_ids)) AND r.status = 'PENDING_MANAGER'`,
         [userId],
       ),
       this.count(
-        `SELECT COUNT(*) AS count FROM attendance_regularizations WHERE hod_id = $1 AND status = 'PENDING_HOD'`,
+        `SELECT COUNT(*) AS count FROM attendance_regularizations r JOIN users u ON u.id = r.employee_id
+          WHERE (r.hod_id = $1 OR $1 = ANY(u.additional_manager_ids)) AND r.status = 'PENDING_HOD'`,
         [userId],
       ),
-      this.rows<OnLeaveTodayItem>(this.onLeaveTodaySql('AND u.manager_id = $1'), [userId]),
+      this.rows<OnLeaveTodayItem>(this.onLeaveTodaySql(`AND ${reportsToSql('u', '$1')}`), [userId]),
     ]);
     return { size, pendingLeave, pendingAttendance, onLeaveToday };
   }

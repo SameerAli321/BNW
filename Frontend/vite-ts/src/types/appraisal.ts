@@ -50,6 +50,8 @@ export interface AppraisalRequestDto {
   employeeName: string;
   managerId: number | null;
   managerName: string | null;
+  /** Everyone who may act on the manager step: the manager it went to + the employee's others. */
+  approverIds?: number[];
   selfEvaluation: string;
   /** Full Self Evaluation Form; `null` for requests made before the form existed. */
   selfEvaluationForm: SelfEvaluationForm | null;

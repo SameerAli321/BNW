@@ -13,6 +13,7 @@ import { UserStatus } from '../common/enums/user-status.enum';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
 import { NotifyService } from '../notifications/notify.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { isManagerOf } from '../common/managers';
 
 /**
  * The Employee Policy Handbook's version (its text lives in the frontend, sections/company-about).
@@ -185,14 +186,14 @@ export class PolicyService {
     data: PolicyAcknowledgementRowDto[];
     summary: { total: number; acknowledged: number; pending: number };
   }> {
-    const users = await this.usersRepo.find({
-      where: {
-        status: UserStatus.ACTIVE,
-        ...(VIEW_ALL_ROLES.includes(caller.role) ? {} : { managerId: caller.sub }),
-      },
-      relations: ['manager', 'department'],
-      order: { firstName: 'ASC', lastName: 'ASC' },
-    });
+    const seesAll = VIEW_ALL_ROLES.includes(caller.role);
+    const users = (
+      await this.usersRepo.find({
+        where: { status: UserStatus.ACTIVE },
+        relations: ['manager', 'department'],
+        order: { firstName: 'ASC', lastName: 'ASC' },
+      })
+    ).filter((u) => seesAll || isManagerOf(u, caller.sub));
     const acks = users.length
       ? await this.acksRepo.find({
           where: { userId: In(users.map((u) => u.id)), policyVersion: POLICY_VERSION },

@@ -71,6 +71,7 @@ function buildUserSchema(isEdit: boolean) {
       designation: zod.string().optional(),
       departmentId: zod.union([zod.number(), zod.literal('')]).optional(),
       managerId: zod.union([zod.number(), zod.literal('')]).optional(),
+      additionalManagerIds: zod.array(zod.number()),
       joinDate: zod.string().optional(),
       contactNumber: zod
         .string()
@@ -178,6 +179,7 @@ export function UserNewEditForm({ currentUser }: Props) {
     designation: '',
     departmentId: '',
     managerId: '',
+    additionalManagerIds: [],
     joinDate: '',
     contactNumber: '',
     currentSalary: '',
@@ -206,6 +208,7 @@ export function UserNewEditForm({ currentUser }: Props) {
             designation: currentUser.designation ?? '',
             departmentId: currentUser.departmentId ?? '',
             managerId: currentUser.managerId ?? '',
+            additionalManagerIds: currentUser.additionalManagerIds ?? [],
             joinDate: currentUser.joinDate ?? '',
             contactNumber: currentUser.contactNumber ?? '',
             currentSalary: amountText(currentUser.currentSalary),
@@ -252,6 +255,7 @@ export function UserNewEditForm({ currentUser }: Props) {
   const leavingDate = watch('leavingDate');
   const company = watch('company');
   const departmentId = watch('departmentId');
+  const managerId = watch('managerId');
 
   // The client's departments for the chosen company, in their order (Hayes has no Personalised /
   // Generalised) — plus the user's current one when editing someone already in an older
@@ -307,6 +311,7 @@ export function UserNewEditForm({ currentUser }: Props) {
         role: data.role as IUserItem['role'],
         employeeCode: data.employeeCode?.trim() || null,
         managerId: data.managerId === '' ? null : data.managerId,
+        additionalManagerIds: data.additionalManagerIds.filter((id) => id !== data.managerId),
         departmentId: data.departmentId === '' ? null : data.departmentId,
         designation: data.designation?.trim() || null,
         joinDate: toDate(data.joinDate),
@@ -434,6 +439,23 @@ export function UserNewEditForm({ currentUser }: Props) {
                   </MenuItem>
                 ))}
               </Field.Select>
+
+              {/* Same rights as the reporting manager: approvals, team views, notifications. */}
+              <Field.Autocomplete
+                multiple
+                disableCloseOnSelect
+                name="additionalManagerIds"
+                label="Other reporting managers"
+                placeholder={managerId === '' ? 'Choose a reporting manager first' : 'Add another manager'}
+                helperText="Optional. They can approve this person's requests and see them in their team, just like the reporting manager."
+                disabled={managerId === ''}
+                options={managerOptions.map((manager) => manager.id).filter((id) => id !== managerId)}
+                getOptionLabel={(id: number) => {
+                  const manager = users.find((u) => u.id === id);
+                  return manager ? `${manager.firstName} ${manager.lastName}` : `#${id}`;
+                }}
+                slotProps={{ chip: { size: 'small', color: 'info', variant: 'soft' } }}
+              />
 
               <Field.DatePicker name="joinDate" label="Date of joining" />
               <Field.Text

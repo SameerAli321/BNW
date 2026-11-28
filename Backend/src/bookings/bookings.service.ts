@@ -64,6 +64,7 @@ import {
   pktDayRange,
   pktToDate,
 } from './booking-time';
+import { reportsToSql, requestManagerIds } from '../common/managers';
 
 /** SQL: booking types that make their person busy (see BUSY_BOOKING_TYPES). */
 const BUSY_TYPES_SQL = BUSY_BOOKING_TYPES.map((type) => `'${type}'`).join(', ');
@@ -261,9 +262,9 @@ export class BookingsService {
     // UNION (not UNION ALL) also stops a manager_id cycle from looping forever.
     const rows = (await this.dataSource.query(
       `WITH RECURSIVE team AS (
-         SELECT u.id FROM users u WHERE u.manager_id = $1 AND u.deleted_at IS NULL
+         SELECT u.id FROM users u WHERE ${reportsToSql('u', '$1')} AND u.deleted_at IS NULL
          UNION
-         SELECT u.id FROM users u JOIN team t ON u.manager_id = t.id WHERE u.deleted_at IS NULL
+         SELECT u.id FROM users u JOIN team t ON ${reportsToSql('u', 't.id')} WHERE u.deleted_at IS NULL
        )
        SELECT id FROM team`,
       [caller.sub],
@@ -444,7 +445,8 @@ export class BookingsService {
       status: row.status,
       isPending: PENDING_LEAVE_STATUSES.includes(row.status),
       // Mirrors who the leave module lets open a request.
-      canOpen: viewAll || row.employeeId === caller.sub || row.managerId === caller.sub,
+      canOpen:
+        viewAll || row.employeeId === caller.sub || requestManagerIds(row).includes(caller.sub),
     }));
   }
 

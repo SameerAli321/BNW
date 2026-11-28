@@ -1,4 +1,6 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -34,6 +36,13 @@ export class CreateUserDto extends EmployeeInfoFields {
   @IsOptional()
   @IsInt()
   managerId?: number;
+
+  /** Other reporting managers (same rights as managerId). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsInt({ each: true })
+  additionalManagerIds?: number[];
 
   @IsOptional()
   @IsInt()

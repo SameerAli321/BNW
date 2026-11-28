@@ -156,6 +156,10 @@ export interface UserDto {
   role: UserRole;
   managerId: number | null;
   managerName?: string | null;
+  /** Other reporting managers — same rights as the main one (approvals, team views). */
+  additionalManagerIds?: number[];
+  /** Their names — GET /users/:id only. */
+  additionalManagerNames?: string[];
   departmentId: number | null;
   departmentName?: string | null;
   designation: string | null;
@@ -196,6 +200,7 @@ export type CreateUserDto = {
   email: string;
   role: UserRole;
   managerId?: number | null;
+  additionalManagerIds?: number[];
   departmentId?: number | null;
   designation?: string | null;
   joinDate?: string | null;
@@ -244,6 +249,7 @@ export type IHierarchyNode = {
   role: UserRole;
   departmentName: string | null;
   managerId: number | null;
+  additionalManagerIds?: number[];
   avatarUrl: string | null;
   employmentType: EmploymentType;
   company: Company;
